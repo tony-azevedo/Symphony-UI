@@ -1,3 +1,5 @@
+TA - 120731: forked the Symphony-UI for PAL lab, University of Helsinki
+
 See Overview.txt in the Documentation folder to get started with Symphony.
 
 ****************************************************************************
