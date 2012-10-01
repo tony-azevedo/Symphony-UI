@@ -52,7 +52,7 @@ classdef RigConfiguration < handle
                 obj.createDevices();
                 
                 % Have all devices start emitting their background values.
-                obj.controller.DAQController.SetStreamsBackground();
+                 % obj.controller.DAQController.SetStreamsBackground();
             catch ME
                 obj.close();
                 if ~strcmp(ME.identifier, 'Symphony:MultiClamp:UnknownMode')
@@ -66,12 +66,10 @@ classdef RigConfiguration < handle
         function daq = createDAQ(obj)
             % Create a Heka DAQ controller if on Windows or a simulation controller on Mac.
             import Symphony.Core.*;
-            
+            import Symphony.SimulationDAQController.*;
             import Heka.*;
                 
             if ~isempty(which('HekaDAQInputStream'))
-                import Heka.*;
-                
                 % Register the unit converters
                 HekaDAQInputStream.RegisterConverters();
                 HekaDAQOutputStream.RegisterConverters();
@@ -94,14 +92,11 @@ classdef RigConfiguration < handle
                 daq = HekaDAQController(hekaID, 0);
                 daq.InitHardware();
             else
-                import Symphony.SimulationDAQController.*;
-                
                 disp('Could not load the Heka driver, using the simulation controller instead.');
                 
                 Converters.Register('V', 'V', @(m) m);
                 daq = SimulationDAQController();
                 daq.BeginSetup();
-                
                 daq.SimulationRunner = Simulation(@(output,step) loopbackSimulation(obj, output, step, outStream, inStream));
             end
             

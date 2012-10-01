@@ -298,17 +298,8 @@ classdef Symphony < handle
         
         
         function showMainWindow(obj)
-            if ~isempty(obj.mainWindow)
-                figure(obj.mainWindow);
-            else
                 import Symphony.Core.*;
-                
-                if ~isempty(obj.mainWindow)
-                    % Bring the existing main window to the front.
-                    figure(obj.mainWindow);
-                    return;
-                end
-                
+                                
                 lastChosenRigConfig = getpref('Symphony', 'LastChosenRigConfig', obj.rigConfigClassNames{1});
                 rigConfigValue = find(strcmp(obj.rigConfigClassNames, lastChosenRigConfig));
                 constructor = str2func(lastChosenRigConfig);
@@ -692,7 +683,6 @@ classdef Symphony < handle
                 end
                 
                 obj.checkRigConfigAndProtocol();
-            end
         end
         
         
@@ -962,13 +952,20 @@ classdef Symphony < handle
             
             % Release any hold we have on hardware.
             obj.rigConfig.close()
-            
+           
             % Remember the window position.
             setpref('Symphony', 'MainWindow_Position', get(obj.mainWindow, 'Position'));
+            
+            % Delete the Main Window.
             delete(obj.mainWindow);
             
-            clear global symphonyInstance
+            % Delete the entire Symphony object
             delete(obj);
+            
+            % clear variables
+            % clearvars -global symphonyInstance
+            clearvars symphonyInstance
+            clear * 
         end
         
         

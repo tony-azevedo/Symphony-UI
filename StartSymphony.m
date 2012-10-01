@@ -18,9 +18,6 @@ addpath(fullfile(parentDir, 'Figure Handlers'));
 addpath(fullfile(parentDir, 'StimGL'));
 clear symphonyPath parentDir
 
-% Load the Symphony .NET framework
-%addSymphonyFramework();
-
 if isempty(which('NET.convertArray'))
     % Use the .NET stub classes instead of the real thing on non-PC platforms.
     symphonyPath = mfilename('fullpath');
@@ -41,9 +38,4 @@ end
 
 % Launch the user interface
 global symphonyInstance;
-
-if isempty(symphonyInstance)
-    symphonyInstance = Symphony();
-else
-    symphonyInstance.showMainWindow();
-end
+symphonyInstance = Symphony();
