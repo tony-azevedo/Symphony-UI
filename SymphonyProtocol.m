@@ -371,7 +371,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function run(obj)
             % This is the core method that runs a protocol, everything else is preparation for this.
-            
+            tic
             try
                 if ~strcmp(obj.state, 'paused')
                     % Prepare the run.
@@ -404,7 +404,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     
                     try
                         % Tell the Symphony framework to run the epoch.
+                        toc
                         obj.rigConfig.controller.RunEpoch(obj.epoch, obj.persistor);
+                        tic
                     catch e
                         % TODO: is it OK to hold up the run with the error dialog or should errors be logged and displayed at the end?
                         message = ['An error occurred while running the protocol.' char(10) char(10)];
@@ -432,6 +434,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 % Perform any final analysis, clean up, etc.
                 obj.completeRun();
             end
+            toc
         end
         
         

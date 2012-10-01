@@ -75,6 +75,7 @@ classdef MeanResponseFigureHandler < FigureHandler
                 % This class of epoch has been seen before, add the current response to the mean.
                 % TODO: Adjust response data to the same sample rate and unit as previous epochs if needed.
                 % TODO: if the length of data is varying then the mean will not be correct beyond the min length.
+                fprintf('DEBUG: length(meanPlot.data) = %d, length(responseData) = %d\n',length(meanPlot.data), length(responseData))
                 meanPlot.data = (meanPlot.data * meanPlot.count + responseData) / (meanPlot.count + 1);
                 meanPlot.count = meanPlot.count + 1;
                 set(meanPlot.plotHandle, 'XData', (1:length(meanPlot.data)) / sampleRate, ...
