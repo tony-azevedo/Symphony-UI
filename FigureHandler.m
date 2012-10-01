@@ -38,7 +38,15 @@ classdef FigureHandler < handle
                                 'Toolbar', 'none', ...
                                 'CloseRequestFcn', @(source, event)closeRequestFcn(obj, source, event), ...
                                 addlProps{:});
-            axes('Position', [0.1 0.1 0.85 0.85]);
+            axes('Position', [0.1 0.1 0.85 0.8]);
+            uicontrol(...
+                'Parent', obj.figureHandle, ...
+                'Units','normalized',...
+                'Callback', @(hObject,eventdata)savePlot(obj,hObject,eventdata), ...
+                'Position', [.9 .92 .06 .06], ...
+                'String', 'Save', ...
+                'Tag', 'saveButton');
+
         end
         
         
@@ -70,11 +78,13 @@ classdef FigureHandler < handle
         
         
         function clearFigure(obj)
+            warning('off','MATLAB:Axes:NegativeDataInLogAxis')
             axes = obj.axes();
             for i = 1:length(axes)
                 set(get(axes(i), 'Title'), 'String', '');
                 cla(axes(i));
             end
+            warning('on','MATLAB:Axes:NegativeDataInLogAxis')
         end
         
         
@@ -94,11 +104,25 @@ classdef FigureHandler < handle
             
             notify(obj, 'FigureClosed');
         end
+        
+        function savePlot(obj, hObject, ~)
+            ax = axesHandle(obj);
+            savedLine = findobj(ax,'tag','savedLine');
+            delete(savedLine);
+            l = get(ax,'Children');
+            if strcmp(get(l,'type'),'line')
+                set(l,'tag','savedLine','color',[1 0 0]);
+            end
+        end
+        
     end
+    
     
     
     methods (Abstract)
         handleCurrentEpoch(obj);
     end
+    
+    
     
 end

@@ -37,9 +37,11 @@ classdef PowerSpectrumFigureHandler < FigureHandler
         
         
         function handleCurrentEpoch(obj)
+            warning('off','MATLAB:Axes:NegativeDataInLogAxis')
             [responseData, sampleRate, units] = obj.protocolPlugin.response();
             responseData = fft(responseData);
-            responseData = responseData.*conj(responseData);
+            responseData = real(responseData.*conj(responseData));
+            responseData = fftshift(responseData);
 
             % Get the parameters for this "class" of epoch.
             % An epoch class is defined by a set of parameter values.
@@ -71,7 +73,12 @@ classdef PowerSpectrumFigureHandler < FigureHandler
                 meanPlot.units = [units,'^2'];
                 meanPlot.count = 1;
                 hold(obj.axesHandle(), 'on');
-                meanPlot.plotHandle = loglog(obj.axesHandle(), (1:length(meanPlot.data)/2) * sampleRate, meanPlot.data(1:length(meanPlot.data)/2));
+                
+                x = ((1:length(meanPlot.data))-length(meanPlot.data)/2-1) / (length(meanPlot.data)/sampleRate);
+                
+                meanPlot.plotHandle = loglog(obj.axesHandle(), x, 2*meanPlot.data);
+                set(obj.axesHandle(),'xscale','log',...
+                    'yscale','log');
                 obj.meanPlots(end + 1) = meanPlot;
             else
                 % This class of epoch has been seen before, add the current response to the mean.
@@ -79,8 +86,11 @@ classdef PowerSpectrumFigureHandler < FigureHandler
                 % TODO: if the length of data is varying then the mean will not be correct beyond the min length.
                 meanPlot.data = (meanPlot.data * meanPlot.count + responseData) / (meanPlot.count + 1);
                 meanPlot.count = meanPlot.count + 1;
-                set(meanPlot.plotHandle, 'XData', (1:length(meanPlot.data)/2) * sampleRate, ...
-                                         'YData', meanPlot.data);
+                x = get(meanPlot.plotHandle, 'XData');
+                set(meanPlot.plotHandle, 'XData', x, ...
+                    'YData', 2*meanPlot.data);
+                set(obj.axesHandle(),'xscale','log',...
+                    'yscale','log');
                 obj.meanPlots(i) = meanPlot;
             end
             
@@ -100,6 +110,7 @@ classdef PowerSpectrumFigureHandler < FigureHandler
                 end
             end
             title(obj.axesHandle(), titleString);
+            warning('on','MATLAB:Axes:NegativeDataInLogAxis')
         end
         
         
