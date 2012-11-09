@@ -112,22 +112,30 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.loggingHandles = guidata(obj.hfig);
        end
        
+       function  parseFile(obj, s)
+            fid = fopen(s, 'r'); 
+            logFileHeader = textscan(fid, '%s', 'Delimiter', '\n');  
+            fclose(fid);
+               
+            for l = 1:length(logFileHeader{1})               
+                obj.sendToLog(logFileHeader{1}{l});
+            end           
+       end
+       
        function openLog(obj)
             obj.log = logFile(obj.logFileFolders);
             set(0, 'showHiddenHandles', 'on');
             obj.hfig = gcf;
             obj.loggingHandles = guidata(obj.hfig);
             
-            %%Set the header
-            if exist(obj.logFileHeaderFile, 'file') == 2
-               
-               fid = fopen(obj.logFileHeaderFile, 'r'); 
-               logFileHeader = textscan(fid, '%s', 'Delimiter', '\n');  
-               fclose(fid);
-               
-               for l = 1:length(logFileHeader{1})               
-                obj.sendToLog(logFileHeader{1}{l});
-               end
+            dateStamp = datestr(now, 'mm_dd_yy');
+            formatString = '%s%s%s%s';
+            currentFile = sprintf(formatString,obj.logFileFolders{1},'\',dateStamp,'.log');
+            
+            if exist(currentFile, 'file') == 2
+                obj.parseFile(currentFile);
+            elseif exist(obj.logFileHeaderFile, 'file') == 2
+                obj.parseFile(obj.logFileHeaderFile);   
             end    
        end 
            
