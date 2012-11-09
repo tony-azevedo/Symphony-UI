@@ -152,7 +152,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                ~isempty(obj.epochGroup) && ...
                ~isequal(obj.prevEpochGroup, obj.epochGroup)
                 if isempty(obj.epochGroup.parentGroup)
-                    formatSpec = '\rPARENT GROUP (CELL)\rTIME: %s\rID: %s\rLabel: %s\rKeywords: %s\rSource: %s\rMouse ID: %s\rCell ID: %s\rRig Name: %s'; 
+                    formatSpec = '\r\r\rPARENT GROUP (CELL)\rTIME: %s\rID: %s\rLabel: %s\rKeywords: %s\rSource: %s\rMouse ID: %s\rCell ID: %s\rRig Name: %s'; 
                     s = sprintf(formatSpec, ...
                     datestr(now,obj.timeString), ...
                     obj.epochGroup.source.name, ...
@@ -194,10 +194,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                         formatSpec = '%s%s = %s  ';
 
                         if ~ischar(value)
-                            formatSpec ='%s%s = %u  ';
+                            formatSpec ='%s%s = %i  ';
                             if isequal(obj.propertiesToLog{f},'preSynapticHold') ...
                                     && f == count
-                                formatSpec = '%s\r        %s = %u  ';
+                                formatSpec = '%s\r        %s = %i  ';
                             end
                         end
 

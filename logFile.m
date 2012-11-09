@@ -56,7 +56,6 @@ function logFile_OpeningFcn(hObject, eventdata, handles, varargin)
 handles.output = hObject;
 
 handles.folders = varargin{1};
-handles.saveCount = 0;
 
 % Update handles structure
 guidata(hObject, handles);
