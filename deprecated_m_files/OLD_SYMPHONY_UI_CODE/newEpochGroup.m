@@ -10,26 +10,10 @@ function epochGroup = newEpochGroup(parentGroup, sources, prevEpochGroup, clock)
     handles.sourceRoot = sources;
     handles.prevEpochGroup = prevEpochGroup;
     handles.clock = clock;
-    handles.rigNames = {'A', 'B', 'C', 'D'};
     
-    if ~isempty(parentGroup)
-        lastChosenPath = parentGroup.outputPath;
-        lastChosenLabel = parentGroup.label;
-        lastChosenKeywords = parentGroup.keywords;
-        sourcePath = parentGroup.source.path();
-        lastChosenMouseID = parentGroup.userProperty('mouseID');
-        lastChosenCellID = parentGroup.userProperty('cellID');
-        lastChosenRig = parentGroup.userProperty('rigName');     
-    elseif ~isempty(prevEpochGroup)
-        lastChosenPath = prevEpochGroup.outputPath;
-        lastChosenLabel = prevEpochGroup.label;
-        lastChosenKeywords = prevEpochGroup.keywords;
-        sourcePath = prevEpochGroup.source.path();
-        lastChosenMouseID = prevEpochGroup.userProperty('mouseID');
-        lastChosenCellID = prevEpochGroup.userProperty('cellID');
-        lastChosenRig = prevEpochGroup.userProperty('rigName');     
-    else
-        try
+    handles.rigNames = {'A', 'B', 'C', 'D'};
+    if isempty(prevEpochGroup)
+        if ispref('Symphony', 'LastChosenEpochGroup')
             s = getpref('Symphony', 'LastChosenEpochGroup');
             lastChosenPath = s.outputPath;
             lastChosenLabel = s.label;
@@ -42,7 +26,7 @@ function epochGroup = newEpochGroup(parentGroup, sources, prevEpochGroup, clock)
             lastChosenMouseID = s.mouseID;
             lastChosenCellID = s.cellID;
             lastChosenRig = s.rigName;
-        catch ME  
+        else
             lastChosenPath = getpref('SymphonyEpochGroup', 'LastChosenOutputPath', '');
             lastChosenLabel = getpref('SymphonyEpochGroup', 'LastChosenLabel', '');
             lastChosenKeywords = getpref('SymphonyEpochGroup', 'LastChosenKeywords', '');
@@ -54,8 +38,15 @@ function epochGroup = newEpochGroup(parentGroup, sources, prevEpochGroup, clock)
             lastChosenMouseID = getpref('SymphonyEpochGroup', 'LastChosenMouseID', '');
             lastChosenCellID = getpref('SymphonyEpochGroup', 'LastChosenCellID', '');
             lastChosenRig = getpref('SymphonyEpochGroup', 'LastChosenRigName', 'A');
-            disp(['Could not load the preference (''Symphony'', ''LastChosenEpochGroup'') ' '(' ME.message ')']);
-        end        
+        end
+    else
+        lastChosenPath = prevEpochGroup.outputPath;
+        lastChosenLabel = prevEpochGroup.label;
+        lastChosenKeywords = prevEpochGroup.keywords;
+        sourcePath = prevEpochGroup.source.path();
+        lastChosenMouseID = prevEpochGroup.userProperty('mouseID');
+        lastChosenCellID = prevEpochGroup.userProperty('cellID');
+        lastChosenRig = prevEpochGroup.userProperty('rigName');
     end
     
     % Remove the top level "Sources" item from the path.
@@ -287,7 +278,7 @@ function epochGroup = newEpochGroup(parentGroup, sources, prevEpochGroup, clock)
         set(handles.parentGroupText, 'String', parentGroup.label);
     end
     
-    if ~isempty(parentGroup)
+    if ~isempty(parentGroup) || ~isempty(prevEpochGroup)
         % A child group can only define a label and keywords.
         set(handles.outputPathEdit, 'Enable', 'off');
         set(handles.outputPathButton, 'Enable', 'off');
@@ -300,7 +291,7 @@ function epochGroup = newEpochGroup(parentGroup, sources, prevEpochGroup, clock)
     if ~isempty(selectRow)
         tree.setSelectionRow(selectRow - 1);
     end
-
+    
     % Wait until the user clicks the cancel or save button.
     uiwait
     
@@ -309,6 +300,7 @@ function epochGroup = newEpochGroup(parentGroup, sources, prevEpochGroup, clock)
     
     close(handles.figure);
 end
+
 
 function nodes = sourceHierarchyExpandFcn(~, sourcePath, handles)
     index = find([sourcePath ':'] == ':', 1, 'first');
@@ -378,12 +370,17 @@ function saveNewGroup(~, ~, handles)
         epochGroup.outputPath = outputPath;
         epochGroup.label = label;
         epochGroup.keywords = get(handles.keywordsEdit, 'String');
-
         if isempty(handles.parentGroup)
             rigName = handles.rigNames{get(handles.rigPopup, 'Value')};
             
-            cellName = [datestr(now, 'mmddyy') rigName 'c' cellID];
-            cellSource = Source(cellName, selectedSourceNode(1).handle.UserData);
+            if isempty(handles.prevEpochGroup)
+                % Create a new source under the selected item.
+                cellName = [datestr(now, 'mmddyy') rigName 'c' cellID];
+                cellSource = Source(cellName, selectedSourceNode(1).handle.UserData);
+            else
+                % Use the existing source.
+                cellSource = handles.prevEpochGroup.source;
+            end
             
             epochGroup.source = cellSource;
             epochGroup.setUserProperty('mouseID', get(handles.mouseIDEdit, 'String'));

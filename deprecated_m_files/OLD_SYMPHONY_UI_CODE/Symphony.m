@@ -11,14 +11,12 @@ classdef Symphony < handle
         rigConfigClassNames
         rigConfigDisplayNames
         rigConfig
-        rigConfigValue
-        lastChosenRigConfig
         
+        protocolDirPopupNames       % directory names (to look for protocols)
         protocolsDir                % path to directory containing currently listed protocols
         protocolClassNames          % The list of protocol class names.
         protocolDisplayNames
         protocol                    % The current protocol instance.
-        protocolValue
         
         figureHandlerClasses        % The list of available figure handlers.
         
@@ -35,10 +33,6 @@ classdef Symphony < handle
         metadataDoc
         metadataNode
         notesNode
-        
-        symphonyDir
-        logFileFolder
-        hiddenLogFileFolder
     end
     
     
@@ -49,22 +43,18 @@ classdef Symphony < handle
             
             obj = obj@handle();
             
-            obj.symphonyDir = fileparts(mfilename('fullpath'));
-            symphonyParentDir = fileparts(obj.symphonyDir);
-            
-            addpath(genpath(fullfile(obj.symphonyDir, 'Rig_Configurations')));
-            
+            symphonyDir = fileparts(mfilename('fullpath'));
+            symphonyParentDir = fileparts(symphonyDir);
             if ~exist([symphonyParentDir '/debug_logs'],'dir')
                 mkdir(symphonyParentDir,'debug_logs');
             end
-            Logging.ConfigureLogging(fullfile(obj.symphonyDir, 'debug_log.xml'), [symphonyParentDir '/debug_logs']);
-
+            Logging.ConfigureLogging(fullfile(symphonyDir, 'debug_log.xml'), [symphonyParentDir '/debug_logs']);
+            
             % See what rig configurations, protocols, figure handlers and sources are available.
             obj.discoverRigConfigurations();
+            obj.discoverProtocols();
             obj.discoverFigureHandlers();
             obj.discoverSources();
-            
-            obj.hiddenLogFileFolder = fullfile(obj.symphonyDir, 'log_files_hidden');
             
             % Create and open the main window.
             obj.showMainWindow();
@@ -74,31 +64,26 @@ classdef Symphony < handle
         
         
         %% Rig Configurations
+        
+        
         function discoverRigConfigurations(obj)
             % Get the list of rig configurations from the folder.
             symphonyPath = mfilename('fullpath');
             parentDir = fileparts(symphonyPath);
-            configsDir = fullfile(parentDir, 'Rig_Configurations');
-            
-            rigConfigList = dir(fullfile(configsDir));
-            rigConfigListLength = length(rigConfigList) - 2;
-            obj.rigConfigClassNames = cell(1, rigConfigListLength);
-            obj.rigConfigDisplayNames = cell(1, rigConfigListLength);
-            
-            for d = 1:length(rigConfigList)
-                if rigConfigList(d).isdir && ~ismember(rigConfigList(d).name,{'.','..'})
-                   rigConfigFolder =  rigConfigList(d);
-                   className = rigConfigFolder.name;           
-                   arrayNo = d - 2;
-                   obj.rigConfigClassNames{arrayNo} = className;
-                   obj.rigConfigDisplayNames{arrayNo} = classProperty(className, 'displayName');
-                   
-                   if isempty(obj.rigConfigDisplayNames{arrayNo})
-                        obj.rigConfigDisplayNames{arrayNo} = className;
-                   end
+            configsDir = fullfile(parentDir, 'Rig Configurations');
+            rigConfigFiles = dir(fullfile(configsDir, '*.m'));
+            obj.rigConfigClassNames = cell(1, length(rigConfigFiles));
+            obj.rigConfigDisplayNames = cell(1, length(rigConfigFiles));
+            for i = 1:length(rigConfigFiles)
+                className = rigConfigFiles(i).name(1:end-2);
+                obj.rigConfigClassNames{i} = className;
+                obj.rigConfigDisplayNames{i} = classProperty(className, 'displayName');
+                if isempty(obj.rigConfigDisplayNames{i})
+                    obj.rigConfigDisplayNames{i} = className;
                 end
             end
         end
+        
         
         function chooseRigConfiguration(obj, ~, ~)
             if ~isempty(obj.rigConfig)
@@ -111,12 +96,8 @@ classdef Symphony < handle
             try
                 constructor = str2func(configClassName);
                 obj.rigConfig = constructor();
-                
+            
                 setpref('Symphony', 'LastChosenRigConfig', configClassName);
-                obj.lastChosenRigConfig = configClassName;
-                obj.rigConfigValue = configIndex;
-                obj.setRigProtocols();
-                set(obj.controls.protocolPopup, 'String', obj.protocolDisplayNames, 'Value', 1);
             catch ME
                 % The user cancelled editing the parameters so switch back to the previous protocol.
                 configValue = find(strcmp(obj.rigConfigClassNames, class(obj.rigConfig)));
@@ -124,110 +105,115 @@ classdef Symphony < handle
                 
                 waitfor(errordlg(['Could not create the device:' char(10) char(10) ME.message], 'Symphony'));
             end
+            
+            obj.checkRigConfigAndProtocol();
         end
+        
         
         function showRigConfigurationDescription(obj, ~, ~)
             desc = obj.rigConfig.describeDevices();
             waitfor(msgbox([obj.rigConfig.displayName ':' char(10) char(10) desc], 'Rig Configuration', 'modal'));
         end
         
-         function setRigConfig(obj)
-            import Symphony.Core.*;
-                obj.lastChosenRigConfig = getpref('Symphony', 'LastChosenRigConfig', obj.rigConfigClassNames{1});
-                obj.rigConfigValue = find(strcmp(obj.rigConfigClassNames, obj.lastChosenRigConfig));
-                constructor = str2func(obj.lastChosenRigConfig);
-                try
-                    obj.rigConfig = constructor();
-                catch ME
-                    % Cannot create a rig config the same as the last one chosen by the user.
-                    % Try to make a default one instead.
-                    disp(['Could not create a ' obj.lastChosenRigConfig]);
-                    allowMultiClampDevices = ~strcmp(ME.identifier, 'Symphony:MultiClamp:UnknownMode');
-                    
-                    for i = 1:length(obj.rigConfigClassNames)
-                        if ~strcmp(obj.rigConfigClassNames{i}, obj.lastChosenRigConfig)
-                            constructor = str2func(obj.rigConfigClassNames{i});
-                            try
-                                obj.rigConfig = constructor(allowMultiClampDevices);
-                                obj.lastChosenRigConfig = obj.rigConfigClassNames{i};
-                                break
-                            catch ME
-                                disp(['Could not create a ' obj.rigConfigClassNames{i}]);
-                                allowMultiClampDevices = ~strcmp(ME.identifier, 'Symphony:MultiClamp:UnknownMode');
+        
+        function checkRigConfigAndProtocol(obj)
+            % Check if the current protocol is compatible with the current rig configuration.
+            obj.missingDeviceName = '';
+            deviceNames = obj.protocol.requiredDeviceNames();
+            for i = 1:length(deviceNames)
+                device = obj.rigConfig.deviceWithName(deviceNames{i});
+                if isempty(device)
+                    obj.missingDeviceName = deviceNames{i};
+                    break;
+                end
+            end
+            
+            obj.updateUIState();
+        end
+        
+        
+        %% Protocols
+        
+        
+        function discoverProtocols(obj)
+            % Get the list of protocols from the selected folder.
+            
+            % Default folder on startup is 'Protocols' folder in Symphony UI directory
+            if isempty(obj.protocolsDir)
+                symphonyPath = mfilename('fullpath');
+                parentDir = fileparts(symphonyPath);
+                obj.protocolsDir = fullfile(parentDir, 'Protocols');
+            else
+                popupSelectionIndex = get(obj.controls.protocolDirPopup, 'Value');
+                if popupSelectionIndex==2
+                    obj.protocolsDir = fileparts(obj.protocolsDir);
+                else
+                    selectedFolderName = obj.protocolDirPopupNames{popupSelectionIndex};
+                    obj.protocolsDir = fullfile(obj.protocolsDir, selectedFolderName);
+                end
+                % Don't allow navigating above main protocols folder
+                if strcmp(obj.protocolsDir,fileparts(mfilename('fullpath')))
+                    obj.protocolsDir = fullfile(fileparts(mfilename('fullpath')), 'Protocols');
+                end
+            end
+            
+            % Search selected folder for protocol directories to populate protocolPopup menu 
+            % and non-protocol directories to populate protocolDirPopup menu
+            protocolsDirContents = dir(obj.protocolsDir);
+            isProtocol = false(length(protocolsDirContents), 1);
+            obj.protocolDirPopupNames = cell(length(protocolsDirContents), 1);
+            protocolDirCount = 0;
+            for i = 1:length(protocolsDirContents)
+                if protocolsDirContents(i).isdir
+                    % determine if subdirectory is a symphony protocol
+                    % (don't search contents of selected directory (.), parent directory (..), and .svn)
+                    if ~ismember(protocolsDirContents(i).name,{'.','..','.svn'})
+                        dirContent = dir(fullfile(obj.protocolsDir, protocolsDirContents(i).name));
+                        for d = 1:length(dirContent)
+                            if ~dirContent(d).isdir && strcmp(dirContent(d).name(end-1:end),'.m') && strcmp(dirContent(d).name(1:end-2),protocolsDirContents(i).name)
+                                    isProtocol(i) = true;
+                                    break
                             end
                         end
                     end
-                end
-                
-                
-                if isempty(obj.rigConfig)
-                    error('Symphony:NoRigConfiguration', 'Could not create a rig configuration.');
-                end            
-         end  
-        
-        %% Protocols               
-        function setRigProtocols(obj)       
-            symphonyPath = mfilename('fullpath');
-            parentDir = fileparts(symphonyPath);
-            currentRigConfig = obj.lastChosenRigConfig;
-            currentRigProtocolsDir = fullfile(parentDir, 'Rig_Configurations', currentRigConfig, 'Protocols');
-            currentRigProtocolsList = dir(fullfile(currentRigProtocolsDir, '*.m'));
-            
-            protocolCount = 0;
-            errorCount = 0;
-            arrayLength = length(currentRigProtocolsList);
-            
-            tempProtocolClassNames = cell(arrayLength,1);
-            tempProtocolDisplayNames = cell(arrayLength,1);
-            
-            errorString = 'The folling m files were not loaded due to an incorrect rigIdentifier property value';
-            errorFiles = '';
-            
-            for f = 1:arrayLength
-                className = currentRigProtocolsList(f).name(1:end-2);
-                rigCompatibility = classProperty(className, 'rigIdentifier');
-                if strcmp(currentRigConfig,rigCompatibility)
-                    protocolCount = protocolCount + 1;
-                    tempProtocolClassNames{protocolCount} = className;
-                    tempProtocolDisplayNames{protocolCount} = classProperty(className, 'displayName');
-                    
-                    if isempty(tempProtocolClassNames{protocolCount})
-                        tempProtocolClassNames{protocolCount} = className;
+                    % non-protocol subdirectories
+                    if ~isProtocol(i)
+                        if ~strcmp(protocolsDirContents(i).name,'.svn')
+                            protocolDirCount = protocolDirCount + 1;
+                            obj.protocolDirPopupNames{protocolDirCount} = protocolsDirContents(i).name;
+                        end
                     end
-                else
-                    errorCount = errorCount + 1;
-                    errorFiles = strcat(errorFiles, currentRigProtocolsList(f).name, ' ');
                 end
             end
+            obj.protocolDirPopupNames = obj.protocolDirPopupNames(1:protocolDirCount);
+            % set name of current directory and parent directory in
+            % protocolDirPopup menu to something more informative than '.' and '..'
+            [parentDir, currentProtocolsDirName] = fileparts(obj.protocolsDir);
+            [~, protocolsDirParentName] = fileparts(parentDir);
+            obj.protocolDirPopupNames{1} = ['. (' currentProtocolsDirName ')'];
+            obj.protocolDirPopupNames{2} = ['.. (' protocolsDirParentName ')'];
             
-            obj.protocolClassNames = cell(protocolCount, 1);
-            obj.protocolDisplayNames = cell(protocolCount, 1);
-           
-            for f = 1:protocolCount
-                obj.protocolClassNames{f} = tempProtocolClassNames{f};
-                obj.protocolDisplayNames{f} = tempProtocolDisplayNames{f};
+            % Get protocol class names and display names for protocolPopup menu
+            protocolDirs = protocolsDirContents(isProtocol);
+            obj.protocolClassNames = cell(length(protocolDirs), 1);
+            obj.protocolDisplayNames = cell(length(protocolDirs), 1);
+            protocolCount = 0;
+            for i = 1:length(protocolDirs)
+                if protocolDirs(i).isdir && ~ismember(protocolDirs(i).name,{'.','..','.svn'})
+                    protocolCount = protocolCount + 1;
+                    className = protocolDirs(i).name;
+                    obj.protocolClassNames{protocolCount} = className;
+                    addpath(fullfile(obj.protocolsDir, filesep, className));
+                    obj.protocolDisplayNames{protocolCount} = classProperty(className, 'displayName');
+                    if isempty(obj.protocolDisplayNames{protocolCount})
+                        obj.protocolDisplayNames{protocolCount} = className;
+                    end
+                end
             end
-            
-            obj.protocolValue = 1;
-            
-            if errorCount > 0
-                errordlg({errorString ; errorFiles});
-            end
-            
-            obj.createNewProtocol(obj.protocolValue);
+            obj.protocolClassNames = obj.protocolClassNames(1:protocolCount);
+            obj.protocolDisplayNames = obj.protocolDisplayNames(1:protocolCount);
         end
-                    
-        function createNewProtocol(obj, pV)
-            try
-                obj.protocol = obj.createProtocol(obj.protocolClassNames{pV});
-            catch ME
-                disp(['Could not create a ' obj.protocolClassNames{pV} '(' ME.message ')']);
-            end
-                    
-            if isempty(obj.protocol)
-                error('Symphony:NoProtocol', 'Could not create any protocol');
-            end
-        end
+        
         
         function newProtocol = createProtocol(obj, className)
             % Create an instance of the protocol class.
@@ -236,7 +222,7 @@ classdef Symphony < handle
             
             newProtocol.rigConfig = obj.rigConfig;
             newProtocol.figureHandlerClasses = obj.figureHandlerClasses;
-                        
+            
             % Use any previously set parameters.
             params = getpref('Symphony', [className '_Defaults'], struct);
             paramNames = fieldnames(params);
@@ -250,52 +236,15 @@ classdef Symphony < handle
             addlistener(newProtocol, 'StateChanged', @(source, event)protocolStateChanged(obj, source, event));
         end
         
+        
         function protocolStateChanged(obj, ~, ~)
             obj.updateUIState();
         end
         
-        function chooseProtocol(obj, ~, ~)
-            % The user chose a protocol from the pop-up.
-            
-            pluginIndex = get(obj.controls.protocolPopup, 'Value');
-            protocolClassName = obj.protocolClassNames{pluginIndex};
-            
-            % Create a new protocol if the user chose a different protocol class.
-            if ~isa(obj.protocol, protocolClassName)
-                try
-                    newProtocol = obj.createProtocol(protocolClassName);
-                catch ME
-                    waitfor(errordlg(['Could not create a ''' protocolClassName ''' instance.' char(10) char(10) ME.message], 'Symphony'));
-                    newProtocol = [];
-                end
-                
-                if ~isempty(newProtocol) && editParameters(newProtocol)
-                    obj.protocol.closeFigures();
-                    
-                    obj.protocol = newProtocol;
-                    setpref('Symphony', 'LastChosenProtocol', protocolClassName);
-                    
-                    if ~obj.protocol.allowSavingEpochs
-                        obj.wasSavingEpochs = get(obj.controls.saveEpochsCheckbox, 'Value') == get(obj.controls.saveEpochsCheckbox, 'Max');
-                        set(obj.controls.saveEpochsCheckbox, 'Value', get(obj.controls.saveEpochsCheckbox, 'Min'));
-                    elseif obj.wasSavingEpochs
-                        set(obj.controls.saveEpochsCheckbox, 'Value', get(obj.controls.saveEpochsCheckbox, 'Max'));
-                    end
-                else
-                    % The user cancelled editing the parameters so switch back to the previous protocol.
-                    obj.protocolValue = find(strcmp(obj.protocolClassNames, class(obj.protocol)));
-                    set(obj.controls.protocolPopup, 'Value', obj.protocolValue);
-                end
-            end
-        end
-
-        function editProtocolParameters(obj, ~, ~)
-            if editParameters(obj.protocol)
-                
-            end
-        end
         
         %% Figure Handlers
+        
+        
         function discoverFigureHandlers(obj)
             % Get the list of figure handlers from the 'Figure Handlers' folder.
             symphonyPath = mfilename('fullpath');
@@ -314,7 +263,10 @@ classdef Symphony < handle
             end
         end
         
+        
         %% Sources
+
+
         function discoverSources(obj)
             parentDir = fileparts(mfilename('fullpath'));
             fid = fopen(fullfile(parentDir, 'SourceHierarchy.txt'));
@@ -341,38 +293,70 @@ classdef Symphony < handle
             end
         end
         
-        %% Logging
-        function enableLogging(obj, ~, ~)
-            logging = get(obj.controls.enableLoggingCheckbox, 'Value'); 
-            
-            if(logging)
-                obj.protocol.openLog();
-            else
-                deleteLog = questdlg('Are you sure you want to stop logging', 'Stop Logging', 'Yes', 'No', 'No');
-                if strcmp(deleteLog, 'Yes')
-                    obj.protocol.closeLog();
-                else
-                    set(obj.controls.enableLoggingCheckbox, 'Value', 1);
-                end
-            end
-        end    
-                        
-        function changeLogFileFolder(obj,~,~)
-            obj.logFileFolder = uigetdir(obj.logFileFolder, 'Log File Location');
-            setpref('SymphonyProtocol', 'logFileFolder', obj.logFileFolder);
-            obj.protocol.logFileFolder = obj.logFileFolder;
-            set(obj.controls.loggingFolderView, 'String', obj.logFileFolder);
-        end
         
         %% GUI layout/control
+        
+        
         function showMainWindow(obj)
-                import Symphony.Core.*;           
+            if ~isempty(obj.mainWindow)
+                figure(obj.mainWindow);
+            else
+                import Symphony.Core.*;
                 
-                pV = 1;
+                if ~isempty(obj.mainWindow)
+                    % Bring the existing main window to the front.
+                    figure(obj.mainWindow);
+                    return;
+                end
                 
-                obj.setRigConfig();
-                obj.setRigProtocols();
-                obj.createNewProtocol(pV);
+                lastChosenRigConfig = getpref('Symphony', 'LastChosenRigConfig', obj.rigConfigClassNames{1});
+                rigConfigValue = find(strcmp(obj.rigConfigClassNames, lastChosenRigConfig));
+                constructor = str2func(lastChosenRigConfig);
+                try
+                    obj.rigConfig = constructor();
+                catch ME
+                    % Cannot create a rig config the same as the last one chosen by the user.
+                    % Try to make a default one instead.
+                    disp(['Could not create a ' lastChosenRigConfig]);
+                    allowMultiClampDevices = ~strcmp(ME.identifier, 'Symphony:MultiClamp:UnknownMode');
+                    
+                    for i = 1:length(obj.rigConfigClassNames)
+                        if ~strcmp(obj.rigConfigClassNames{i}, lastChosenRigConfig)
+                            constructor = str2func(obj.rigConfigClassNames{i});
+                            try
+                                obj.rigConfig = constructor(allowMultiClampDevices);
+                                break
+                            catch ME
+                                disp(['Could not create a ' obj.rigConfigClassNames{i}]);
+                                allowMultiClampDevices = ~strcmp(ME.identifier, 'Symphony:MultiClamp:UnknownMode');
+                            end
+                        end
+                    end
+                end
+                
+                if isempty(obj.rigConfig)
+                    error('Symphony:NoRigConfiguration', 'Could not create a rig configuration.');
+                end
+                
+                % Create a default protocol plug-in.
+                lastChosenProtocol = getpref('Symphony', 'LastChosenProtocol', obj.protocolClassNames{1});
+                order = 1:length(obj.protocolClassNames);
+                index = find(strcmp(obj.protocolClassNames, lastChosenProtocol));
+                if ~isempty(index)
+                    order(index) = [];
+                    order = [index order(:)'];
+                end
+                for protocolValue = order
+                    try
+                        obj.protocol = obj.createProtocol(obj.protocolClassNames{protocolValue});
+                        break;
+                    catch ME
+                        disp(['Could not create a ' obj.protocolClassNames{protocolValue} '(' ME.message ')']);
+                    end
+                end
+                if isempty(obj.protocol)
+                    error('Symphony:NoProtocol', 'Could not create any protocol');
+                end
                 
                 obj.wasSavingEpochs = true;
                 
@@ -383,15 +367,6 @@ classdef Symphony < handle
                     addlProps = {};
                 end
                 
-                if ispref('SymphonyProtocol', 'logFileFolder')
-                    obj.logFileFolder = getpref('SymphonyProtocol', 'logFileFolder');
-                else
-                    obj.logFileFolder = fullfile(obj.symphonyDir, 'log_files');
-                    setpref('SymphonyProtocol', 'logFileFolder', obj.logFileFolder);
-                end
-                
-                obj.protocol.logFileFolders = {obj.logFileFolder,obj.hiddenLogFileFolder};
-               
                 % Create the user interface.
                 obj.mainWindow = figure(...
                     'Units', 'points', ...
@@ -418,7 +393,7 @@ classdef Symphony < handle
                     'Title', 'Rig Configuration', ...
                     'Tag', 'protocolPanel', ...
                     'Clipping', 'on', ...
-                    'Position', [10 329 336 50], ...
+                    'Position', [10 279 336 50], ...
                     'BackgroundColor', bgColor);
                 
                 obj.controls.rigConfigPopup = uicontrol(...
@@ -429,7 +404,7 @@ classdef Symphony < handle
                     'BackgroundColor', bgColor, ...
                     'String', obj.rigConfigDisplayNames, ...
                     'Style', 'popupmenu', ...
-                    'Value', obj.rigConfigValue, ...
+                    'Value', rigConfigValue, ...
                     'Tag', 'rigConfigPopup');
                 
                 obj.controls.rigDescButton = uicontrol(...
@@ -450,29 +425,40 @@ classdef Symphony < handle
                     'Title', 'Protocol', ...
                     'Tag', 'protocolPanel', ...
                     'Clipping', 'on', ...
-                    'Position', [10 245 336 84], ...
+                    'Position', [10 195 336 84], ...
                     'BackgroundColor', bgColor);
+                
+                obj.controls.protocolDirPopup = uicontrol(...
+                    'Parent', obj.controls.protocolPanel, ...
+                    'Units', 'points', ...
+                    'Callback', @(hObject,eventdata)chooseProtocolDir(obj,hObject,eventdata), ...
+                    'Position', [10 44 130 22], ...
+                    'BackgroundColor', bgColor, ...
+                    'String', obj.protocolDirPopupNames, ...
+                    'Style', 'popupmenu', ...
+                    'Value', 1, ...
+                    'Tag', 'protocolDirPopup');
                 
                 obj.controls.protocolPopup = uicontrol(...
                     'Parent', obj.controls.protocolPanel, ...
                     'Units', 'points', ...
                     'Callback', @(hObject,eventdata)chooseProtocol(obj,hObject,eventdata), ...
-                    'Position', [10 44 130 22], ...
+                    'Position', [10 24 130 22], ...
                     'BackgroundColor', bgColor, ...
                     'String', obj.protocolDisplayNames, ...
                     'Style', 'popupmenu', ...
-                    'Value', pV, ...
+                    'Value', protocolValue, ...
                     'Tag', 'protocolPopup');
                 
                 obj.controls.editParametersButton = uicontrol(...
                     'Parent', obj.controls.protocolPanel, ...
                     'Units', 'points', ...
                     'Callback', @(hObject,eventdata)editProtocolParameters(obj,hObject,eventdata), ...
-                    'Position', [10 24 130 22], ...
+                    'Position', [10 3 130 22], ...
                     'BackgroundColor', bgColor, ...
                     'String', 'Edit Parameters...', ...
                     'Tag', 'editParametersButton');
-
+                
                 obj.controls.startButton = uicontrol(...
                     'Parent', obj.controls.protocolPanel, ...
                     'Units', 'points', ...
@@ -520,7 +506,7 @@ classdef Symphony < handle
                     'Parent', obj.mainWindow, ...
                     'Units', 'points', ...
                     'FontSize', 12, ...
-                    'Position', [10 220 145 18], ...
+                    'Position', [10 170 250 18], ...
                     'BackgroundColor', bgColor, ...
                     'String', 'Save Epochs with Group', ...
                     'Value', uint8(obj.protocol.allowSavingEpochs), ...
@@ -550,7 +536,7 @@ classdef Symphony < handle
                     'Title', 'Epoch Group', ...
                     'Tag', 'uipanel1', ...
                     'Clipping', 'on', ...
-                    'Position', [10 60 336 150], ...
+                    'Position', [10 10 336 150], ...
                     'BackgroundColor', bgColor);
                 
                 uicontrol(...
@@ -669,49 +655,6 @@ classdef Symphony < handle
                     'String', 'Close', ...
                     'Tag', 'closeEpochGroupButton');
                 
-               % Create the Log File Controls
-                
-                obj.controls.logFilePanel = uipanel(...
-                    'Parent', obj.mainWindow, ...
-                    'Units', 'points', ...
-                    'FontSize', 12, ...
-                    'Title', 'Log File', ...
-                    'Tag', 'logFilePanel', ...
-                    'Clipping', 'on', ...
-                    'Position', [10 10 336 50], ...
-                    'BackgroundColor', bgColor);
- 
-                obj.controls.enableLoggingCheckbox = uicontrol(...
-                    'Parent', obj.controls.logFilePanel, ...
-                    'Units', 'points', ...
-                    'Callback', @(hObject,eventdata)enableLogging(obj,hObject,eventdata), ...                    
-                    'FontSize', 12, ...
-                    'Position', [10 10 200 20], ...
-                    'BackgroundColor', bgColor, ...
-                    'String', 'Enable the Symphony Log File', ...
-                    'Value', 0, ...
-                    'Style', 'checkbox', ...
-                    'Tag', 'saveEpochsCheckbox');
-
-                 obj.controls.loggingFolderView = uicontrol(...
-                    'Parent', obj.controls.logFilePanel, ...
-                    'Units','points',...
-                    'BackgroundColor',bgColor,...
-                    'Enable','off',...
-                    'Position',[200 10 250 22],...
-                    'String', obj.logFileFolder,...
-                    'Style','edit',...
-                    'Tag','loggingFolderView');
-
-                  obj.controls.loggingFolderChange = uicontrol(...
-                    'Parent', obj.controls.logFilePanel, ...
-                    'Units','points',...
-                    'Callback',@(hObject,eventdata)changeLogFileFolder(obj,hObject,eventdata),...
-                    'Position',[450 10 44 22],...
-                    'BackgroundColor', bgColor, ...
-                    'String','Change',...
-                    'Tag','loggingFolderChange');
-
                 % Attempt to set button images using Java.
                 try
                     drawnow
@@ -747,8 +690,85 @@ classdef Symphony < handle
                     end
                 catch ME %#ok<NASGU>
                 end
+                
+                obj.checkRigConfigAndProtocol();
+            end
         end
-                     
+        
+        
+        function chooseProtocolDir(obj, ~, ~)
+            % The user chose a new directory from the pop-up.
+            
+            % Get the list of protocols from the selected folder.
+            if get(obj.controls.protocolDirPopup, 'Value')==1
+                % user selected the current directory of protocols
+                return
+            end
+            obj.discoverProtocols(); % gets the names of protocol and non-protocol subdirectories from the selected folder
+            set(obj.controls.protocolDirPopup, 'String', obj.protocolDirPopupNames, 'Value', 1);
+            set(obj.controls.protocolPopup, 'Value', 1);
+            if isempty(obj.protocolDisplayNames)
+                % if there are no protocols in the selected directory
+                % current protocol to run is not changed
+                % but current protocol displayed in protocolPopup menu is empty string ' '
+                set(obj.controls.protocolPopup, 'String', {''});
+            else
+                % if selected directory contains protocols
+                % name of current protocol in protocolPopup is first protocol
+                % and that protocol is selected as the current protocol to run
+                set(obj.controls.protocolPopup, 'String', obj.protocolDisplayNames);
+                obj.chooseProtocol();
+            end
+
+        end
+        
+        
+        function chooseProtocol(obj, ~, ~)
+            % The user chose a protocol from the pop-up.
+            
+            pluginIndex = get(obj.controls.protocolPopup, 'Value');
+            protocolClassName = obj.protocolClassNames{pluginIndex};
+            
+            % Create a new protocol if the user chose a different protocol class.
+            if ~isa(obj.protocol, protocolClassName)
+                try
+                    newProtocol = obj.createProtocol(protocolClassName);
+                catch ME
+                    waitfor(errordlg(['Could not create a ''' protocolClassName ''' instance.' char(10) char(10) ME.message], 'Symphony'));
+                    newProtocol = [];
+                end
+                
+                if ~isempty(newProtocol) && editParameters(newProtocol)
+                    obj.protocol.closeFigures();
+                    
+                    obj.protocol = newProtocol;
+                    setpref('Symphony', 'LastChosenProtocol', protocolClassName);
+                    
+                    if ~obj.protocol.allowSavingEpochs
+                        obj.wasSavingEpochs = get(obj.controls.saveEpochsCheckbox, 'Value') == get(obj.controls.saveEpochsCheckbox, 'Max');
+                        set(obj.controls.saveEpochsCheckbox, 'Value', get(obj.controls.saveEpochsCheckbox, 'Min'));
+                    elseif obj.wasSavingEpochs
+                        set(obj.controls.saveEpochsCheckbox, 'Value', get(obj.controls.saveEpochsCheckbox, 'Max'));
+                    end
+                    
+                    obj.checkRigConfigAndProtocol();
+                else
+                    % The user cancelled editing the parameters so switch back to the previous protocol.
+                    protocolValue = find(strcmp(obj.protocolClassNames, class(obj.protocol)));
+                    set(obj.controls.protocolPopup, 'Value', protocolValue);
+                end
+            end
+        end
+        
+        
+        function editProtocolParameters(obj, ~, ~)
+            % The user clicked the "Parameters..." button.
+            if editParameters(obj.protocol)
+                obj.checkRigConfigAndProtocol();
+            end
+        end
+        
+        
         function windowDidResize(obj, ~, ~)
             figPos = get(obj.mainWindow, 'Position');
             figWidth = ceil(figPos(3));
@@ -812,11 +832,6 @@ classdef Symphony < handle
             closeGroupPos = get(obj.controls.closeEpochGroupButton, 'Position');
             closeGroupPos(1) = epochPanelPos(3) - 14 - closeGroupPos(3);
             set(obj.controls.closeEpochGroupButton, 'Position', closeGroupPos);
-            
-            % Expand the logFilePanel to the full width and keep it at the top.
-            logFilePanel = get(obj.controls.logFilePanel, 'Position');
-            logFilePanel(3) = figWidth - 10 - 10;
-            set(obj.controls.logFilePanel, 'Position', logFilePanel);
         end
         
         
@@ -835,6 +850,7 @@ classdef Symphony < handle
                 end
                 set(obj.controls.pauseButton, 'Enable', 'off');
                 set(obj.controls.stopButton, 'Enable', 'off');
+                set(obj.controls.protocolDirPopup, 'Enable', 'on');
                 set(obj.controls.protocolPopup, 'Enable', 'on');
                 set(obj.controls.editParametersButton, 'Enable', 'on');
                 set(obj.controls.newEpochGroupButton, 'Enable', 'on');
@@ -858,6 +874,7 @@ classdef Symphony < handle
             else    % running or paused
                 set(obj.controls.rigConfigPopup, 'Enable', 'off');
                 set(obj.controls.stopButton, 'Enable', 'on');
+                set(obj.controls.protocolDirPopup, 'Enable', 'off');
                 set(obj.controls.protocolPopup, 'Enable', 'off');
                 set(obj.controls.saveEpochsCheckbox, 'Enable', 'off');
                 set(obj.controls.newEpochGroupButton, 'Enable', 'off');
@@ -946,22 +963,12 @@ classdef Symphony < handle
             % Release any hold we have on hardware.
             obj.rigConfig.close()
             
-            % close the protocols log functionality
-            obj.protocol.closeLog();
-            
             % Remember the window position.
             setpref('Symphony', 'MainWindow_Position', get(obj.mainWindow, 'Position'));
-            
-            % Delete the Main Window.
             delete(obj.mainWindow);
             
-            % Delete the entire Symphony object
+            clear global symphonyInstance
             delete(obj);
-            
-            % clear variables
-            % clearvars -global symphonyInstance
-            clearvars symphonyInstance
-            clear * 
         end
         
         
@@ -1035,10 +1042,6 @@ classdef Symphony < handle
                 
                 obj.epochGroup = group;
                 
-                obj.protocol.epochGroup = obj.epochGroup;
-                
-                obj.protocol.logEpochGroup();
-                
                 obj.epochGroup.beginPersistence(obj.persistor);
                 
                 obj.updateUIState();
@@ -1064,6 +1067,7 @@ classdef Symphony < handle
                 else
                     obj.epochGroup = obj.epochGroup.parentGroup;
                 end
+                %obj.saveMetadata();
 
             else
                 obj.persistor.CloseDocument();
@@ -1079,6 +1083,7 @@ classdef Symphony < handle
                 obj.metadataNode = [];
                 obj.notesNode = [];
             end
+            
             obj.updateUIState();
         end
         
@@ -1095,7 +1100,7 @@ classdef Symphony < handle
                     noteText2 = [noteText2 strtrim(noteText{1}(i, :)) char(10)]; %#ok<AGROW>
                 end
                 noteText2 = noteText2(1:end - 1);   % strip off the last newline
-                                
+                
                 obj.addNote(noteText2);
             end
         end
@@ -1153,6 +1158,7 @@ classdef Symphony < handle
                 
                 rethrow(ME);
             end
+            
             obj.updateUIState();
         end
         

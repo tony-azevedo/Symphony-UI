@@ -40,30 +40,16 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
     end
     
+    
     properties
-        sampleRate = {10000, 20000, 50000}      % in Hz        
+        sampleRate = {10000, 20000, 50000}      % in Hz
     end
     
     
     properties (Dependent = true, SetAccess = private)
         multiClampMode = 'VClamp'
     end
-
-    properties (SetAccess = public, GetAccess = private)
-        % Logging Variables can be set by Symphony but can only be used by
-        % the Symphony Protocol Class
-        log = {}
-        loggingHandles = {}
-        hfig
-        
-        epochNumContinuous = 0
-        
-        epochGroup = {}
-        prevEpochGroup = {}
-        logFileFolders
-        
-        timeString = 'HH:MM:SS'    
-	end
+    
     
     events
         StateChanged
@@ -71,7 +57,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
     
     methods
- 
+        
         function obj = SymphonyProtocol()
             obj = obj@handle();
             
@@ -85,121 +71,25 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             notify(obj, 'StateChanged');
         end
         
+        
         function dn = requiredDeviceNames(obj) %#ok<MANU>
             % Override this method to indicate the names of devices that are required for this protocol.
             dn = {};
         end
         
         
-        function prepareRig(obj)            
+        function prepareRig(obj)
+            % Override this method to perform any actions to get the rig ready for running the protocol, e.g. setting device backgrounds, etc.
+            
             obj.rigConfig.sampleRate = obj.sampleRate;
-            if ~isempty(obj.loggingHandles)
-                formatSpec = '\rTIME:%s\rRIG: %s\rPROTOCOL: %s\r';    
-                s = sprintf(formatSpec,datestr(now,obj.timeString),obj.rigConfig.displayName,obj.displayName);
-                obj.sendToLog(s);
-            end
         end
         
-       function sendToLog(obj,varargin)
-           s = get(obj.loggingHandles.edit3,'string');
-           
-            for v = 1:(nargin-1)
-                formatSpec ='%s\r%s';
-                s = sprintf(formatSpec,s,varargin{v});
-            end
-
-            set(obj.loggingHandles.edit3,'string',s);
-            obj.loggingHandles = guidata(obj.hfig);
-       end
-       
-       function openLog(obj)
-            obj.log = logFile(obj.logFileFolders);
-            set(0, 'showHiddenHandles', 'on');
-            obj.hfig = gcf;
-            obj.loggingHandles = guidata(obj.hfig);
-            
-            %%Set the header
-            if exist(obj.logFileHeaderFile, 'file') == 2
-               
-               fid = fopen(obj.logFileHeaderFile, 'r'); 
-               logFileHeader = textscan(fid, '%s', 'Delimiter', '\n');  
-               fclose(fid);
-               
-               for l = 1:length(logFileHeader{1})               
-                obj.sendToLog(logFileHeader{1}{l});
-               end
-            end    
-       end 
-           
-       function closeLog(obj)
-           if ~isempty(obj.loggingHandles)
-               delete(obj.log)
-               obj.loggingHandles = {};
-               obj.epochNumContinuous = 0;
-           end
-       end
-              
-       function logEpochGroup(obj)
-            if ~isempty(obj.loggingHandles) && ...
-               ~isempty(obj.epochGroup) && ...
-               ~isequal(obj.prevEpochGroup, obj.epochGroup)
-                if isempty(obj.epochGroup.parentGroup)
-                    formatSpec = '\rPARENT GROUP (CELL)\rTIME: %s\rID: %s\rLabel: %s\rKeywords: %s\rSource: %s\rMouse ID: %s\rCell ID: %s\rRig Name: %s'; 
-                    s = sprintf(formatSpec, ...
-                    datestr(now,obj.timeString), ...
-                    obj.epochGroup.source.name, ...
-                    obj.epochGroup.label, ...
-                    obj.epochGroup.keywords, ...
-                    obj.epochGroup.source.parentSource.name ,...
-                    obj.epochGroup.userProperties.mouseID, ...
-                    obj.epochGroup.userProperties.cellID, ...
-                    obj.epochGroup.userProperties.rigName);
-                    obj.epochNumContinuous = 0;
-                else
-                    formatSpec = '\rCHILD GROUP:\rLabel: %s\rKeywords: %s'; 
-                    s = sprintf(formatSpec, ...
-                    obj.epochGroup.label, ...
-                    obj.epochGroup.keywords);
-                end
-                    
-                obj.sendToLog(s);
-                obj.prevEpochGroup = obj.epochGroup;
-             end   
-       end
-       
+        
         function prepareRun(obj)
             % Override this method to perform any actions before the start of the first epoch, e.g. open a figure window, etc.
             obj.epoch = [];
             obj.epochNum = 0;
             obj.clearFigures()
-            
-            if ~isempty(obj.loggingHandles) && isprop(obj, 'propertiesToLog')
-                if ~isempty(obj.propertiesToLog)
-                    paramNames = obj.parameters();
-                    count = numel(obj.propertiesToLog);
-
-                    s = '';
-                    x = 1;
-
-                    for f = 1:count
-                        value=paramNames.(obj.propertiesToLog{f}); 
-                        formatSpec = '%s%s = %s  ';
-
-                        if ~ischar(value)
-                            formatSpec ='%s%s = %u  ';
-                            if isequal(obj.propertiesToLog{f},'preSynapticHold') ...
-                                    && f == count
-                                formatSpec = '%s\r        %s = %u  ';
-                            end
-                        end
-
-                        s = sprintf(formatSpec,s,obj.propertiesToLog{f},value);
-                        x = x + 1;
-                    end    
-
-                    obj.sendToLog(s);
-                end
-            end
         end
         
         
@@ -252,7 +142,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             % Create a new epoch.
             obj.epochNum = obj.epochNum + 1;
-            obj.epochNumContinuous = obj.epochNumContinuous + 1;
             obj.epoch = Epoch(obj.identifier);
 
             % Add any keywords specified by the user.
@@ -281,6 +170,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % Clear out the cache of responses.
             obj.responses = containers.Map();
         end
+        
         
         function addParameter(obj, name, value)
             if ~ischar(value) && length(value) > 1
@@ -456,15 +346,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 obj.responses(deviceName) = struct('data', r, 'sampleRate', s, 'units', u);
             end
         end
-            
-                    
+        
+        
         function completeEpoch(obj)
             % Override this method to perform any post-analysis, etc. on the current epoch.
-            if ~isempty(obj.loggingHandles)
-                formatSpec = '            Epoch # %u     Time %s';
-                s = sprintf(formatSpec,obj.epochNumContinuous,datestr(now, obj.timeString));
-                obj.sendToLog(s);
-            end
             obj.updateFigures();
         end
         
@@ -479,9 +364,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function completeRun(obj)
             % Override this method to perform any actions after the last epoch has completed.
-            if ~isempty(obj.loggingHandles)
-                logFile('save_Callback',obj.loggingHandles.edit3,[],obj.loggingHandles,obj.logFileFolders);
-            end
+            
             obj.setState('stopped');
         end
         

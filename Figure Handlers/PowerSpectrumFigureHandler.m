@@ -120,7 +120,6 @@ classdef PowerSpectrumFigureHandler < FigureHandler
             clearFigure@FigureHandler(obj);
         end
         
-        
         function resetPlots(obj)
             obj.meanPlots = struct('params', {}, ...        % The params that define this class of epochs.
                                    'data', {}, ...          % The mean of all responses of this class.

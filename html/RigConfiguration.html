@@ -1,0 +1,869 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>RigConfiguration</title><meta name="generator" content="MATLAB 7.14"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2012-10-08"><meta name="DC.source" content="RigConfiguration.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, tt, code { font-size:12px; }
+pre { margin:0px 0px 20px; }
+pre.error { color:red; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+
+  </style></head><body><div class="content"><h2>Contents</h2><div><ul><li><a href="#2">To support units coversion:</a></li></ul></div><pre class="codeinput"><span class="comment">%  Copyright (c) 2012 Howard Hughes Medical Institute.</span>
+<span class="comment">%  All rights reserved.</span>
+<span class="comment">%  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.</span>
+<span class="comment">%  http://license.janelia.org/license/jfrc_copyright_1_1.html</span>
+
+<span class="keyword">classdef</span> RigConfiguration &lt; handle
+
+    <span class="keyword">properties</span> (Constant, Abstract)
+        displayName
+    <span class="keyword">end</span>
+
+
+    <span class="keyword">properties</span>
+        controller
+        allowMultiClampDevices = true
+    <span class="keyword">end</span>
+
+
+    <span class="keyword">properties</span> (Dependent)
+        sampleRate
+    <span class="keyword">end</span>
+
+
+    <span class="keyword">properties</span> (GetAccess = private)
+        hekaDigitalOutDevice = []
+        hekaDigitalOutNames = {}
+        hekaDigitalOutChannels = []
+    <span class="keyword">end</span>
+
+
+    <span class="keyword">properties</span> (Hidden)
+        proxySampleRate                 <span class="comment">% numeric, in Hz</span>
+    <span class="keyword">end</span>
+
+
+    <span class="keyword">methods</span>
+
+        <span class="keyword">function</span> obj = RigConfiguration(allowMultiClampDevices)
+            import <span class="string">Symphony.Core.*</span>;
+
+            obj.controller = Controller();
+            obj.controller.DAQController = obj.createDAQ();
+            obj.controller.Clock = obj.controller.DAQController;
+
+            obj.sampleRate = 10000;
+
+            <span class="keyword">if</span> nargin == 1 &amp;&amp; ~allowMultiClampDevices
+                obj.allowMultiClampDevices = false;
+            <span class="keyword">end</span>
+
+            <span class="keyword">try</span>
+                obj.createDevices();
+
+                <span class="comment">% Have all devices start emitting their background values.</span>
+                 <span class="comment">% obj.controller.DAQController.SetStreamsBackground();</span>
+            <span class="keyword">catch</span> ME
+                obj.close();
+                <span class="keyword">if</span> ~strcmp(ME.identifier, <span class="string">'Symphony:MultiClamp:UnknownMode'</span>)
+                    disp(getReport(ME));
+                <span class="keyword">end</span>
+                throw(ME);
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> daq = createDAQ(obj)
+            <span class="comment">% Create a Heka DAQ controller if on Windows or a simulation controller on Mac.</span>
+            import <span class="string">Symphony.Core.*</span>;
+            import <span class="string">Symphony.SimulationDAQController.*</span>;
+            import <span class="string">Heka.*</span>;
+
+            <span class="keyword">if</span> ~isempty(which(<span class="string">'HekaDAQInputStream'</span>))
+                <span class="comment">% Register the unit converters</span>
+                HekaDAQInputStream.RegisterConverters();
+                HekaDAQOutputStream.RegisterConverters();
+
+                <span class="comment">% Get the bus ID of the Heka ITC.</span>
+                <span class="comment">% (Stored as a local pref so that each rig can have its own value.)</span>
+                hekaID = getpref(<span class="string">'Symphony'</span>, <span class="string">'HekaBusID'</span>, <span class="string">''</span>);
+                <span class="keyword">if</span> isempty(hekaID)
+                    answer = questdlg(<span class="string">'How is the Heka connected?'</span>, <span class="string">'Symphony'</span>, <span class="string">'USB'</span>, <span class="string">'PCI'</span>, <span class="string">'Cancel'</span>, <span class="string">'Cancel'</span>);
+                    <span class="keyword">if</span> strcmp(answer, <span class="string">'Cancel'</span>)
+                        error(<span class="string">'Symphony:Heka:NoBusID'</span>, <span class="string">'Cannot create a Heka controller without a bus ID'</span>);
+                    <span class="keyword">elseif</span> strcmp(answer, <span class="string">'PCI'</span>)
+                        hekaID = 1;
+                    <span class="keyword">else</span>    <span class="comment">% USB</span>
+                        hekaID = double(NativeInterop.ITCMM.USB18_ID);
+                    <span class="keyword">end</span>
+                    setpref(<span class="string">'Symphony'</span>, <span class="string">'HekaBusID'</span>, hekaID);
+                <span class="keyword">end</span>
+
+                daq = HekaDAQController(hekaID, 0);
+                daq.InitHardware();
+            <span class="keyword">else</span>
+                disp(<span class="string">'Could not load the Heka driver, using the simulation controller instead.'</span>);
+
+                Converters.Register(<span class="string">'V'</span>, <span class="string">'V'</span>, @(m) m);
+                daq = SimulationDAQController();
+                daq.BeginSetup();
+                daq.SimulationRunner = Simulation(@(output,step) loopbackSimulation(obj, output, step, outStream, inStream));
+            <span class="keyword">end</span>
+
+            daq.Clock = daq;
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> input = loopbackSimulation(obj, output, ~, outStream, inStream)
+            import <span class="string">Symphony.Core.*</span>;
+
+            input = NET.createGeneric(<span class="string">'System.Collections.Generic.Dictionary'</span>, {<span class="string">'Symphony.Core.IDAQInputStream'</span>,<span class="string">'Symphony.Core.IInputData'</span>});
+            outData = output.Item(outStream);
+            inData = InputData(outData.Data, outData.SampleRate, obj.controller.Clock.Now);
+            input.Add(inStream, inData);
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> set.sampleRate(obj, rate)
+            import <span class="string">Symphony.Core.*</span>;             <span class="comment">% import this so this method knows what a 'Measurement' - see below - is...</span>
+
+            <span class="keyword">if</span> ~isnumeric(rate)
+                error(<span class="string">'Symphony:InvalidSampleRate'</span>, <span class="string">'The sample rate for a rig configuration must be a number.'</span>);
+            <span class="keyword">end</span>
+
+            <span class="comment">% Update the rate of the DAQ controller.</span>
+            srProp = findprop(obj.controller.DAQController, <span class="string">'SampleRate'</span>);
+            <span class="keyword">if</span> isempty(srProp)
+                obj.proxySampleRate = rate;
+
+                <span class="comment">% Update the rate of all device streams.</span>
+                devices = obj.devices();
+                <span class="keyword">for</span> i = 1:length(devices)
+                     [~, streams] = dictionaryKeysAndValues(devices{i}.Streams);
+                     <span class="keyword">for</span> j = 1:length(streams)
+                         streams{j}.SampleRate = Measurement(rate, <span class="string">'Hz'</span>);
+                     <span class="keyword">end</span>
+                <span class="keyword">end</span>
+           <span class="keyword">else</span>
+                obj.controller.DAQController.SampleRate = Measurement(rate, <span class="string">'Hz'</span>);
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> rate = get.sampleRate(obj)
+            srProp = findprop(obj.controller.DAQController, <span class="string">'SampleRate'</span>);
+            <span class="keyword">if</span> isempty(srProp)
+                rate = obj.proxySampleRate;
+            <span class="keyword">else</span>
+                m = obj.controller.DAQController.SampleRate;
+                <span class="keyword">if</span> ~strcmp(char(m.Unit), <span class="string">'Hz'</span>)
+                    error(<span class="string">'Symphony:SampleRateNotInHz'</span>, <span class="string">'The sample rate is not in Hz.'</span>);
+                <span class="keyword">end</span>
+                rate = System.Decimal.ToDouble(m.QuantityInBaseUnit);
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> stream = streamWithName(obj, streamName, isOutput)
+            import <span class="string">Symphony.Core.*</span>;
+
+            <span class="keyword">if</span> isa(obj.controller.DAQController, <span class="string">'Heka.HekaDAQController'</span>)     <span class="comment">% TODO: or has method 'GetStream'?</span>
+                stream = obj.controller.DAQController.GetStream(streamName);
+            <span class="keyword">else</span>
+                <span class="keyword">if</span> isOutput
+                    stream = DAQOutputStream(streamName);
+                <span class="keyword">else</span>
+                    stream = DAQInputStream(streamName);
+                <span class="keyword">end</span>
+                stream.SampleRate = Measurement(obj.sampleRate, <span class="string">'Hz'</span>);
+                stream.MeasurementConversionTarget = <span class="string">'V'</span>;
+                stream.Clock = obj.controller.DAQController;
+                obj.controller.DAQController.AddStream(stream);
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> addStreams(obj, device, outStreamName, inStreamName)
+            <span class="comment">% Create and bind any output stream.</span>
+            <span class="keyword">if</span> ~isempty(outStreamName)
+                stream = obj.streamWithName(outStreamName, true);
+                device.BindStream(stream);
+            <span class="keyword">end</span>
+
+            <span class="comment">% Create and bind any input stream.</span>
+            <span class="keyword">if</span> ~isempty(inStreamName)
+                stream = obj.streamWithName(inStreamName, false);
+                device.BindStream(stream);
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> addDevice(obj, deviceName, outStreamName, inStreamName)
+            import <span class="string">Symphony.Core.*</span>;
+            import <span class="string">Symphony.ExternalDevices.*</span>;
+
+            <span class="keyword">if</span> isa(obj.controller.DAQController, <span class="string">'Heka.HekaDAQController'</span>) &amp;&amp; strncmp(outStreamName, <span class="string">'DIGITAL_OUT'</span>, 11)
+                <span class="comment">% The digital out channels for the Heka ITC share a single device.</span>
+                <span class="keyword">if</span> isempty(obj.hekaDigitalOutDevice)
+                    obj.hekaDigitalOutDevice = UnitConvertingExternalDevice(<span class="string">'Heka Digital Out'</span>, <span class="string">'HEKA Instruments'</span>, obj.controller, Measurement(0, <span class="string">'V'</span>));
+                    obj.hekaDigitalOutDevice.MeasurementConversionTarget = <span class="string">'V'</span>;
+                    obj.hekaDigitalOutDevice.Clock = obj.controller.DAQController;
+
+                    stream = obj.streamWithName(<span class="string">'DIGITAL_OUT.1'</span>, true);
+                    obj.hekaDigitalOutDevice.BindStream(stream);
+                <span class="keyword">end</span>
+
+                <span class="comment">% Keep track of which virtual device names map to which channel of the real device.</span>
+                obj.hekaDigitalOutNames{end + 1} = deviceName;
+                obj.hekaDigitalOutChannels(end + 1) = str2double(outStreamName(end));
+            <span class="keyword">else</span>
+                dev = UnitConvertingExternalDevice(deviceName, <span class="string">'unknown'</span>, obj.controller, Measurement(0, <span class="string">'V'</span>));
+                dev.MeasurementConversionTarget = <span class="string">'V'</span>;
+                dev.Clock = obj.controller.DAQController;
+
+                obj.addStreams(dev, outStreamName, inStreamName);
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> mode = multiClampMode(obj, deviceName)
+            <span class="keyword">if</span> nargin == 2 &amp;&amp; ~isempty(deviceName)
+                device = obj.deviceWithName(deviceName);
+            <span class="keyword">else</span>
+                <span class="comment">% Find a MultiClamp device to query.</span>
+                device = [];
+                devices = listValues(obj.controller.Devices);
+                <span class="keyword">for</span> i = 1:length(devices)
+                    <span class="keyword">if</span> isa(devices{i}, <span class="string">'Symphony.ExternalDevices.MultiClampDevice'</span>)
+                        device = devices{i};
+                        <span class="keyword">break</span>;
+                    <span class="keyword">end</span>
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+
+            <span class="keyword">if</span> isempty(device)
+                error(<span class="string">'Symphony:MultiClamp:NoDevice'</span>, <span class="string">'Cannot determine the MultiClamp mode because no MultiClamp device has been created.'</span>);
+            <span class="keyword">end</span>
+
+            <span class="comment">% Make sure the user toggles the MultiClamp mode so the data gets telegraphed.</span>
+            mode = <span class="string">''</span>;
+            <span class="keyword">while</span> isempty(mode) || (~strcmp(mode, <span class="string">'VClamp'</span>) &amp;&amp; ~strcmp(mode, <span class="string">'I0'</span>) &amp;&amp; ~strcmp(mode, <span class="string">'IClamp'</span>))
+                gotMode = false;
+                <span class="keyword">try</span>
+                    mode = char(device.CurrentDeviceOutputParameters.Data.OperatingMode);
+                    <span class="keyword">if</span> strcmp(mode, <span class="string">'VClamp'</span>) || strcmp(mode, <span class="string">'I0'</span>) || strcmp(mode, <span class="string">'IClamp'</span>)
+                        gotMode = true;
+                    <span class="keyword">end</span>
+                <span class="keyword">catch</span> ME <span class="comment">%#ok&lt;NASGU&gt;</span>
+                <span class="keyword">end</span>
+
+                <span class="keyword">if</span> ~gotMode
+                    input(<span class="string">'Please toggle the MultiClamp commander mode then press enter (or Ctrl-C to cancel)...'</span>, <span class="string">'s'</span>);
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> addMultiClampDevice(obj, deviceName, channel, outStreamName, inStreamName)
+            import <span class="string">Symphony.Core.*</span>;
+            import <span class="string">Symphony.ExternalDevices.*</span>;
+
+            <span class="keyword">if</span> ~obj.allowMultiClampDevices
+                error(<span class="string">'Symphony:MultiClamp:UnknownMode'</span>, <span class="string">'The MultiClamp mode could not be determined.'</span>);
+            <span class="keyword">end</span>
+
+            <span class="keyword">if</span> channel ~= 1 &amp;&amp; channel ~= 2
+                error(<span class="string">'Symphony:MultiClamp:InvalidChannel'</span>, <span class="string">'The MultiClamp channel must be either 1 or 2.'</span>);
+            <span class="keyword">end</span>
+
+            <span class="comment">% TODO: validate that the same channel is not added a second time?</span>
+
+            <span class="comment">% Get the local serial number of the MultiClamp.</span>
+            <span class="comment">% (Stored as a local pref so that each rig can have its own value.)</span>
+            <span class="keyword">if</span> ispref(<span class="string">'Symphony'</span>, <span class="string">'MultiClamp_SerialNumber'</span>)
+                multiClampSN = getpref(<span class="string">'Symphony'</span>, <span class="string">'MultiClamp_SerialNumber'</span>, <span class="string">''</span>);
+            <span class="keyword">else</span>
+                multiClampSN = getpref(<span class="string">'MultiClamp'</span>, <span class="string">'SerialNumber'</span>, <span class="string">''</span>);
+                <span class="keyword">if</span> ispref(<span class="string">'MultiClamp'</span>) &amp;&amp; ~isempty(multiClampSN)
+                    setpref(<span class="string">'Symphony'</span>, <span class="string">'MultiClamp_SerialNumber'</span>, multiClampSN);
+                    rmpref(<span class="string">'MultiClamp'</span>);
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+            <span class="keyword">if</span> isempty(multiClampSN)
+                answer = inputdlg({<span class="string">'Enter the serial number of the MultiClamp:'</span>}, <span class="string">'Symphony'</span>, 1, {<span class="string">'831400'</span>});
+                <span class="keyword">if</span> isempty(answer)
+                    error(<span class="string">'Symphony:MultiClamp:NoSerialNumber'</span>, <span class="string">'Cannot create a MultiClamp device without a serial number'</span>);
+                <span class="keyword">else</span>
+                    multiClampSN = uint32(str2double(answer{1}));
+                    setpref(<span class="string">'Symphony'</span>, <span class="string">'MultiClamp_SerialNumber'</span>, multiClampSN);
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+
+            <span class="comment">% Create the device so we can query for the current mode.</span>
+            modes = NET.createArray(<span class="string">'System.String'</span>, 3);
+            modes(1) = <span class="string">'VClamp'</span>;
+            modes(2) = <span class="string">'I0'</span>;
+            modes(3) = <span class="string">'IClamp'</span>;
+
+            backgroundMeasurements = NET.createArray(<span class="string">'Symphony.Core.IMeasurement'</span>, 3);
+            backgroundMeasurements(1) = Measurement(0, <span class="string">'V'</span>);
+            backgroundMeasurements(2) = Measurement(0, <span class="string">'A'</span>);
+            backgroundMeasurements(3) = Measurement(0, <span class="string">'A'</span>);
+
+            dev = MultiClampDevice(multiClampSN, channel, obj.controller.DAQController, obj.controller,<span class="keyword">...</span>
+                modes,<span class="keyword">...</span>
+                backgroundMeasurements<span class="keyword">...</span>
+                );
+            dev.Name = deviceName;
+            dev.Clock = obj.controller.DAQController;
+
+            <span class="comment">% Bind the streams.</span>
+            obj.addStreams(dev, outStreamName, inStreamName);
+
+            <span class="comment">% Make sure the current mode of the MultiClamp is known.</span>
+            <span class="keyword">try</span>
+                obj.multiClampMode(deviceName);
+            <span class="keyword">catch</span> ME
+                dev.Controller = [];
+                <span class="keyword">if</span> iscell(obj.controller.Devices)
+                    <span class="keyword">for</span> i = 1:length(obj.controller.Devices)
+                        <span class="keyword">if</span> obj.controller.Devices{i} == dev
+                            obj.controller.Devices(i) = [];
+                            <span class="keyword">break</span>;
+                        <span class="keyword">end</span>
+                    <span class="keyword">end</span>
+                <span class="keyword">else</span>
+                    obj.controller.Devices.Remove(dev);
+                <span class="keyword">end</span>
+                throw(ME);
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> d = devices(obj)
+            d = listValues(obj.controller.Devices);
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> [device, digitalChannel] = deviceWithName(obj, name)
+            ind = find(strcmp(obj.hekaDigitalOutNames, name));
+
+            <span class="keyword">if</span> isempty(ind)
+                device = obj.controller.GetDevice(name);
+                digitalChannel = [];
+            <span class="keyword">else</span>
+                device = obj.hekaDigitalOutDevice;
+                digitalChannel = obj.hekaDigitalOutChannels(ind);
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> desc = describeDevices(obj)
+            desc = <span class="string">''</span>;
+            devices = obj.devices();
+            <span class="keyword">for</span> i = 1:length(devices)
+                [~, streams] = dictionaryKeysAndValues(devices{i}.Streams);
+                <span class="keyword">for</span> j = 1:length(streams)
+                    <span class="keyword">if</span> isa(streams{j}, <span class="string">'Symphony.Core.IDAQInputStream'</span>)
+                        desc = [desc sprintf(<span class="string">'%s  &lt;--  %s\n'</span>, char(devices{i}.Name), char(streams{j}.Name))]; <span class="comment">%#ok&lt;AGROW&gt;</span>
+                    <span class="keyword">else</span>
+                        desc = [desc sprintf(<span class="string">'%s  --&gt;  %s\n'</span>, char(devices{i}.Name), char(streams{j}.Name))]; <span class="comment">%#ok&lt;AGROW&gt;</span>
+                    <span class="keyword">end</span>
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> setDeviceBackground(obj, deviceName, background)
+            device = obj.deviceWithName(deviceName);
+            device.Background = background;
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> prepared(obj)
+            <span class="keyword">if</span> isa(obj.controller.DAQController, <span class="string">'Heka.HekaDAQController'</span>)
+                obj.controller.DAQController.SetStreamsBackground();
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+
+        <span class="keyword">function</span> close(obj)
+            <span class="comment">% Release any hold we have on hardware.</span>
+            <span class="keyword">if</span> isa(obj.controller.DAQController, <span class="string">'Heka.HekaDAQController'</span>)
+                obj.controller.DAQController.CloseHardware();
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    <span class="keyword">end</span>
+
+
+    <span class="keyword">methods</span> (Abstract)
+
+        createDevices(obj);
+
+    <span class="keyword">end</span>
+
+<span class="keyword">end</span>
+</pre><pre class="codeoutput">Error using RigConfiguration
+Creating an instance of the Abstract class 'RigConfiguration' is not allowed.
+</pre><h2>To support units coversion:<a name="2"></a></h2><p>fromUnits = 'foo' toUnits = 'V' Converters.Register(fromUnits, toUnits, @conversionProc);</p><p>function measurementOut = conversionProc(measurementIn)   ... end</p><p class="footer"><br>
+      Published with MATLAB&reg; 7.14<br></p></div><!--
+##### SOURCE BEGIN #####
+%  Copyright (c) 2012 Howard Hughes Medical Institute.
+%  All rights reserved.
+%  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
+%  http://license.janelia.org/license/jfrc_copyright_1_1.html
+
+classdef RigConfiguration < handle
+    
+    properties (Constant, Abstract)
+        displayName
+    end
+    
+    
+    properties
+        controller
+        allowMultiClampDevices = true
+    end
+    
+    
+    properties (Dependent)
+        sampleRate
+    end
+    
+    
+    properties (GetAccess = private)
+        hekaDigitalOutDevice = []
+        hekaDigitalOutNames = {}
+        hekaDigitalOutChannels = []
+    end
+    
+    
+    properties (Hidden)
+        proxySampleRate                 % numeric, in Hz
+    end
+    
+    
+    methods
+        
+        function obj = RigConfiguration(allowMultiClampDevices)
+            import Symphony.Core.*;
+            
+            obj.controller = Controller();
+            obj.controller.DAQController = obj.createDAQ();
+            obj.controller.Clock = obj.controller.DAQController;
+            
+            obj.sampleRate = 10000;
+            
+            if nargin == 1 && ~allowMultiClampDevices
+                obj.allowMultiClampDevices = false;
+            end
+            
+            try
+                obj.createDevices();
+                
+                % Have all devices start emitting their background values.
+                 % obj.controller.DAQController.SetStreamsBackground();
+            catch ME
+                obj.close();
+                if ~strcmp(ME.identifier, 'Symphony:MultiClamp:UnknownMode')
+                    disp(getReport(ME));
+                end
+                throw(ME);
+            end
+        end
+        
+        
+        function daq = createDAQ(obj)
+            % Create a Heka DAQ controller if on Windows or a simulation controller on Mac.
+            import Symphony.Core.*;
+            import Symphony.SimulationDAQController.*;
+            import Heka.*;
+                
+            if ~isempty(which('HekaDAQInputStream'))
+                % Register the unit converters
+                HekaDAQInputStream.RegisterConverters();
+                HekaDAQOutputStream.RegisterConverters();
+                
+                % Get the bus ID of the Heka ITC.
+                % (Stored as a local pref so that each rig can have its own value.)
+                hekaID = getpref('Symphony', 'HekaBusID', '');
+                if isempty(hekaID)
+                    answer = questdlg('How is the Heka connected?', 'Symphony', 'USB', 'PCI', 'Cancel', 'Cancel');
+                    if strcmp(answer, 'Cancel')
+                        error('Symphony:Heka:NoBusID', 'Cannot create a Heka controller without a bus ID');
+                    elseif strcmp(answer, 'PCI')
+                        hekaID = 1;
+                    else    % USB
+                        hekaID = double(NativeInterop.ITCMM.USB18_ID);
+                    end
+                    setpref('Symphony', 'HekaBusID', hekaID);
+                end
+                
+                daq = HekaDAQController(hekaID, 0);
+                daq.InitHardware();
+            else
+                disp('Could not load the Heka driver, using the simulation controller instead.');
+                
+                Converters.Register('V', 'V', @(m) m);
+                daq = SimulationDAQController();
+                daq.BeginSetup();
+                daq.SimulationRunner = Simulation(@(output,step) loopbackSimulation(obj, output, step, outStream, inStream));
+            end
+            
+            daq.Clock = daq;
+        end
+        
+        
+        function input = loopbackSimulation(obj, output, ~, outStream, inStream)
+            import Symphony.Core.*;
+            
+            input = NET.createGeneric('System.Collections.Generic.Dictionary', {'Symphony.Core.IDAQInputStream','Symphony.Core.IInputData'});
+            outData = output.Item(outStream);
+            inData = InputData(outData.Data, outData.SampleRate, obj.controller.Clock.Now);
+            input.Add(inStream, inData);
+        end
+        
+        
+        function set.sampleRate(obj, rate)
+            import Symphony.Core.*;             % import this so this method knows what a 'Measurement' - see below - is...
+
+            if ~isnumeric(rate)
+                error('Symphony:InvalidSampleRate', 'The sample rate for a rig configuration must be a number.');
+            end
+            
+            % Update the rate of the DAQ controller.
+            srProp = findprop(obj.controller.DAQController, 'SampleRate');
+            if isempty(srProp)
+                obj.proxySampleRate = rate;
+                
+                % Update the rate of all device streams.
+                devices = obj.devices();
+                for i = 1:length(devices)
+                     [~, streams] = dictionaryKeysAndValues(devices{i}.Streams);
+                     for j = 1:length(streams)
+                         streams{j}.SampleRate = Measurement(rate, 'Hz');
+                     end
+                end
+           else
+                obj.controller.DAQController.SampleRate = Measurement(rate, 'Hz');
+            end
+        end
+        
+        
+        function rate = get.sampleRate(obj)
+            srProp = findprop(obj.controller.DAQController, 'SampleRate');
+            if isempty(srProp)
+                rate = obj.proxySampleRate;
+            else
+                m = obj.controller.DAQController.SampleRate;
+                if ~strcmp(char(m.Unit), 'Hz')
+                    error('Symphony:SampleRateNotInHz', 'The sample rate is not in Hz.');
+                end
+                rate = System.Decimal.ToDouble(m.QuantityInBaseUnit);
+            end
+        end
+        
+        
+        function stream = streamWithName(obj, streamName, isOutput)
+            import Symphony.Core.*;
+            
+            if isa(obj.controller.DAQController, 'Heka.HekaDAQController')     % TODO: or has method 'GetStream'?
+                stream = obj.controller.DAQController.GetStream(streamName);
+            else
+                if isOutput
+                    stream = DAQOutputStream(streamName);
+                else
+                    stream = DAQInputStream(streamName);
+                end
+                stream.SampleRate = Measurement(obj.sampleRate, 'Hz');
+                stream.MeasurementConversionTarget = 'V';
+                stream.Clock = obj.controller.DAQController;
+                obj.controller.DAQController.AddStream(stream);
+            end
+        end
+        
+        
+        function addStreams(obj, device, outStreamName, inStreamName)
+            % Create and bind any output stream.
+            if ~isempty(outStreamName)
+                stream = obj.streamWithName(outStreamName, true);
+                device.BindStream(stream);
+            end
+            
+            % Create and bind any input stream.
+            if ~isempty(inStreamName)
+                stream = obj.streamWithName(inStreamName, false);
+                device.BindStream(stream);
+            end
+        end
+        
+        
+        function addDevice(obj, deviceName, outStreamName, inStreamName)
+            import Symphony.Core.*;
+            import Symphony.ExternalDevices.*;
+            
+            if isa(obj.controller.DAQController, 'Heka.HekaDAQController') && strncmp(outStreamName, 'DIGITAL_OUT', 11)
+                % The digital out channels for the Heka ITC share a single device.
+                if isempty(obj.hekaDigitalOutDevice)
+                    obj.hekaDigitalOutDevice = UnitConvertingExternalDevice('Heka Digital Out', 'HEKA Instruments', obj.controller, Measurement(0, 'V'));
+                    obj.hekaDigitalOutDevice.MeasurementConversionTarget = 'V';
+                    obj.hekaDigitalOutDevice.Clock = obj.controller.DAQController;
+                    
+                    stream = obj.streamWithName('DIGITAL_OUT.1', true);
+                    obj.hekaDigitalOutDevice.BindStream(stream);
+                end
+                
+                % Keep track of which virtual device names map to which channel of the real device.
+                obj.hekaDigitalOutNames{end + 1} = deviceName;
+                obj.hekaDigitalOutChannels(end + 1) = str2double(outStreamName(end));
+            else
+                dev = UnitConvertingExternalDevice(deviceName, 'unknown', obj.controller, Measurement(0, 'V'));
+                dev.MeasurementConversionTarget = 'V';
+                dev.Clock = obj.controller.DAQController;
+                
+                obj.addStreams(dev, outStreamName, inStreamName);
+            end
+        end
+        
+        
+        function mode = multiClampMode(obj, deviceName)
+            if nargin == 2 && ~isempty(deviceName)
+                device = obj.deviceWithName(deviceName);
+            else
+                % Find a MultiClamp device to query.
+                device = [];
+                devices = listValues(obj.controller.Devices);
+                for i = 1:length(devices)
+                    if isa(devices{i}, 'Symphony.ExternalDevices.MultiClampDevice')
+                        device = devices{i};
+                        break;
+                    end
+                end
+            end
+
+            if isempty(device)
+                error('Symphony:MultiClamp:NoDevice', 'Cannot determine the MultiClamp mode because no MultiClamp device has been created.');
+            end
+
+            % Make sure the user toggles the MultiClamp mode so the data gets telegraphed.
+            mode = '';
+            while isempty(mode) || (~strcmp(mode, 'VClamp') && ~strcmp(mode, 'I0') && ~strcmp(mode, 'IClamp'))
+                gotMode = false;
+                try
+                    mode = char(device.CurrentDeviceOutputParameters.Data.OperatingMode);
+                    if strcmp(mode, 'VClamp') || strcmp(mode, 'I0') || strcmp(mode, 'IClamp')
+                        gotMode = true;
+                    end
+                catch ME %#ok<NASGU>
+                end
+
+                if ~gotMode
+                    input('Please toggle the MultiClamp commander mode then press enter (or Ctrl-C to cancel)...', 's');
+                end
+            end
+        end
+        
+        
+        function addMultiClampDevice(obj, deviceName, channel, outStreamName, inStreamName)
+            import Symphony.Core.*;
+            import Symphony.ExternalDevices.*;
+            
+            if ~obj.allowMultiClampDevices
+                error('Symphony:MultiClamp:UnknownMode', 'The MultiClamp mode could not be determined.');
+            end
+            
+            if channel ~= 1 && channel ~= 2
+                error('Symphony:MultiClamp:InvalidChannel', 'The MultiClamp channel must be either 1 or 2.');
+            end
+            
+            % TODO: validate that the same channel is not added a second time?
+            
+            % Get the local serial number of the MultiClamp.
+            % (Stored as a local pref so that each rig can have its own value.)
+            if ispref('Symphony', 'MultiClamp_SerialNumber')
+                multiClampSN = getpref('Symphony', 'MultiClamp_SerialNumber', '');
+            else
+                multiClampSN = getpref('MultiClamp', 'SerialNumber', '');
+                if ispref('MultiClamp') && ~isempty(multiClampSN)
+                    setpref('Symphony', 'MultiClamp_SerialNumber', multiClampSN);
+                    rmpref('MultiClamp');
+                end
+            end
+            if isempty(multiClampSN)
+                answer = inputdlg({'Enter the serial number of the MultiClamp:'}, 'Symphony', 1, {'831400'});
+                if isempty(answer)
+                    error('Symphony:MultiClamp:NoSerialNumber', 'Cannot create a MultiClamp device without a serial number');
+                else
+                    multiClampSN = uint32(str2double(answer{1}));
+                    setpref('Symphony', 'MultiClamp_SerialNumber', multiClampSN);
+                end
+            end
+            
+            % Create the device so we can query for the current mode.
+            modes = NET.createArray('System.String', 3);
+            modes(1) = 'VClamp';
+            modes(2) = 'I0';
+            modes(3) = 'IClamp';
+            
+            backgroundMeasurements = NET.createArray('Symphony.Core.IMeasurement', 3);
+            backgroundMeasurements(1) = Measurement(0, 'V');
+            backgroundMeasurements(2) = Measurement(0, 'A');
+            backgroundMeasurements(3) = Measurement(0, 'A');
+            
+            dev = MultiClampDevice(multiClampSN, channel, obj.controller.DAQController, obj.controller,...
+                modes,...
+                backgroundMeasurements...
+                );
+            dev.Name = deviceName;
+            dev.Clock = obj.controller.DAQController;
+            
+            % Bind the streams.
+            obj.addStreams(dev, outStreamName, inStreamName);
+            
+            % Make sure the current mode of the MultiClamp is known.
+            try
+                obj.multiClampMode(deviceName);
+            catch ME
+                dev.Controller = [];
+                if iscell(obj.controller.Devices)
+                    for i = 1:length(obj.controller.Devices)
+                        if obj.controller.Devices{i} == dev
+                            obj.controller.Devices(i) = [];
+                            break;
+                        end
+                    end
+                else
+                    obj.controller.Devices.Remove(dev);
+                end
+                throw(ME);
+            end
+        end
+        
+        
+        function d = devices(obj)
+            d = listValues(obj.controller.Devices);
+        end
+        
+        
+        function [device, digitalChannel] = deviceWithName(obj, name)
+            ind = find(strcmp(obj.hekaDigitalOutNames, name));
+            
+            if isempty(ind)
+                device = obj.controller.GetDevice(name);
+                digitalChannel = [];
+            else
+                device = obj.hekaDigitalOutDevice;
+                digitalChannel = obj.hekaDigitalOutChannels(ind);
+            end
+        end
+        
+        
+        function desc = describeDevices(obj)
+            desc = '';
+            devices = obj.devices();
+            for i = 1:length(devices)
+                [~, streams] = dictionaryKeysAndValues(devices{i}.Streams);
+                for j = 1:length(streams)
+                    if isa(streams{j}, 'Symphony.Core.IDAQInputStream')
+                        desc = [desc sprintf('%s  <REPLACE_WITH_DASH_DASH  %s\n', char(devices{i}.Name), char(streams{j}.Name))]; %#ok<AGROW>
+                    else
+                        desc = [desc sprintf('%s  REPLACE_WITH_DASH_DASH>  %s\n', char(devices{i}.Name), char(streams{j}.Name))]; %#ok<AGROW>
+                    end
+                end
+            end
+        end
+        
+        
+        function setDeviceBackground(obj, deviceName, background)
+            device = obj.deviceWithName(deviceName);
+            device.Background = background;
+        end
+        
+        
+        function prepared(obj)
+            if isa(obj.controller.DAQController, 'Heka.HekaDAQController')
+                obj.controller.DAQController.SetStreamsBackground();
+            end
+        end
+        
+        
+        function close(obj)
+            % Release any hold we have on hardware.
+            if isa(obj.controller.DAQController, 'Heka.HekaDAQController')
+                obj.controller.DAQController.CloseHardware();
+            end
+        end
+        
+    end
+    
+    
+    methods (Abstract)
+        
+        createDevices(obj);
+        
+    end
+    
+end
+
+
+%% To support units coversion:
+%
+% fromUnits = 'foo'
+% toUnits = 'V'
+% Converters.Register(fromUnits, toUnits, @conversionProc);
+% 
+% 
+% function measurementOut = conversionProc(measurementIn)
+%   ...
+% end
+
+##### SOURCE END #####
+--></body></html>
