@@ -3,7 +3,7 @@
 %  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
 %  http://license.janelia.org/license/jfrc_copyright_1_1.html
 
-classdef Symphony < handle
+classdef (Sealed) Symphony < handle
     
     properties
         mainWindow                  % Figure handle of the main window
@@ -44,9 +44,8 @@ classdef Symphony < handle
     end
     
     
-    methods
-        
-        function obj = Symphony()
+    methods (Access = private)
+        function obj = Symphony
             import Symphony.Core.*;
             
             obj = obj@handle();
@@ -74,8 +73,19 @@ classdef Symphony < handle
             
             obj.updateUIState();
         end
-        
-        
+    end
+  
+    methods (Static)
+          function singleObj = getInstance
+             persistent localObj
+             if isempty(localObj) || ~isvalid(localObj)
+                localObj = Symphony;
+             end
+                singleObj = localObj;
+          end
+    end
+    
+    methods
         %% Rig Configurations
         function discoverRigConfigurations(obj)
             % Get the list of rig configurations from the folder.
@@ -966,9 +976,10 @@ classdef Symphony < handle
             % Delete the entire Symphony object
             delete(obj);
             
-            % clear variables
-            % clearvars -global symphonyInstance
-            clearvars symphonyInstance
+            % deleting the symphony Instance
+            symphonyInstance = Symphony.getInstance;
+            delete(symphonyInstance);
+            
             clear * 
         end
         

@@ -3,8 +3,6 @@
 %  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
 %  http://license.janelia.org/license/jfrc_copyright_1_1.html
 
-% Wrapper script (NOT a function) to load the Symphony .NET assemblies correctly.
-
 if verLessThan('matlab', '7.12')
     error('Symphony requires MATLAB 7.12.0 (R2011a) or later');
 end
@@ -25,17 +23,13 @@ if isempty(which('NET.convertArray'))
     addpath(fullfile(parentDir, filesep, 'Stubs'));
 else
     symphonyPath = 'C:\Program Files\Physion\Symphony\bin';
-    
+
     % Add Symphony.Core assemblies
     NET.addAssembly(fullfile(symphonyPath, 'Symphony.Core.dll'));
     NET.addAssembly(fullfile(symphonyPath, 'Symphony.ExternalDevices.dll'));
     NET.addAssembly(fullfile(symphonyPath, 'HekaDAQInterface.dll'));
     NET.addAssembly(fullfile(symphonyPath, 'Symphony.SimulationDAQController.dll'));
-    
     NET.addAssembly('System.Windows.Forms');
 end
-
-
-% Launch the user interface
-global symphonyInstance;
-symphonyInstance = Symphony();
+            
+symphonyInstance = Symphony.getInstance;  

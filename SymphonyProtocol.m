@@ -99,27 +99,36 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 obj.sendToLog(s);
             end
         end
-        
+       
+       % sendToLog can either take a cell input or a string
        function sendToLog(obj,varargin)
-           s = get(obj.loggingHandles.edit3,'string');
-           
-            for v = 1:(nargin-1)
-                formatSpec ='%s\r%s';
-                s = sprintf(formatSpec,s,varargin{v});
-            end
+           if nargin > 0
+               s = get(obj.loggingHandles.edit3,'string');
+               formatSpec ='%s\r%s';
 
-            set(obj.loggingHandles.edit3,'string',s);
-            obj.loggingHandles = guidata(obj.hfig);
+                for v = 1:(nargin-1)
+                    if isa(varargin{v},'cell')
+                        for c = 1:length(varargin{v})
+                             for l = 1:length(varargin{v}{c})  
+                                s = sprintf(formatSpec,s,varargin{v}{c}{l}); 
+                             end
+                        end    
+                    elseif ischar(varargin{v});
+                        s = sprintf(formatSpec,s,varargin{v}); 
+                    end
+                end
+
+                set(obj.loggingHandles.edit3,'string',s);
+                obj.loggingHandles = guidata(obj.hfig);
+           end
        end
        
        function  parseFile(obj, s)
             fid = fopen(s, 'r'); 
             logFileHeader = textscan(fid, '%s', 'Delimiter', '\n');  
             fclose(fid);
-               
-            for l = 1:length(logFileHeader{1})               
-                obj.sendToLog(logFileHeader{1}{l});
-            end           
+            
+            obj.sendToLog(logFileHeader);
        end
        
        function openLog(obj)

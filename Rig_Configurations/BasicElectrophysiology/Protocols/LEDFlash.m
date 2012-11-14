@@ -1,23 +1,27 @@
+% Creates a single stimulus composed of mean + flash.
+% Implements SymphonyProtocol
+%
 %  Copyright (c) 2012 Howard Hughes Medical Institute.
 %  All rights reserved.
 %  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
 %  http://license.janelia.org/license/jfrc_copyright_1_1.html
+%
+%  Modified by TA 9.8.12 from LED Family to create a single LED pulse protocol
 
-classdef LEDFamily < SymphonyProtocol
-    
+classdef LEDFlash < SymphonyProtocol
+
     properties (Constant)
-        identifier = 'org.janelia.research.murphy.LEDFamily'
+        identifier = 'helsinki.yliopisto.pal'
         version = 1
-        displayName = 'LED Family'
+        displayName = 'LED Flash'
+        rigIdentifier = 'BasicElectrophysiology'
     end
     
     properties
         stimPoints = uint16(100);
         prePoints = uint16(1000);
         tailPoints = uint16(4000);
-        baseLightAmplitude = 0.5;
-        stepsInFamily = uint8(3);
-        ampStepScale = 2.0;
+        stimAmplitude = 0.5;
         lightMean = 0.0;
         preSynapticHold = -60;
         numberOfAverages = uint8(5);
@@ -26,15 +30,29 @@ classdef LEDFamily < SymphonyProtocol
     end
     
     properties (Dependent = true, SetAccess = private) % these properties are inherited - i.e., not modifiable
-        ampOfLastStep;
+        % ampOfLastStep;
     end
-    
+
+    properties (Hidden)
+        % Required if you have a header to load.
+        % logFileHeaderFile = sprintf('%s.log',mfilename('fullpath'));
+        
+        % Required for Logging functionality
+        propertiesToLog = { ...
+            'prePoints' ...
+            'tailPoints' ...
+            'lightMean' ...
+            'stimAmplitude' ...
+            'preSynapticHold' ...
+        };        
+    end
+
     methods
         
-        function [stimulus, lightAmplitude] = stimulusForEpoch(obj, epochNum)
+        function [stimulus, lightAmplitude] = stimulusForEpoch(obj, ~) % epoch Num is usually required
             % Calculate the light amplitude for this epoch.
-            phase = single(mod(epochNum - 1, obj.stepsInFamily));               % Frank's clever way to determine which flash in a family to deliver
-            lightAmplitude = obj.baseLightAmplitude * obj.ampStepScale ^ phase;   % Frank's clever way to determine the amplitude of the flash family to deliver
+            % phase = single(mod(epochNum - 1, obj.stepsInFamily));               % Frank's clever way to determine which flash in a family to deliver
+            lightAmplitude = obj.stimAmplitude; % * obj.ampStepScale ^ phase;   % Frank's clever way to determine the amplitude of the flash family to deliver
             
             % Create the stimulus
             stimulus = ones(1, obj.prePoints + obj.stimPoints + obj.tailPoints) * obj.lightMean;
@@ -42,11 +60,9 @@ classdef LEDFamily < SymphonyProtocol
         end
         
         
-        function stimuli = sampleStimuli(obj)
-            stimuli = cell(obj.stepsInFamily, 1);
-            for i = 1:obj.stepsInFamily
-                stimuli{i} = obj.stimulusForEpoch(i);
-            end
+        function stimulus = sampleStimuli(obj) % Return a cell array
+            % you can only create one stimulus with this protocol TA
+            stimulus{1} = obj.stimulusForEpoch();
         end
         
         
@@ -94,8 +110,14 @@ classdef LEDFamily < SymphonyProtocol
         function stats = responseStatistics(obj)
             r = obj.response();
             
-            stats.mean = mean(r);
-            stats.var = var(r);
+            % baseline mean and var
+            if ~isempty(r)
+                stats.mean = mean(r(1:obj.prePoints));
+                stats.var = var(r(1:obj.prePoints));
+            else
+                stats.mean = 0;
+                stats.var = 0;
+            end
         end
         
         
@@ -114,14 +136,14 @@ classdef LEDFamily < SymphonyProtocol
             keepGoing = continueRun@SymphonyProtocol(obj);
             
             if keepGoing
-                keepGoing = obj.epochNum < obj.stepsInFamily * obj.numberOfAverages;
+                keepGoing = obj.epochNum < obj.numberOfAverages;
             end
         end
         
         
-        function amp = get.ampOfLastStep(obj)   % The product of the number of steps in family, the first step amplitude, and the 'scale factor'
-            amp = obj.baseLightAmplitude * obj.ampStepScale ^ (obj.stepsInFamily - 1);
-        end
+%         function amp = get.ampOfLastStep(obj)   % The product of the number of steps in family, the first step amplitude, and the 'scale factor'
+%             amp = obj.baseLightAmplitude * obj.ampStepScale ^ (obj.stepsInFamily - 1);
+%         end
 
     end
 end
