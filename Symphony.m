@@ -962,7 +962,7 @@ classdef (Sealed) Symphony < handle
             delete(obj.sources);
             
             % Release any hold we have on hardware.
-            obj.rigConfig.close()
+            obj.rigConfig.close();
             
             % close the protocols log functionality
             obj.protocol.closeLog();
@@ -973,12 +973,12 @@ classdef (Sealed) Symphony < handle
             % Delete the Main Window.
             delete(obj.mainWindow);
             
-            % Delete the entire Symphony object
-            delete(obj);
-            
             % deleting the symphony Instance
             symphonyInstance = Symphony.getInstance;
             delete(symphonyInstance);
+            
+            % Delete the entire Symphony object
+            delete(obj);
             
             clear * 
         end

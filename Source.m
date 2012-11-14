@@ -131,7 +131,7 @@ classdef Source < handle
                     childName = char(attr.getNamedItem('label').getNodeValue());
                     child = obj.childWithName(childName);
                     if isempty(child)
-                        child = Source(label, obj);
+                        child = Source(childName, obj);
                     end
                     child.syncWithMetadata(childNode);
                 end
