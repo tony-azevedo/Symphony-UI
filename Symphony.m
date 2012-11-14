@@ -39,6 +39,8 @@ classdef Symphony < handle
         symphonyDir
         logFileFolder
         hiddenLogFileFolder
+        
+        loggingOnDefault
     end
     
     
@@ -58,13 +60,14 @@ classdef Symphony < handle
                 mkdir(symphonyParentDir,'debug_logs');
             end
             Logging.ConfigureLogging(fullfile(obj.symphonyDir, 'debug_log.xml'), [symphonyParentDir '/debug_logs']);
-
+            
             % See what rig configurations, protocols, figure handlers and sources are available.
             obj.discoverRigConfigurations();
             obj.discoverFigureHandlers();
             obj.discoverSources();
             
             obj.hiddenLogFileFolder = fullfile(obj.symphonyDir, 'log_files_hidden');
+            obj.loggingOnDefault = 1;
             
             % Create and open the main window.
             obj.showMainWindow();
@@ -147,9 +150,10 @@ classdef Symphony < handle
                     for i = 1:length(obj.rigConfigClassNames)
                         if ~strcmp(obj.rigConfigClassNames{i}, obj.lastChosenRigConfig)
                             constructor = str2func(obj.rigConfigClassNames{i});
-                            try
+                            try 
                                 obj.rigConfig = constructor(allowMultiClampDevices);
                                 obj.lastChosenRigConfig = obj.rigConfigClassNames{i};
+                                obj.rigConfigValue = i;
                                 break
                             catch ME
                                 disp(['Could not create a ' obj.rigConfigClassNames{i}]);
@@ -689,7 +693,7 @@ classdef Symphony < handle
                     'Position', [10 10 200 20], ...
                     'BackgroundColor', bgColor, ...
                     'String', 'Enable the Symphony Log File', ...
-                    'Value', 0, ...
+                    'Value', obj.loggingOnDefault, ...
                     'Style', 'checkbox', ...
                     'Tag', 'saveEpochsCheckbox');
 
@@ -747,6 +751,10 @@ classdef Symphony < handle
                     end
                 catch ME %#ok<NASGU>
                 end
+                
+                if obj.loggingOnDefault
+                    obj.enableLogging
+                end 
         end
                      
         function windowDidResize(obj, ~, ~)

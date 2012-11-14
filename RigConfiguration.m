@@ -12,7 +12,7 @@ classdef RigConfiguration < handle
     
     properties
         controller
-        allowMultiClampDevices = true
+        allowMultiClampDevices
     end
     
     
@@ -44,9 +44,7 @@ classdef RigConfiguration < handle
             
             obj.sampleRate = 10000;
             
-            if nargin == 1 && ~allowMultiClampDevices
-                obj.allowMultiClampDevices = false;
-            end
+            obj.allowMultiClampDevices = allowMultiClampDevices;
             
             try
                 obj.createDevices();

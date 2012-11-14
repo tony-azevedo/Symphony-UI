@@ -14,6 +14,18 @@ classdef RetinaElectrophysiology < RigConfiguration
     
     methods
         
+        % Initializing a superclass from a subclass requires the subclass
+        % to handle the input variables        
+        function rc = RetinaElectrophysiology(varargin)
+            if nargin == 1
+                allowMultiClampDevices = varargin{1};
+            else
+                allowMultiClampDevices = 1; 
+            end
+            
+            rc = rc@RigConfiguration(allowMultiClampDevices);
+        end
+        
         function createDevices(obj)
             obj.addMultiClampDevice('Amplifier_Ch1', 1, 'ANALOG_OUT.0', 'ANALOG_IN.0');
             obj.addDevice('Red_LED', 'ANALOG_OUT.1', '');   % output only

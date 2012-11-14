@@ -452,14 +452,15 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     data = response.Data;
                     r = double(Measurement.ToQuantityArray(data));
                     u = char(Measurement.HomogenousUnits(data));
+                    
+                    s = System.Decimal.ToDouble(response.SampleRate.QuantityInBaseUnit);
+                    % TODO: do we care about the units of the SampleRate measurement?
                 catch ME %#ok<NASGU>
                     r = [];
                     u = '';
+                    s = 0;
                 end
-                
-                s = System.Decimal.ToDouble(response.SampleRate.QuantityInBaseUnit);
-                % TODO: do we care about the units of the SampleRate measurement?
-                
+
                 % Cache the results.
                 obj.responses(deviceName) = struct('data', r, 'sampleRate', s, 'units', u);
             end
@@ -469,14 +470,19 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function completeEpoch(obj)
             % Override this method to perform any post-analysis, etc. on the current epoch.
             if ~isempty(obj.loggingHandles)
-                formatSpec = '            Epoch # %u     Time %s';
-                s = sprintf(formatSpec,obj.epochNumContinuous,datestr(now, obj.timeString));
+                formatSpec = '            Epoch # %u     Start Time:%u:%u:%u      Duration (ms):%u';
+                s = sprintf(formatSpec, ...
+                    obj.epochNumContinuous, ...
+                    obj.epoch.StartTime.Item2.DateTime.Hour, ...
+                    obj.epoch.StartTime.Item2.DateTime.Minute, ...
+                    obj.epoch.StartTime.Item2.DateTime.Second, ...
+                    obj.epoch.Duration.Item2.TotalMilliseconds);
                 obj.sendToLog(s);
             end
             obj.updateFigures();
         end
         
-        
+         
         function keepGoing = continueRun(obj)
             % Override this method to return true/false based on the current state.
             % The object's epochNum is typically useful.
