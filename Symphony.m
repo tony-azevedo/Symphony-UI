@@ -253,9 +253,8 @@ classdef (Sealed) Symphony < handle
         end
         
         function newProtocol = createProtocol(obj, className)
-            try
+            if ~isempty(obj.protocol)
                 obj.protocol.closeLog();
-            catch ME %#ok<NASGU>
             end    
                 
             % Create an instance of the protocol class.
