@@ -17,33 +17,41 @@ classdef SealAndLeak < SymphonyProtocol
         pulseDuration = uint32(50)      % milliseconds
         pulseAmplitude = 5              % picoamperes or millivolts
         background = 0                  % picoamperes or millivolts
-        
-        %Required Variable if you would like a specific header for your log
-        %file
-        logFileHeaderFile = fullfile(mfilename('fullpath'), '.log');
     end
     
     properties (Hidden)
         % Two Required variables if you have a header to load.
         % Example below:
         
-%         logFileHeaderFile = sprintf('%s.log',mfilename('fullpath'));
+        % Required if you have a header to load.
+        logFileHeaderFile = '';
 %        
 %         propertiesToLog = { ...
 %             'epochDuration' ...
 %             'pulseDuration' ...
 %             'pulseAmplitude' ...
-%         };        
+%         };     
+
+        % variables to determin how many channels the protocol has
+        channels = 1;
+        channelNames = {'Ch1'};    
     end
     
-    methods
-        
+    methods        
         function dn = requiredDeviceNames(obj) %#ok<MANU>
             dn = {'Amplifier_Ch1'};
         end
         
-        function obj = SealAndLeak()
-            obj = obj@SymphonyProtocol();
+        function obj = SealAndLeak(varargin)
+            if nargin == 2
+                logging = varargin{1};
+                logFileFolders = varargin{2};
+            else
+                logging = 0;
+                logFileFolders = {};
+            end
+            
+            obj = obj@SymphonyProtocol(logging,logFileFolders);
             
             obj.allowSavingEpochs = false;
         end

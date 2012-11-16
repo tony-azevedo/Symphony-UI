@@ -38,6 +38,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         allowSavingEpochs = true    % An indication if this protocol allows it's data to be persisted.
         persistor = []              % The persistor to use with each epoch.
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
+        protocolProperties
     end
     
     properties
@@ -72,13 +73,42 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
     methods
  
-        function obj = SymphonyProtocol()
+        function obj = SymphonyProtocol(logging, logFileFolders)
             obj = obj@handle();
             
             obj.setState('stopped');
             obj.responses = containers.Map();
+            obj.protocolProperties = obj.createChannelParameters;
+            obj.logFileFolders = logFileFolders;
+            
+            if logging
+                obj.openLog();
+            end
         end 
         
+        function p = createChannelParameters(obj)
+            paramNames = properties(obj);
+            pCount = numel(paramNames);
+            
+            keySet = {'channels'};
+            valueSet = {obj.channelNames};
+            p = containers.Map(keySet,valueSet);
+            
+            tempCell{1,obj.channels} = [];
+            
+            for i = 1:pCount
+                name = paramNames{i};
+                value = obj.(name);
+                if iscell(value) && numel(value) == obj.channels;
+                    p(name) = value;
+                elseif ischar(value) || isnumeric(value)
+                    for j = 1:obj.channels
+                        tempCell{1,j} = value; 
+                    end
+                     p(name) = tempCell;
+                end
+            end
+        end
         
         function setState(obj, state)
             obj.state = state;
@@ -102,7 +132,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
        
        % sendToLog can either take a cell input or a string
        function sendToLog(obj,varargin)
-           if nargin > 0
+           if nargin > 0 && ~isempty(obj.loggingHandles)
                s = get(obj.loggingHandles.edit3,'string');
                formatSpec ='%s\r%s';
 
@@ -124,11 +154,13 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
        end
        
        function  parseFile(obj, s)
-            fid = fopen(s, 'r'); 
-            logFileHeader = textscan(fid, '%s', 'Delimiter', '\n');  
-            fclose(fid);
-            
-            obj.sendToLog(logFileHeader);
+           if ~isempty(obj.loggingHandles)
+               fid = fopen(s, 'r');
+               logFileHeader = textscan(fid, '%s', 'Delimiter', '\n');
+               fclose(fid);
+               
+               obj.sendToLog(logFileHeader);
+           end
        end
        
        function openLog(obj)
@@ -143,13 +175,16 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             if exist(currentFile, 'file') == 2
                 obj.parseFile(currentFile);
-            elseif exist(obj.logFileHeaderFile, 'file') == 2
+            end
+            
+            if ~isempty(obj.logFileHeaderFile) && exist(obj.logFileHeaderFile, 'file') == 2
                 obj.parseFile(obj.logFileHeaderFile);   
             end    
        end 
-           
+              
        function closeLog(obj)
            if ~isempty(obj.loggingHandles)
+               logFile('save_Callback',obj.loggingHandles.edit3,[],obj.loggingHandles,obj.logFileFolders);
                delete(obj.log)
                obj.loggingHandles = {};
                obj.epochNumContinuous = 0;

@@ -41,6 +41,7 @@ classdef (Sealed) Symphony < handle
         hiddenLogFileFolder
         
         loggingOnDefault
+        logging
     end
     
     
@@ -66,8 +67,16 @@ classdef (Sealed) Symphony < handle
             obj.discoverSources();
             
             obj.hiddenLogFileFolder = fullfile(obj.symphonyDir, 'log_files_hidden');
-            obj.loggingOnDefault = 1;
-            
+            obj.loggingOnDefault = 0;
+            obj.logging = 0;
+
+            if ispref('SymphonyProtocol', 'logFileFolder')
+                obj.logFileFolder = getpref('SymphonyProtocol', 'logFileFolder');
+            else
+                obj.logFileFolder = fullfile(obj.symphonyDir, 'log_files');
+                setpref('SymphonyProtocol', 'logFileFolder', obj.logFileFolder);
+            end
+                
             % Create and open the main window.
             obj.showMainWindow();
             
@@ -244,9 +253,14 @@ classdef (Sealed) Symphony < handle
         end
         
         function newProtocol = createProtocol(obj, className)
+            try
+                obj.protocol.closeLog();
+            catch ME %#ok<NASGU>
+            end    
+                
             % Create an instance of the protocol class.
             constructor = str2func(className);
-            newProtocol = constructor();
+            newProtocol = constructor(obj.logging, {obj.logFileFolder,obj.hiddenLogFileFolder});
             
             newProtocol.rigConfig = obj.rigConfig;
             newProtocol.figureHandlerClasses = obj.figureHandlerClasses;
@@ -357,9 +371,10 @@ classdef (Sealed) Symphony < handle
         
         %% Logging
         function enableLogging(obj, ~, ~)
-            logging = get(obj.controls.enableLoggingCheckbox, 'Value'); 
+            obj.logging = get(obj.controls.enableLoggingCheckbox, 'Value'); 
             
-            if(logging)
+            if(obj.logging)
+                obj.protocol.logFileFolders = {obj.logFileFolder,obj.hiddenLogFileFolder};
                 obj.protocol.openLog();
             else
                 deleteLog = questdlg('Are you sure you want to stop logging', 'Stop Logging', 'Yes', 'No', 'No');
@@ -395,13 +410,6 @@ classdef (Sealed) Symphony < handle
                     addlProps = {'Position', getpref('Symphony', 'MainWindow_Position')};
                 else
                     addlProps = {};
-                end
-                
-                if ispref('SymphonyProtocol', 'logFileFolder')
-                    obj.logFileFolder = getpref('SymphonyProtocol', 'logFileFolder');
-                else
-                    obj.logFileFolder = fullfile(obj.symphonyDir, 'log_files');
-                    setpref('SymphonyProtocol', 'logFileFolder', obj.logFileFolder);
                 end
                 
                 obj.protocol.logFileFolders = {obj.logFileFolder,obj.hiddenLogFileFolder};

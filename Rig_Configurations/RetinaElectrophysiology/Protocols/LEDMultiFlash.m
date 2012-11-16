@@ -33,7 +33,8 @@ classdef LEDMultiFlash < SymphonyProtocol
         % Two Required variables if you have a header to load.
         % Example below:
         
-%         logFileHeaderFile = sprintf('%s.log',mfilename('fullpath'));
+        % Required if you have a header to load.
+        logFileHeaderFile = '';
 %        
 %         propertiesToLog = { ...
 %             'prePoints' ...
@@ -41,7 +42,11 @@ classdef LEDMultiFlash < SymphonyProtocol
 %             'lightMean' ...
 %             'stimAmplitude' ...
 %             'preSynapticHold' ...
-%         };        
+%         }; 
+
+        % variables to determin how many channels the protocol has
+        channels = 1;
+        channelNames = {'Ch1'};    
     end
 
     properties (Dependent = true, SetAccess = private) % these properties are inherited - i.e., not modifiable
@@ -49,6 +54,17 @@ classdef LEDMultiFlash < SymphonyProtocol
     end
     
     methods
+        function rc = SealAndLeak(varargin)
+            if nargin == 2
+                logging = varargin{1};
+                logFileFolders = varargin{2};
+            else
+                logging = 0;
+                logFileFolders = {};
+            end
+            rc = rc@SymphonyProtocol(logging, logFileFolders);
+
+        end
         
         function [stimulus, lightAmplitude] = stimulusForEpoch(obj, ~) % epoch Num is usually required
             % Calculate the light amplitude for this epoch.
