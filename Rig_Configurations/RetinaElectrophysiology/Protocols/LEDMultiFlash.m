@@ -54,7 +54,7 @@ classdef LEDMultiFlash < SymphonyProtocol
     end
     
     methods
-        function rc = SealAndLeak(varargin)
+        function obj = LEDMultiFlash(varargin)
             if nargin == 2
                 logging = varargin{1};
                 logFileFolders = varargin{2};
@@ -62,8 +62,8 @@ classdef LEDMultiFlash < SymphonyProtocol
                 logging = 0;
                 logFileFolders = {};
             end
-            rc = rc@SymphonyProtocol(logging, logFileFolders);
-
+            obj = obj@SymphonyProtocol(logging, logFileFolders);
+            obj.protocolProperties = obj.createChannelParameters;
         end
         
         function [stimulus, lightAmplitude] = stimulusForEpoch(obj, ~) % epoch Num is usually required

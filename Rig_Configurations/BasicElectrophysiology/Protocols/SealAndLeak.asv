@@ -57,6 +57,30 @@ classdef SealAndLeak < SymphonyProtocol
             obj.allowSavingEpochs = false;
         end
 
+        function p = createChannelParameters(obj)
+            paramNames = properties(obj);
+            pCount = numel(paramNames);
+            
+            keySet = {'channels'};
+            valueSet = {obj.channelNames};
+            p = containers.Map(keySet,valueSet);
+            
+            tempCell{1,obj.channels} = [];
+            
+            for i = 1:pCount
+                name = paramNames{i};
+                value = obj.(name);
+                if iscell(value) && numel(value) == obj.channels;
+                    p(name) = value;
+                elseif ischar(value) || isnumeric(value)
+                    for j = 1:obj.channels
+                        tempCell{1,j} = value; 
+                    end
+                     p(name) = tempCell;
+                end
+            end
+        end        
+        
         function prepareRig(obj)
             % Call the base class method to set the DAQ sample rate.
             prepareRig@SymphonyProtocol(obj);
