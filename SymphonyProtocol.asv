@@ -39,7 +39,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         persistor = []              % The persistor to use with each epoch.
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
         protocolProperties = {}     % A Map that contains the properties and values for the protocol. This allows for multiple channels
-        selectedChannel = 1         % The channel selected within the protocol
+        previousEpochProtocol = {}
     end
     
     properties
@@ -89,50 +89,58 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.protocolProperties = obj.createChannelParameters;
         end 
 
+        %% Parameters for the Protocol
         function p = createChannelParameters(obj)
             paramNames = properties(obj);
             pCount = numel(paramNames);
             
-            keySet = {'channels'};
-            valueSet = {obj.channelNames};
-            p = containers.Map(keySet,valueSet);
+            p = containers.Map('KeyType','char','ValueType','any');
             
-            tempCell{1,obj.channels} = [];
+            tempCell{1,(obj.channels)} = [];
             
             for i = 1:pCount
                 name = paramNames{i};
-                value = obj.(name);
-                if iscell(value) && numel(value) == obj.channels;
-                    p(name) = value;
-                elseif ischar(value) || isnumeric(value)
-                    for j = 1:obj.channels
-                        tempCell{1,j} = value; 
+                prop = findprop(obj, paramNames{i});
+                if ~prop.Dependent
+                    value = obj.(name);
+                    if ischar(value) || isnumeric(value) || islogical(value) || iscell(value)
+                        if iscell(value)
+                            tempCell{1,(obj.channels+1)} = cell(1,obj.channels);
+                        end
+                        
+                        for j = 1:obj.channels
+                            tempCell{1,j} = value;
+                        end
+                        p(name) = tempCell;
                     end
-                     p(name) = tempCell;
                 end
             end
+            
+            setpref('Symphony', [class(obj) '_Defaults'], p);
         end
         
-        function setState(obj, state)
-            obj.state = state;
-            notify(obj, 'StateChanged');
-        end
-        
-        function dn = requiredDeviceNames(obj) %#ok<MANU>
-            % Override this method to indicate the names of devices that are required for this protocol.
-            dn = {};
-        end
-        
-        
-        function prepareRig(obj)            
-            obj.rigConfig.sampleRate = obj.sampleRate;
-            if ~isempty(obj.loggingHandles)
-                formatSpec = '\rTIME:%s\rRIG: %s\rPROTOCOL: %s\r';    
-                s = sprintf(formatSpec,datestr(now,obj.timeString),obj.rigConfig.displayName,obj.displayName);
-                obj.sendToLog(s);
+        function pPV = getProtocolPropertiesValue(obj, prop)
+            [pPV, isC, isE] = isProtocolPropertiesValueCell(obj,prop);
+            if isC && isE
+                pPV = pPV{obj.selectedChannel}{1};    
+            elseif isC
+                pPV = pPV{obj.selectedChannel}{pPV{obj.channels + 1}{obj.selectedChannel}};
+            else
+                pPV = pPV{obj.selectedChannel};
             end
         end
-       
+        
+        function [pPV, isC, isE] = isProtocolPropertiesValueCell(obj,prop)
+            pPV = obj.protocolProperties(prop);
+            isC = iscell(pPV{obj.selectedChannel});
+            if isC
+                isE = isempty(pPV{obj.channels + 1}{obj.selectedChannel});
+            else
+                isE = false;
+            end
+        end
+        
+        %% Log Functions
        % sendToLog can either take a cell input or a string
        function sendToLog(obj,varargin)
            if nargin > 0 && ~isempty(obj.loggingHandles)
@@ -221,7 +229,27 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 obj.prevEpochGroup = obj.epochGroup;
              end   
        end
-       
+
+        %% Symphony Functions
+        function setState(obj, state)
+            obj.state = state;
+            notify(obj, 'StateChanged');
+        end
+        
+        function dn = requiredDeviceNames(obj) %#ok<MANU>
+            % Override this method to indicate the names of devices that are required for this protocol.
+            dn = {};
+        end
+        
+        function prepareRig(obj)            
+            obj.rigConfig.sampleRate = obj.getProtocolPropertiesValue('sampleRate');
+            if ~isempty(obj.loggingHandles)
+                formatSpec = '\rTIME:%s\rRIG: %s\rPROTOCOL: %s\r';    
+                s = sprintf(formatSpec,datestr(now,obj.timeString),obj.rigConfig.displayName,obj.displayName);
+                obj.sendToLog(s);
+            end
+        end
+        
         function prepareRun(obj)
             % Override this method to perform any actions before the start of the first epoch, e.g. open a figure window, etc.
             obj.epoch = [];
@@ -230,14 +258,13 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             if ~isempty(obj.loggingHandles) && isprop(obj, 'propertiesToLog')
                 if ~isempty(obj.propertiesToLog)
-                    paramNames = obj.parameters();
                     count = numel(obj.propertiesToLog);
 
                     s = '';
                     x = 1;
 
                     for f = 1:count
-                        value=paramNames.(obj.propertiesToLog{f}); 
+                        value=obj.getProtocolPropertiesValue((obj.propertiesToLog{f})); 
                         formatSpec = '%s%s = %s  ';
 
                         if ~ischar(value)
@@ -256,49 +283,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 end
             end
         end
-        
-        
-        function pn = parameterNames(obj, includeConstant)
-            % Return a cell array of strings containing the names of the user-defined parameters.
-            % By default any parameters defined by a protocol that are not constant or hidden are included.
-            
-            if nargin == 1
-                includeConstant = false;
-            end
-            
-            names = properties(obj);
-            pn = {};
-            for nameIndex = 1:numel(names)
-                name = names{nameIndex};
-                metaProp = findprop(obj, name);
-                if ~metaProp.Hidden && (includeConstant || ~metaProp.Constant)
-                    pn{end + 1} = name; %#ok<AGROW>
-                end
-            end
-            pn = pn';
-        end
-        
-        
-        function p = parameters(obj, includeConstant)
-            % Return a struct containing the user-defined parameters.
-            % By default any parameters defined by a protocol are included.
-            
-            if nargin == 1
-                includeConstant = false;
-            end
-            
-            names = obj.parameterNames(includeConstant);
-            for nameIndex = 1:numel(names)
-                name = names{nameIndex};
-                p.(name) = obj.(name);
-            end
-        end
-        
-        
+                
         function stimuli = sampleStimuli(obj) %#ok<MANU>
             stimuli = {};
         end
-        
         
         function prepareEpoch(obj)
             % Override this method to add stimulii, record responses, change parameters, etc.
@@ -352,10 +340,12 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function p = epochSpecificParameters(obj)
             % Determine the parameters unique to the current epoch.
             % TODO: diff against the previous epoch's parameters instead?
-            protocolParams = obj.parameters();
-            p = structDiff(dictionaryToStruct(obj.epoch.ProtocolParameters), protocolParams);
+              if ~isempty(obj.previousEpochProtocol)
+                p = structDiff(dictionaryToStruct(obj.epoch.ProtocolParameters), dictionaryToStruct(obj.previousEpochProtocol));
+              else
+                p = dictionaryToStruct(obj.epoch.ProtocolParameters);
+              end
         end
-        
         
         function r = deviceSampleRate(obj, device, inOrOut)
             % Return the output sample rate for the given device based on any bound stream.
@@ -382,7 +372,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 end
             end
         end
-        
         
         function addStimulus(obj, deviceName, stimulusID, stimulusData, units)
             % Queue data to send to the named device when the epoch is run.
@@ -429,7 +418,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.epoch.Stimuli.Add(device, stim);
         end
         
-        
         function setDeviceBackground(obj, deviceName, background, units)
             % Set a constant stimulus value to be sent to the device.
             
@@ -454,7 +442,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             end
         end
         
-        
         function recordResponse(obj, deviceName)
             % Record the response from the device with the given name when the epoch runs.
             
@@ -465,7 +452,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             obj.epoch.Responses.Add(device, Response());
         end
-        
         
         function [r, s, u] = response(obj, deviceName)
             % Return the response, sample rate and units recorded from the device with the given name.
@@ -511,8 +497,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 % Cache the results.
                 obj.responses(deviceName) = struct('data', r, 'sampleRate', s, 'units', u);
             end
-        end
-            
+        end 
                     
         function completeEpoch(obj)
             % Override this method to perform any post-analysis, etc. on the current epoch.
@@ -527,8 +512,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 obj.sendToLog(s);
             end
             obj.updateFigures();
-        end
-        
+            obj.previousEpochProtocol = obj.epoch.ProtocolParameters;
+        end     
          
         function keepGoing = continueRun(obj)
             % Override this method to return true/false based on the current state.
@@ -537,7 +522,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             keepGoing = strcmp(obj.state, 'running');
         end
         
-        
         function completeRun(obj)
             % Override this method to perform any actions after the last epoch has completed.
             if ~isempty(obj.loggingHandles)
@@ -545,7 +529,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             end
             obj.setState('stopped');
         end
-        
         
         function run(obj)
             % This is the core method that runs a protocol, everything else is preparation for this.
@@ -564,20 +547,25 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     
                     % Prepare the epoch: set backgrounds, add stimuli, record responses, add parameters, etc.
                     obj.prepareEpoch();
+                                        
+                    paramNames = properties(obj);
+                    pCount = numel(paramNames);
                     
-                    % Persist the params now that the sub-class has had a chance to tweak them.
-                    pluginParams = obj.parameters(true);
-                    fields = fieldnames(pluginParams);
-                    for fieldName = fields'
-                        fieldValue = pluginParams.(fieldName{1});
-                        if ~ischar(fieldValue) && length(fieldValue) > 1
-                            if isnumeric(fieldValue)
-                                fieldValue = sprintf('%g ', fieldValue);
-                            else
-                                error('Parameter values must be scalar or vectors of numbers.');
+                    for i = 1:pCount
+                        prop = findprop(obj, paramNames{i});
+                        if ~prop.Dependent
+                            name = paramNames{i};
+                            value = obj.getProtocolPropertiesValue(name);
+                            
+                            if ~ischar(value) && length(value) > 1
+                                if isnumeric(value)
+                                    value = sprintf('%g ', value);
+                                else
+                                    error('Parameter values must be scalar or vectors of numbers.');
+                                end
                             end
-                        end
-                        obj.epoch.ProtocolParameters.Add(fieldName{1}, fieldValue);
+                            obj.epoch.ProtocolParameters.Add(name, value);
+                        end 
                     end
                     
                     try
@@ -612,12 +600,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             end
         end
         
-        
         function pause(obj)
             % Set a flag that will be checked after the current epoch completes.
             obj.setState('pausing');
         end
-        
         
         function stop(obj)
             if strcmp(obj.state, 'paused')
@@ -628,7 +614,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             end
         end
         
-        
         function m = get.multiClampMode(obj)
             try
                 m = obj.rigConfig.multiClampMode();
@@ -637,13 +622,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             end
         end
         
-    end
     
-    
-    methods
-        
-        % Figure handling methods.
-        
+        %% Figure handeling Methods 
         function handler = openFigure(obj, figureType, varargin)
             if ~isKey(obj.figureHandlerClasses, figureType)
                 error('The ''%s'' figure handler is not available.', figureType);

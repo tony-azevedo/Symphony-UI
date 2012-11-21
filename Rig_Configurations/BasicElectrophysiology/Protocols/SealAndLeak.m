@@ -5,7 +5,7 @@
 
 classdef SealAndLeak < SymphonyProtocol
     
-    properties (Constant)
+    properties (Constant, Hidden)
         identifier = 'org.janelia.research.murphy.sealandleak'
         version = 1
         displayName = 'Seal and Leak'
@@ -17,6 +17,7 @@ classdef SealAndLeak < SymphonyProtocol
         pulseDuration = uint32(50)      % milliseconds
         pulseAmplitude = 5              % picoamperes or millivolts
         background = 0                  % picoamperes or millivolts
+        CHANNELS = {'Ch1'};        
     end
     
     properties (Hidden)
@@ -34,7 +35,7 @@ classdef SealAndLeak < SymphonyProtocol
 
         % variables to determin how many channels the protocol has
         channels = 1;
-        channelNames = {'Ch1'};    
+        selectedChannel = 1         % The channel selected within the protocol
     end
     
     methods        
@@ -52,7 +53,6 @@ classdef SealAndLeak < SymphonyProtocol
             end
             
             obj = obj@SymphonyProtocol(logging,logFileFolders);
-            obj.protocolProperties = obj.createChannelParameters;
             
             obj.allowSavingEpochs = false;
         end
@@ -71,11 +71,11 @@ classdef SealAndLeak < SymphonyProtocol
         
         function stimulus = stimulusForDevice(obj, deviceName)
             sampleRate = obj.deviceSampleRate(deviceName, 'OUT');
-            epochSamples = floor(double(obj.epochDuration) / 1000.0 * System.Decimal.ToDouble(sampleRate.Quantity));
-            pulseSamples = floor(double(obj.pulseDuration) / 1000.0 * System.Decimal.ToDouble(sampleRate.Quantity));
+            epochSamples = floor(double(obj.getProtocolPropertiesValue('epochDuration')) / 1000.0 * System.Decimal.ToDouble(sampleRate.Quantity));
+            pulseSamples = floor(double(obj.getProtocolPropertiesValue('pulseDuration')) / 1000.0 * System.Decimal.ToDouble(sampleRate.Quantity));
             pulseStart = floor((epochSamples - pulseSamples) / 2.0);    % centered within the epoch
-            stimulus = ones(1, epochSamples) * obj.background;
-            stimulus(pulseStart:pulseStart + pulseSamples - 1) = ones(1, pulseSamples) * (obj.pulseAmplitude + obj.background);
+            stimulus = ones(1, epochSamples) * obj.getProtocolPropertiesValue('background');
+            stimulus(pulseStart:pulseStart + pulseSamples - 1) = ones(1, pulseSamples) * (obj.getProtocolPropertiesValue('pulseAmplitude') + obj.getProtocolPropertiesValue('background');
         end
         
         
@@ -108,9 +108,9 @@ classdef SealAndLeak < SymphonyProtocol
             prepareEpoch@SymphonyProtocol(obj);
             
             if strcmp(obj.multiClampMode, 'VClamp')
-                obj.setDeviceBackground('Amplifier_Ch1', obj.background * 1e-3, 'V');
+                obj.setDeviceBackground('Amplifier_Ch1', obj.getProtocolPropertiesValue('background') * 1e-3, 'V');
             else
-                obj.setDeviceBackground('Amplifier_Ch1', obj.background * 1e-12, 'A');
+                obj.setDeviceBackground('Amplifier_Ch1', obj.getProtocolPropertiesValue('background') * 1e-12, 'A');
             end
             
             stimulus = obj.stimulusForDevice('Amplifier_Ch1');

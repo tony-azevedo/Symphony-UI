@@ -7,12 +7,12 @@
 %  http://license.janelia.org/license/jfrc_copyright_1_1.html
 %
 %  Modified by TA 9.8.12 from LED Family to create a single LED pulse protocol
-classdef TwoChannelLEDFlash < SymphonyProtocol
+classdef OneChannelLED < SymphonyProtocol
 
-    properties (Constant)
+    properties (Constant, Hidden)
         identifier = 'helsinki.yliopisto.pal'
         version = 1
-        displayName = 'Two Channel LED Flash'
+        displayName = 'One Channel LED'
 		rigIdentifier = 'LEDBoxElectrophysiology'
     end
     
@@ -26,7 +26,7 @@ classdef TwoChannelLEDFlash < SymphonyProtocol
         numberOfAverages = uint8(5);
         interpulseInterval = 0.6;
         continuousRun = false;
-        LED = {'Ch1'};
+        CHANNELS = {'Ch1'};
         TTL1 = {'A','B'};
     end
     
@@ -45,7 +45,7 @@ classdef TwoChannelLEDFlash < SymphonyProtocol
     
         % variables to determin how many channels the protocol has
         channels = 1;
-        channelNames = {'Ch1'};     
+        selectedChannel = 1         % The channel selected within the protocol
     end
     
     properties (Dependent = true, SetAccess = private) % these properties are inherited - i.e., not modifiable
@@ -53,7 +53,7 @@ classdef TwoChannelLEDFlash < SymphonyProtocol
     end
     
     methods
-        function obj = TwoChannelLEDFlash(varargin)
+        function obj = OneChannelLED(varargin)
             if nargin == 2
                 logging = varargin{1};
                 logFileFolders = varargin{2};
@@ -68,11 +68,17 @@ classdef TwoChannelLEDFlash < SymphonyProtocol
         function [stimulus, lightAmplitude] = stimulusForEpoch(obj, ~) % epoch Num is usually required
             % Calculate the light amplitude for this epoch.
             % phase = single(mod(epochNum - 1, obj.stepsInFamily));               % Frank's clever way to determine which flash in a family to deliver
-            lightAmplitude = obj.stimAmplitude; % * obj.ampStepScale ^ phase;   % Frank's clever way to determine the amplitude of the flash family to deliver
+            lightAmplitude = obj.getProtocolPropertiesValue('stimAmplitude'); % * obj.ampStepScale ^ phase;   % Frank's clever way to determine the amplitude of the flash family to deliver
             
             % Create the stimulus
-            stimulus = ones(1, obj.prePoints + obj.stimPoints + obj.tailPoints) * obj.lightMean;
-            stimulus(obj.prePoints + 1:obj.prePoints + obj.stimPoints) = lightAmplitude;
+            pP = obj.getProtocolPropertiesValue('prePoints');
+            sP = obj.getProtocolPropertiesValue('stimPoints');
+            
+            stimulus = ones(1, pP...
+                             + sP...
+                             + obj.getProtocolPropertiesValue('tailPoints'))...
+                             * obj.getProtocolPropertiesValue('lightMean');
+            stimulus(pP + 1:pP + sP) = lightAmplitude;
         end
         
         
@@ -85,16 +91,16 @@ classdef TwoChannelLEDFlash < SymphonyProtocol
             % Call the base class method to set the DAQ sample rate.
             prepareRig@SymphonyProtocol(obj);
             ttl1 = 1;
-            if strcmp(obj.TTL1,'A')
+            if strcmp(obj.getProtocolPropertiesValue('TTL1'),'A')
                 ttl1 = 0;
             end
             obj.setDeviceBackground('AORB', ttl1, '_unitless_');
-            obj.setDeviceBackground(obj.LED, obj.lightMean, 'V');
+            obj.setDeviceBackground(obj.getProtocolPropertiesValue('CHANNELS'), obj.getProtocolPropertiesValue('lightMean'), 'V');
 
             if strcmp(obj.rigConfig.multiClampMode('Amplifier_Ch1'), 'IClamp')
-                obj.setDeviceBackground('Amplifier_Ch1', double(obj.preSynapticHold) * 1e-12, 'A');
+                obj.setDeviceBackground('Amplifier_Ch1', double(obj.getProtocolPropertiesValue('preSynapticHold')) * 1e-12, 'A');
             else
-                obj.setDeviceBackground('Amplifier_Ch1', double(obj.preSynapticHold) * 1e-3, 'V');
+                obj.setDeviceBackground('Amplifier_Ch1', double(obj.getProtocolPropertiesValue('preSynapticHold')) * 1e-3, 'V');
             end
         end
         
@@ -116,13 +122,13 @@ classdef TwoChannelLEDFlash < SymphonyProtocol
             [stimulus, lightAmplitude] = obj.stimulusForEpoch(obj.epochNum);
             obj.addParameter('lightAmplitude', lightAmplitude);
             %obj.addStimulus('LED', 'test-stimulus', stimulus, 'V');    %
-            obj.setDeviceBackground(obj.LED, obj.lightMean, 'V');
+            obj.setDeviceBackground(obj.getProtocolPropertiesValue('CHANNELS'), obj.getProtocolPropertiesValue('lightMean'), 'V');
             if strcmp(obj.multiClampMode, 'VClamp')
-                obj.setDeviceBackground('Amplifier_Ch1', double(obj.preSynapticHold) * 1e-3, 'V');
+                obj.setDeviceBackground('Amplifier_Ch1', double(obj.getProtocolPropertiesValue('preSynapticHold')) * 1e-3, 'V');
             else
-                obj.setDeviceBackground('Amplifier_Ch1', double(obj.preSynapticHold) * 1e-12, 'A');
+                obj.setDeviceBackground('Amplifier_Ch1', double(obj.getProtocolPropertiesValue('preSynapticHold')) * 1e-12, 'A');
             end 
-            obj.addStimulus(obj.LED, sprintf('%s stimulus',obj.LED), stimulus, 'V');    %
+            obj.addStimulus(obj.getProtocolPropertiesValue('CHANNELS'), sprintf('%s stimulus',obj.getProtocolPropertiesValue('CHANNELS')), stimulus, 'V');    %
         end
         
         
@@ -131,8 +137,8 @@ classdef TwoChannelLEDFlash < SymphonyProtocol
             
             % baseline mean and var
             if ~isempty(r)
-                stats.mean = mean(r(1:obj.prePoints));
-                stats.var = var(r(1:obj.prePoints));
+                stats.mean = mean(r(1:obj.getProtocolPropertiesValue('prePoints')));
+                stats.var = var(r(1:obj.getProtocolPropertiesValue('prePoints')));
             else
                 stats.mean = 0;
                 stats.var = 0;
@@ -155,7 +161,7 @@ classdef TwoChannelLEDFlash < SymphonyProtocol
             keepGoing = continueRun@SymphonyProtocol(obj);
             
             if keepGoing
-                keepGoing = obj.epochNum < obj.numberOfAverages;
+                keepGoing = obj.epochNum < obj.getProtocolPropertiesValue('numberOfAverages');
             end
         end
         

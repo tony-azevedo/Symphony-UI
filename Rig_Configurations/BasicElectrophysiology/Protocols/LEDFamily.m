@@ -5,7 +5,7 @@
 
 classdef LEDFamily < SymphonyProtocol
     
-    properties (Constant)
+    properties (Constant, Hidden)
         identifier = 'org.janelia.research.murphy.LEDFamily'
         version = 1
         displayName = 'LED Family'
@@ -24,6 +24,7 @@ classdef LEDFamily < SymphonyProtocol
         numberOfAverages = uint8(5);
         interpulseInterval = 0.6;
         continuousRun = false;
+        CHANNELS = {'Ch1'};        
     end
     
     properties (Dependent = true, SetAccess = private) % these properties are inherited - i.e., not modifiable
@@ -45,7 +46,7 @@ classdef LEDFamily < SymphonyProtocol
     
         % variables to determin how many channels the protocol has
         channels = 1;
-        channelNames = {'Ch1'};    
+        selectedChannel = 1         % The channel selected within the protocol
     end
     
     methods
@@ -58,23 +59,28 @@ classdef LEDFamily < SymphonyProtocol
                 logFileFolders = {};
             end
             obj = obj@SymphonyProtocol(logging, logFileFolders);
-            obj.protocolProperties = obj.createChannelParameters;
         end
         
         function [stimulus, lightAmplitude] = stimulusForEpoch(obj, epochNum)
             % Calculate the light amplitude for this epoch.
-            phase = single(mod(epochNum - 1, obj.stepsInFamily));               % Frank's clever way to determine which flash in a family to deliver
-            lightAmplitude = obj.baseLightAmplitude * obj.ampStepScale ^ phase;   % Frank's clever way to determine the amplitude of the flash family to deliver
+            phase = single(mod(epochNum - 1, obj.getProtocolPropertiesValue('stepsInFamily')));               % Frank's clever way to determine which flash in a family to deliver
+            lightAmplitude = obj.getProtocolPropertiesValue('baseLightAmplitude') * obj.getProtocolPropertiesValue('ampStepScale') ^ phase;   % Frank's clever way to determine the amplitude of the flash family to deliver
             
             % Create the stimulus
-            stimulus = ones(1, obj.prePoints + obj.stimPoints + obj.tailPoints) * obj.lightMean;
-            stimulus(obj.prePoints + 1:obj.prePoints + obj.stimPoints) = lightAmplitude;
+            pP = obj.getProtocolPropertiesValue('prePoints');
+            sP = obj.getProtocolPropertiesValue('stimPoints');
+            
+            stimulus = ones(1, pP...
+                             + sP...
+                             + obj.getProtocolPropertiesValue('tailPoints'))...
+                             * obj.getProtocolPropertiesValue('lightMean');
+            stimulus(pP + 1:pP + sP) = lightAmplitude;
         end
         
         
         function stimuli = sampleStimuli(obj)
-            stimuli = cell(obj.stepsInFamily, 1);
-            for i = 1:obj.stepsInFamily
+            stimuli = cell(obj.getProtocolPropertiesValue('stepsInFamily'), 1);
+            for i = 1:obj.getProtocolPropertiesValue('stepsInFamily')
                 stimuli{i} = obj.stimulusForEpoch(i);
             end
         end
@@ -111,11 +117,11 @@ classdef LEDFamily < SymphonyProtocol
             [stimulus, lightAmplitude] = obj.stimulusForEpoch(obj.epochNum);
             obj.addParameter('lightAmplitude', lightAmplitude);
             %obj.addStimulus('LED', 'test-stimulus', stimulus, 'V');    %
-            obj.setDeviceBackground('LED', obj.lightMean, 'V');
+            obj.setDeviceBackground(obj.getProtocolPropertiesValue('CHANNELS'), obj.getProtocolPropertiesValue('lightMean'), 'V');
             if strcmp(obj.multiClampMode, 'VClamp')
-                obj.setDeviceBackground('Amplifier_Ch1', double(obj.preSynapticHold) * 1e-3, 'V');
+                obj.setDeviceBackground('Amplifier_Ch1', double(obj.getProtocolPropertiesValue('preSynapticHold')) * 1e-3, 'V');
             else
-                obj.setDeviceBackground('Amplifier_Ch1', double(obj.preSynapticHold) * 1e-12, 'A');
+                obj.setDeviceBackground('Amplifier_Ch1', double(obj.getProtocolPropertiesValue('preSynapticHold')) * 1e-12, 'A');
             end 
             obj.addStimulus('LED', 'LED stimulus', stimulus, 'V');    %
         end
@@ -144,13 +150,13 @@ classdef LEDFamily < SymphonyProtocol
             keepGoing = continueRun@SymphonyProtocol(obj);
             
             if keepGoing
-                keepGoing = obj.epochNum < obj.stepsInFamily * obj.numberOfAverages;
+                keepGoing = obj.epochNum < obj.getProtocolPropertiesValue('stepsInFamily') * obj.getProtocolPropertiesValue('numberOfAverages');
             end
         end
         
         
         function amp = get.ampOfLastStep(obj)   % The product of the number of steps in family, the first step amplitude, and the 'scale factor'
-            amp = obj.baseLightAmplitude * obj.ampStepScale ^ (obj.stepsInFamily - 1);
+            amp = obj.getProtocolPropertiesValue('baseLightAmplitude') * obj.getProtocolPropertiesValue('ampStepScale') ^ (obj.getProtocolPropertiesValue('stepsInFamily') - 1);
         end
 
     end
