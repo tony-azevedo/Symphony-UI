@@ -13,6 +13,8 @@ channels = handles.protocolCopy.channels;
 paramNames = keys(params);
 paramCount = params.Count;
 
+currentChannel = handles.protocolCopy.curre
+
 defaultProperties = getpref('Symphony', [class(handles.protocol) '_Defaults']);
 
 stimuli = handles.protocolCopy.sampleStimuli();
@@ -469,10 +471,7 @@ try
     handles.protocol.rigConfig.prepared();
     handles.protocol.rigPrepared = true;
     
-    % update the SymphonyProtocol object with the changes made to the copy
     handles.protocol.protocolProperties = handles.protocolCopy.protocolProperties;
-    handles.protocol.selectedChannel = handles.protocolCopy.selectedChannel;
-    
     % Remember these parameters for the next time the protocol is used.
     setpref('Symphony', [class(handles.protocol) '_Defaults'], handles.protocol.protocolProperties);    
 catch ME
