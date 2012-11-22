@@ -13,8 +13,6 @@ channels = handles.protocolCopy.channels;
 paramNames = keys(params);
 paramCount = params.Count;
 
-currentChannel = handles.protocolCopy.curre
-
 defaultProperties = getpref('Symphony', [class(handles.protocol) '_Defaults']);
 
 stimuli = handles.protocolCopy.sampleStimuli();
@@ -223,7 +221,7 @@ for i = 1:length(textFieldParamNames)
     hObject = handles.([paramName 'Edit']);
     try
         javaHandle = findjobj(hObject);
-        set(javaHandle, 'KeyTypedCallback', {@valueChanged, hObject, paramName});
+        set(javaHandle, 'FocusLostCallback', {@valueChanged, hObject, paramName});
     catch ME %#ok<NASGU>
     end
 end
@@ -246,6 +244,8 @@ updateSingleValue(handles, paramName);
 updateStimuli(handles);
 end
 
+%If the user is changing the channel, update all values. If the user is
+%just changing a parameter, update that
 function popUpMenuChanged(~, ~, handles, paramTag, paramName)
 if strcmp(paramTag, 'CHANNELSEdit')
     % set the new channel
@@ -263,6 +263,7 @@ end
 updateStimuli(handles);
 end
 
+% If a textbox looses focus the value is updated
 function valueChanged(~, ~, hObject, paramName)
 handles = guidata(hObject);    
 updateSingleValue(handles, paramName);
@@ -471,7 +472,10 @@ try
     handles.protocol.rigConfig.prepared();
     handles.protocol.rigPrepared = true;
     
+    % update the SymphonyProtocol object with the changes made to the copy
     handles.protocol.protocolProperties = handles.protocolCopy.protocolProperties;
+    handles.protocol.selectedChannel = handles.protocolCopy.selectedChannel;
+    
     % Remember these parameters for the next time the protocol is used.
     setpref('Symphony', [class(handles.protocol) '_Defaults'], handles.protocol.protocolProperties);    
 catch ME

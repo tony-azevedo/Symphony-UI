@@ -221,7 +221,7 @@ for i = 1:length(textFieldParamNames)
     hObject = handles.([paramName 'Edit']);
     try
         javaHandle = findjobj(hObject);
-        set(javaHandle, 'KeyTypedCallback', {@valueChanged, hObject, paramName});
+        set(javaHandle, 'FocusLostCallback', {@valueChanged, hObject, paramName});
     catch ME %#ok<NASGU>
     end
 end
@@ -244,6 +244,8 @@ updateSingleValue(handles, paramName);
 updateStimuli(handles);
 end
 
+%If the user is changing the channel, update all values. If the user is
+%just changing a parameter, update that
 function popUpMenuChanged(~, ~, handles, paramTag, paramName)
 if strcmp(paramTag, 'CHANNELSEdit')
     % set the new channel
@@ -261,6 +263,7 @@ end
 updateStimuli(handles);
 end
 
+% If a textbox looses focus the value is updated
 function valueChanged(~, ~, hObject, paramName)
 handles = guidata(hObject);    
 updateSingleValue(handles, paramName);
@@ -338,6 +341,7 @@ end
 
 
 %% Functions to update values
+% Push a single value to the copy of the plug-in.
 function updateSingleValue(handles, paramName)
 paramValue = getParamValueFromUI(handles, paramName);
 paramChannel = handles.protocolCopy.selectedChannel;

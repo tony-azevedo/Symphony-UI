@@ -89,15 +89,6 @@ classdef ThreeChannelLED < SymphonyProtocol
             stimulus{1} = obj.stimulusForEpoch();
         end
         
-        function value = getProtocolPropertiesValue(obj, prop)
-            value = obj.protocolProperties(prop);
-            
-            if iscell(value{obj.selectedChannel})
-                value = value{obj.channels + 1}{obj.selectedChannel};
-            else
-                value = value{obj.selectedChannel};
-            end
-        end
         
         function prepareRig(obj)
             % Call the base class method to set the DAQ sample rate.

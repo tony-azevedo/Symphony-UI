@@ -90,6 +90,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end 
 
         %% Parameters for the Protocol
+        
+        % creating the protocol object that will be used within the
+        % application it is built from the properties specified within the
+        % protocol
         function p = createChannelParameters(obj)
             paramNames = properties(obj);
             pCount = numel(paramNames);
@@ -119,6 +123,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             setpref('Symphony', [class(obj) '_Defaults'], p);
         end
         
+        % A function to return the value of the protocol
         function pPV = getProtocolPropertiesValue(obj, prop)
             [pPV, isC, isE] = isProtocolPropertiesValueCell(obj,prop);
             if isC && isE
@@ -130,6 +135,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             end
         end
         
+        % A function that returns the property and allows a way for a quick
+        % check to see if it is a cell and weather the pointer is empty
         function [pPV, isC, isE] = isProtocolPropertiesValueCell(obj,prop)
             pPV = obj.protocolProperties(prop);
             isC = iscell(pPV{obj.selectedChannel});
@@ -164,6 +171,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
            end
        end
        
+       % A function to parse a simple text file
        function  parseFile(obj, s)
            if ~isempty(obj.loggingHandles)
                fid = fopen(s, 'r');
@@ -174,6 +182,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
            end
        end
        
+       % A function to open the log file       
        function openLog(obj)
             obj.log = logFile(obj.logFileFolders);
             set(0, 'showHiddenHandles', 'on');
@@ -192,7 +201,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 obj.parseFile(obj.logFileHeaderFile);   
             end    
        end 
-              
+       
+       %A function to close the log file
        function closeLog(obj)
            if ~isempty(obj.loggingHandles)
                logFile('save_Callback',obj.loggingHandles.edit3,[],obj.loggingHandles,obj.logFileFolders);
@@ -201,7 +211,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                obj.epochNumContinuous = 0;
            end
        end
-              
+       
+       %A function to send information about created epoch groups through
+       %to the log file
        function logEpochGroup(obj)
             if ~isempty(obj.loggingHandles) && ...
                ~isempty(obj.epochGroup) && ...
