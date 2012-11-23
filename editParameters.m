@@ -265,10 +265,15 @@ end
 
 % If a textbox looses focus the value is updated
 function valueChanged(~, ~, hObject, paramName)
+try
 handles = guidata(hObject);    
 updateSingleValue(handles, paramName);
 updateStimuli(handles);
 drawnow
+catch ME %#ok<NASGU>
+    % The text box looses focus on the enter key/esc key being pressed
+    % therefore this function gets called after the GUI has been dealt with
+end
 end
 
 function stepValue(~, ~, handles, paramTag, direction, paramName)
@@ -434,7 +439,7 @@ paramNames = keys(params);
 paramCount = params.Count;
 paramChannel = handles.protocolCopy.selectedChannel;
 
-channels = handles.protocol.channels;
+channels = handles.protocolCopy.channels;
 
 for paramIndex = 1:paramCount
     paramName = paramNames{paramIndex};
@@ -468,17 +473,17 @@ for paramIndex = 1:paramCount
 end
 
 try    
-    % Allow the protocol to apply any of the new settings to the rig.
-    handles.protocol.prepareRig();
-    handles.protocol.rigConfig.prepared();
-    handles.protocol.rigPrepared = true;
-    
     % update the SymphonyProtocol object with the changes made to the copy
     handles.protocol.protocolProperties = handles.protocolCopy.protocolProperties;
     handles.protocol.selectedChannel = handles.protocolCopy.selectedChannel;
-    
-    % Remember these parameters for the next time the protocol is used.
+
+    % Remember these parameters for the next time edit Parameters is loaded.
     setpref('Symphony', [class(handles.protocol) '_Defaults'], handles.protocol.protocolProperties);    
+
+    % Allow the protocol to apply any of the new settings to the rig.
+    handles.protocol.prepareRig();
+    handles.protocol.rigConfig.prepared();
+    handles.protocol.rigPrepared = true;        
 catch ME
     % TODO: What should be done if the rig can't be prepared?
     throw(ME);

@@ -94,7 +94,8 @@ classdef TwoChannelLED < SymphonyProtocol
             if strcmp(obj.getProtocolPropertiesValue('TTL1'),'A')
                 ttl1 = 0;
             end
-            obj.setDeviceBackground('AORB', ttl1, '_unitless_');
+            
+            obj.setDeviceBackground([obj.getProtocolPropertiesValue('CHANNELS') 'AORB'], ttl1, '_unitless_');
             obj.setDeviceBackground(obj.getProtocolPropertiesValue('CHANNELS'), obj.getProtocolPropertiesValue('lightMean'), 'V');
 
             if strcmp(obj.rigConfig.multiClampMode('Amplifier_Ch1'), 'IClamp')

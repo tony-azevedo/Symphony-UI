@@ -94,17 +94,18 @@ classdef ThreeChannelLED < SymphonyProtocol
             % Call the base class method to set the DAQ sample rate.
             prepareRig@SymphonyProtocol(obj);
             
-            ttl1 = 1;
+            ttl1 = 5;
             if strcmp(obj.getProtocolPropertiesValue('TTL1'),'A')
                 ttl1 = 0;
             end
             
-            obj.setDeviceBackground('AORB', ttl1, '_unitless_');
+            obj.setDeviceBackground([obj.getProtocolPropertiesValue('CHANNELS') 'AORB'], ttl1, '_unitless_');
             obj.setDeviceBackground(obj.getProtocolPropertiesValue('CHANNELS'), obj.getProtocolPropertiesValue('lightMean'), 'V');
 
             if strcmp(obj.rigConfig.multiClampMode('Amplifier_Ch1'), 'IClamp')
                 obj.setDeviceBackground('Amplifier_Ch1', double(obj.getProtocolPropertiesValue('preSynapticHold')) * 1e-12, 'A');
             else
+                % multiClampMode is 'VClamp'
                 obj.setDeviceBackground('Amplifier_Ch1', double(obj.getProtocolPropertiesValue('preSynapticHold')) * 1e-3, 'V');
             end
         end
@@ -126,7 +127,7 @@ classdef ThreeChannelLED < SymphonyProtocol
             
             [stimulus, lightAmplitude] = obj.stimulusForEpoch(obj.epochNum);
             obj.addParameter('lightAmplitude', lightAmplitude);
-            obj.setDeviceBackground(obj.getProtocolPropertiesValue('CHANNEL'), obj.getProtocolPropertiesValue('lightMean'), 'V');
+            obj.setDeviceBackground(obj.getProtocolPropertiesValue('CHANNELS'), obj.getProtocolPropertiesValue('lightMean'), 'V');
             if strcmp(obj.multiClampMode, 'VClamp')
                 obj.setDeviceBackground('Amplifier_Ch1', double(obj.getProtocolPropertiesValue('preSynapticHold')) * 1e-3, 'V');
             else
