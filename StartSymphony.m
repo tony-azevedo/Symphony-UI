@@ -7,8 +7,8 @@ clear
 clear all classes *
 clc
 
-class = 'StartSymphony'
-clear class
+Application = 'StartSymphony'  %#ok<NOPTS,NASGU>
+clear Application
 
 if verLessThan('matlab', '7.12')
     error('Symphony requires MATLAB 7.12.0 (R2011a) or later');

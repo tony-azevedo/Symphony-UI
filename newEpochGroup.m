@@ -304,10 +304,14 @@ function epochGroup = newEpochGroup(parentGroup, sources, prevEpochGroup, clock)
     % Wait until the user clicks the cancel or save button.
     uiwait
     
-    handles = guidata(handles.figure);
-    epochGroup = handles.epochGroup;
+    try
+        handles = guidata(handles.figure);
+        epochGroup = handles.epochGroup;
+        close(handles.figure);
+    catch ME %#ok<NASGU>
+        uiresume
+    end    
     
-    close(handles.figure);
 end
 
 function nodes = sourceHierarchyExpandFcn(~, sourcePath, handles)

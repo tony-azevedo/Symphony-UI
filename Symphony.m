@@ -79,7 +79,7 @@ classdef (Sealed) Symphony < handle
             
             
             obj.setRigConfig();
-                
+            
             if ~isempty(obj.rigConfig)
                 obj.setRigProtocols();
                 obj.createNewProtocol(1);
@@ -411,7 +411,7 @@ classdef (Sealed) Symphony < handle
         %% GUI layout/control
         function showMainWindow(obj)
             import Symphony.Core.*;
-                        
+            
             obj.wasSavingEpochs = true;
             
             % Restore the window position if possible.
@@ -964,12 +964,24 @@ classdef (Sealed) Symphony < handle
         end
         
         function closeRequestOnError(obj, ~, ~)
-            % Delete the Main Window.
+            % There was an error in Symphony so lets clear all preferences
+            % that are non core preferences
+            symphonyPref = getpref('Symphony');
+            
+            HekaBusID = symphonyPref.HekaBusID;
+            MultiClamp_SerialNumber = symphonyPref.MultiClamp_SerialNumber;
+            MainWindow_Position = symphonyPref.MainWindow_Position;
+            
+            clear symphonyPref;
+            
+            rmpref('Symphony');
+            
+            setpref('Symphony',{'HekaBusID','MultiClamp_SerialNumber','MainWindow_Position'},{HekaBusID,MultiClamp_SerialNumber,MainWindow_Position})
+            % Delete the Main Window if it has been opened.
             delete(obj.mainWindow);
-            delete(obj.protocol);
             delete(obj);
-            clear *;
-            clear all;
+            clear all *;
+            close all;
         end
         
         function closeRequestFcn(obj, ~, ~)
@@ -1008,8 +1020,7 @@ classdef (Sealed) Symphony < handle
             % Delete the entire Symphony object
             delete(obj);
             
-            clear *;
-            clear all;
+            clear all *;
             close all;
         end
         
@@ -1020,7 +1031,12 @@ classdef (Sealed) Symphony < handle
         function createNewEpochGroup(obj, ~, ~)
             import Symphony.Core.*;
             
-            group = newEpochGroup(obj.epochGroup, obj.sources, obj.prevEpochGroup, obj.rigConfig.controller.Clock);
+            try
+                group = newEpochGroup(obj.epochGroup, obj.sources, obj.prevEpochGroup, obj.rigConfig.controller.Clock);
+            catch ME  %#ok<NASGU>
+                group = [];
+            end
+            
             if ~isempty(group)
                 if isempty(obj.persistor)
                     % Create the persistor and metadata XML.
