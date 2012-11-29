@@ -79,14 +79,16 @@ classdef (Sealed) Symphony < handle
             
             
             obj.setRigConfig();
-            
+                
             if ~isempty(obj.rigConfig)
                 obj.setRigProtocols();
                 obj.createNewProtocol(1);
-
-                % Create and open the main window.
-                obj.showMainWindow();
-                obj.updateUIState();
+                
+                if ~isempty(obj.rigConfig)
+                    % Create and open the main window.
+                    obj.showMainWindow();
+                    obj.updateUIState();
+                end
             else
                 obj.closeRequestOnError();
             end
@@ -175,8 +177,7 @@ classdef (Sealed) Symphony < handle
             catch ME
                 % Cannot create a rig config the same as the last one chosen by the user.
                 % Try to make a default one instead.
-                delete(obj.rigConfig);
-                obj.rigConfig = [];
+                clear obj.rigConfig;
                 
                 if ~strcmp(ME.message, 'User Cancelled')
                     allowMultiClampDevices = ~strcmp(ME.identifier, 'Symphony:MultiClamp:UnknownMode');
@@ -189,8 +190,7 @@ classdef (Sealed) Symphony < handle
                             obj.rigConfigValue = i;
                             break
                         catch ME
-                            delete(obj.rigConfig);
-                            obj.rigConfig = [];
+                            clear obj.rigConfig;
                             
                             if ~strcmp(ME.message, 'User Cancelled')
                                 disp(['Could not create a ' obj.rigConfigClassNames{i}]);

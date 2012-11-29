@@ -238,8 +238,7 @@ classdef RigConfiguration < handle
                     if strcmp(mode, 'VClamp') || strcmp(mode, 'I0') || strcmp(mode, 'IClamp')
                         gotMode = true;
                     end
-                catch ME
-                    throwAsCaller(ME);
+                catch ME %#ok<NASGU>
                 end
                 
                 if ~gotMode
