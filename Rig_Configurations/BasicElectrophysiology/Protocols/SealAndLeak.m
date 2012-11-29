@@ -75,7 +75,7 @@ classdef SealAndLeak < SymphonyProtocol
             pulseSamples = floor(double(obj.getProtocolPropertiesValue('pulseDuration')) / 1000.0 * System.Decimal.ToDouble(sampleRate.Quantity));
             pulseStart = floor((epochSamples - pulseSamples) / 2.0);    % centered within the epoch
             stimulus = ones(1, epochSamples) * obj.getProtocolPropertiesValue('background');
-            stimulus(pulseStart:pulseStart + pulseSamples - 1) = ones(1, pulseSamples) * (obj.getProtocolPropertiesValue('pulseAmplitude') + obj.getProtocolPropertiesValue('background');
+            stimulus(pulseStart:pulseStart + pulseSamples - 1) = ones(1, pulseSamples) * (obj.getProtocolPropertiesValue('pulseAmplitude') + obj.getProtocolPropertiesValue('background'));
         end
         
         

@@ -30,9 +30,9 @@ classdef LEDBoxElectrophysiology < RigConfiguration
             obj.addDevice('Ch1', 'ANALOG_OUT.1', '');   % output only
             obj.addDevice('Ch2', 'ANALOG_OUT.2', '');   % output only
             obj.addDevice('Ch3', 'ANALOG_OUT.3', '');   % output only
-            obj.addDevice('Ch1AORB', 'DIGITAL_OUT.0', '');   % output only
+            obj.addDevice('Ch1AORB', 'DIGITAL_OUT.1', '');   % output only
             obj.addDevice('Ch2AORB', 'DIGITAL_OUT.1', '');   % output only
-            obj.addDevice('Ch3AORB', 'DIGITAL_OUT.2', '');   % output only
+            obj.addDevice('Ch3AORB', 'DIGITAL_OUT.1', '');   % output only
         end
         
     end

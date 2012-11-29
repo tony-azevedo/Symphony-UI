@@ -77,10 +77,19 @@ classdef (Sealed) Symphony < handle
                 setpref('SymphonyProtocol', 'logFileFolder', obj.logFileFolder);
             end
             
-            % Create and open the main window.
-            obj.showMainWindow();
             
-            obj.updateUIState();
+            obj.setRigConfig();
+            
+            if ~isempty(obj.rigConfig)
+                obj.setRigProtocols();
+                obj.createNewProtocol(1);
+
+                % Create and open the main window.
+                obj.showMainWindow();
+                obj.updateUIState();
+            else
+                obj.closeRequestOnError();
+            end
         end
     end
     
@@ -144,6 +153,7 @@ classdef (Sealed) Symphony < handle
                 configValue = find(strcmp(obj.rigConfigClassNames, class(obj.rigConfig)));
                 set(obj.controls.rigConfigPopup, 'Value', configValue);
                 
+                
                 waitfor(errordlg(['Could not create the device:' char(10) char(10) ME.message], 'Symphony'));
             end
         end
@@ -155,19 +165,23 @@ classdef (Sealed) Symphony < handle
         
         function setRigConfig(obj)
             import Symphony.Core.*;
+            
             obj.lastChosenRigConfig = getpref('Symphony', 'LastChosenRigConfig', obj.rigConfigClassNames{1});
             obj.rigConfigValue = find(strcmp(obj.rigConfigClassNames, obj.lastChosenRigConfig));
-            constructor = str2func(obj.lastChosenRigConfig);
+            
             try
+                constructor = str2func(obj.lastChosenRigConfig);
                 obj.rigConfig = constructor();
             catch ME
                 % Cannot create a rig config the same as the last one chosen by the user.
                 % Try to make a default one instead.
-                disp(['Could not create a ' obj.lastChosenRigConfig]);
-                allowMultiClampDevices = ~strcmp(ME.identifier, 'Symphony:MultiClamp:UnknownMode');
+                delete(obj.rigConfig);
+                obj.rigConfig = [];
                 
-                for i = 1:length(obj.rigConfigClassNames)
-                    if ~strcmp(obj.rigConfigClassNames{i}, obj.lastChosenRigConfig)
+                if ~strcmp(ME.message, 'User Cancelled')
+                    allowMultiClampDevices = ~strcmp(ME.identifier, 'Symphony:MultiClamp:UnknownMode');
+                    
+                    for i = 1:length(obj.rigConfigClassNames)
                         constructor = str2func(obj.rigConfigClassNames{i});
                         try
                             obj.rigConfig = constructor(allowMultiClampDevices);
@@ -175,16 +189,18 @@ classdef (Sealed) Symphony < handle
                             obj.rigConfigValue = i;
                             break
                         catch ME
-                            disp(['Could not create a ' obj.rigConfigClassNames{i}]);
-                            allowMultiClampDevices = ~strcmp(ME.identifier, 'Symphony:MultiClamp:UnknownMode');
+                            delete(obj.rigConfig);
+                            obj.rigConfig = [];
+                            
+                            if ~strcmp(ME.message, 'User Cancelled')
+                                disp(['Could not create a ' obj.rigConfigClassNames{i}]);
+                                allowMultiClampDevices = ~strcmp(ME.identifier, 'Symphony:MultiClamp:UnknownMode');
+                            else
+                                break;
+                            end
                         end
                     end
                 end
-            end
-            
-            
-            if isempty(obj.rigConfig)
-                error('Symphony:NoRigConfiguration', 'Could not create a rig configuration.');
             end
         end
         
@@ -395,13 +411,7 @@ classdef (Sealed) Symphony < handle
         %% GUI layout/control
         function showMainWindow(obj)
             import Symphony.Core.*;
-            
-            pV = 1;
-            
-            obj.setRigConfig();
-            obj.setRigProtocols();
-            obj.createNewProtocol(pV);
-            
+                        
             obj.wasSavingEpochs = true;
             
             % Restore the window position if possible.
@@ -482,7 +492,7 @@ classdef (Sealed) Symphony < handle
                 'BackgroundColor', bgColor, ...
                 'String', obj.protocolDisplayNames, ...
                 'Style', 'popupmenu', ...
-                'Value', pV, ...
+                'Value', 1, ...
                 'Tag', 'protocolPopup');
             
             obj.controls.editParametersButton = uicontrol(...
@@ -953,9 +963,18 @@ classdef (Sealed) Symphony < handle
             drawnow expose
         end
         
+        function closeRequestOnError(obj, ~, ~)
+            % Delete the Main Window.
+            delete(obj.mainWindow);
+            delete(obj.protocol);
+            delete(obj);
+            clear *;
+            clear all;
+        end
         
         function closeRequestFcn(obj, ~, ~)
             % TODO: need to stop the protocol?
+            
             
             obj.protocol.closeFigures();
             
@@ -970,6 +989,8 @@ classdef (Sealed) Symphony < handle
             
             % Release any hold we have on hardware.
             obj.rigConfig.close();
+            delete(obj.rigConfig);
+            
             
             % close the protocols log functionality
             obj.protocol.closeLog();
@@ -987,7 +1008,9 @@ classdef (Sealed) Symphony < handle
             % Delete the entire Symphony object
             delete(obj);
             
-            clear *
+            clear *;
+            clear all;
+            close all;
         end
         
         
@@ -1193,6 +1216,5 @@ classdef (Sealed) Symphony < handle
             % The user clicked the Stop button.
             obj.protocol.stop();
         end
-        
     end
 end

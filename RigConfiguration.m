@@ -37,26 +37,24 @@ classdef RigConfiguration < handle
         
         function obj = RigConfiguration(allowMultiClampDevices)
             import Symphony.Core.*;
-            
-            obj.controller = Controller();
-            obj.controller.DAQController = obj.createDAQ();
-            obj.controller.Clock = obj.controller.DAQController;
-            
-            obj.sampleRate = 10000;
-            
-            obj.allowMultiClampDevices = allowMultiClampDevices;
-            
             try
+                obj.controller = Controller();
+                obj.controller.DAQController = obj.createDAQ();
+                obj.controller.Clock = obj.controller.DAQController;
+
+                obj.sampleRate = 10000;
+
+                obj.allowMultiClampDevices = allowMultiClampDevices;
+            
+            
                 obj.createDevices();
                 
                 % Have all devices start emitting their background values.
                  % obj.controller.DAQController.SetStreamsBackground();
             catch ME
                 obj.close();
-                if ~strcmp(ME.identifier, 'Symphony:MultiClamp:UnknownMode')
-                    disp(getReport(ME));
-                end
-                throw(ME);
+                                
+                throwAsCaller(ME);
             end
         end
         
@@ -192,18 +190,16 @@ classdef RigConfiguration < handle
             
             if isa(obj.controller.DAQController, 'Heka.HekaDAQController') && strncmp(outStreamName, 'DIGITAL_OUT', 11)
                 % The digital out channels for the Heka ITC share a single device.
-                if isempty(obj.hekaDigitalOutDevice)
-                    obj.hekaDigitalOutDevice = UnitConvertingExternalDevice('Heka Digital Out', 'HEKA Instruments', obj.controller, Measurement(0, '_unitless_'));
+                 % if isempty(obj.hekaDigitalOutDevice)
+                    obj.hekaDigitalOutDevice = UnitConvertingExternalDevice(deviceName, 'HEKA Instruments', obj.controller, Measurement(0, '_unitless_'));
                     obj.hekaDigitalOutDevice.MeasurementConversionTarget = '_unitless_';
                     obj.hekaDigitalOutDevice.Clock = obj.controller.DAQController;
                     
-                    stream = obj.streamWithName('DIGITAL_OUT.1', true);
-                    obj.hekaDigitalOutDevice.BindStream(stream);
-                end
-                
-                % Keep track of which virtual device names map to which channel of the real device.
-                obj.hekaDigitalOutNames{end + 1} = deviceName;
-                obj.hekaDigitalOutChannels(end + 1) = str2double(outStreamName(end));
+%                     obj.addStreams(obj.hekaDigitalOutDevice, outStreamName, inStreamName);
+                    
+                     stream = obj.streamWithName(outStreamName, true);
+                     obj.hekaDigitalOutDevice.BindStream(stream);
+                 % end
             else
                 dev = UnitConvertingExternalDevice(deviceName, 'unknown', obj.controller, Measurement(0, 'V'));
                 dev.MeasurementConversionTarget = 'V';
@@ -232,7 +228,7 @@ classdef RigConfiguration < handle
             if isempty(device)
                 error('Symphony:MultiClamp:NoDevice', 'Cannot determine the MultiClamp mode because no MultiClamp device has been created.');
             end
-
+            
             % Make sure the user toggles the MultiClamp mode so the data gets telegraphed.
             mode = '';
             while isempty(mode) || (~strcmp(mode, 'VClamp') && ~strcmp(mode, 'I0') && ~strcmp(mode, 'IClamp'))
@@ -244,9 +240,15 @@ classdef RigConfiguration < handle
                     end
                 catch ME %#ok<NASGU>
                 end
-
+                
                 if ~gotMode
-                    input('Please toggle the MultiClamp commander mode then press enter (or Ctrl-C to cancel)...', 's');
+                    q = questdlg('toggle the MultiClamp commander mode, then press ok or cancel', ...
+                        'toggle the MultiClamp', ...
+                        'ok','cancel', 'ok');
+                    if strcmp(q,'cancel') || isempty(q)
+                        exception = MException( 'RigConfiguration:multiClampMode', 'User Cancelled' );
+                        throwAsCaller(exception);
+                    end
                 end
             end
         end
@@ -323,7 +325,8 @@ classdef RigConfiguration < handle
                 else
                     obj.controller.Devices.Remove(dev);
                 end
-                throw(ME);
+                throwAsCaller(ME);
+                % throw(ME);
             end
         end
         
