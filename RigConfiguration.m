@@ -238,7 +238,8 @@ classdef RigConfiguration < handle
                     if strcmp(mode, 'VClamp') || strcmp(mode, 'I0') || strcmp(mode, 'IClamp')
                         gotMode = true;
                     end
-                catch ME %#ok<NASGU>
+                catch ME
+                    throwAsCaller(ME);
                 end
                 
                 if ~gotMode
@@ -326,7 +327,6 @@ classdef RigConfiguration < handle
                     obj.controller.Devices.Remove(dev);
                 end
                 throwAsCaller(ME);
-                % throw(ME);
             end
         end
         
