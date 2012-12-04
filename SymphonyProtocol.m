@@ -18,6 +18,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     % * setDeviceBackground
     % * recordResponse
     
+    %% Properties
     properties (Constant, Abstract)
         identifier
         version
@@ -47,7 +48,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     end
     
     
-    properties (Dependent = true, SetAccess = private)
+    properties (Hidden, SetAccess = private)
         multiClampMode = 'VClamp'
     end
 
@@ -73,7 +74,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
     
     methods
- 
+        %% Constructor (Can be overriden in the protocol)
         function obj = SymphonyProtocol(logging, logFileFolders)
             obj = obj@handle();
             
@@ -147,7 +148,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             end
         end
         
-        %% Log Functions
+       %% Log Functions
        % sendToLog can either take a cell input or a string
        function sendToLog(obj,varargin)
            if nargin > 0 && ~isempty(obj.loggingHandles)
@@ -219,7 +220,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                ~isempty(obj.epochGroup) && ...
                ~isequal(obj.prevEpochGroup, obj.epochGroup)
                 if isempty(obj.epochGroup.parentGroup)
-                    formatSpec = '\r\r\rPARENT GROUP (CELL)\rTIME: %s\rID: %s\rLabel: %s\rKeywords: %s\rSource: %s\rMouse ID: %s\rCell ID: %s\rRig Name: %s\r'; 
+                    formatSpec = '\r\rPARENT GROUP (CELL)\rTIME: %s\rID: %s\rLabel: %s\rKeywords: %s\rSource: %s\rMouse ID: %s\rCell ID: %s\rRig Name: %s'; 
                     s = sprintf(formatSpec, ...
                     datestr(now,obj.timeString), ...
                     obj.epochGroup.source.name, ...
@@ -271,16 +272,26 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             if ~isempty(obj.loggingHandles) && isprop(obj, 'propertiesToLog')
                 if ~isempty(obj.propertiesToLog)
                     count = numel(obj.propertiesToLog);
-
+                    
                     s = '';
                     x = 1;
 
                     for f = 1:count
                         value=obj.getProtocolPropertiesValue((obj.propertiesToLog{f})); 
-                        formatSpec = '%s%s = %s  ';
+                        
+                        if f == 1
+                            formatSpec = '\r%s%s = %s  ';
+                        else
+                            formatSpec = '%s%s = %s  ';
+                        end
 
                         if ~ischar(value)
-                            formatSpec ='%s%s = %i  ';
+                            if f == 1
+                                formatSpec ='\r%s%s = %i  ';
+                            else
+                                formatSpec ='%s%s = %i  ';
+                            end
+                            
                             if isequal(obj.propertiesToLog{f},'preSynapticHold') ...
                                     && f == count
                                 formatSpec = '%s\r        %s = %i  ';
@@ -290,8 +301,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                         s = sprintf(formatSpec,s,obj.propertiesToLog{f},value);
                         x = x + 1;
                     end    
-
+                    
                     obj.sendToLog(s);
+                    clear s formatSpec
                 end
             end
         end

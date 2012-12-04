@@ -2,12 +2,15 @@
 %  All rights reserved.
 %  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
 %  http://license.janelia.org/license/jfrc_copyright_1_1.html
+
+% Clear the memory of all the variables and clear the command window
+% NOTE: clear all and clear classes will remove breakpoints. Therefore
+% comment out if debugging
 close all
-clear
 clear all classes *
 clc
 
-Application = 'StartSymphony'  %#ok<NOPTS,NASGU>
+Application = 'Symphony UI'  %#ok<NOPTS,NASGU>
 clear Application
 
 if verLessThan('matlab', '7.12')
@@ -17,16 +20,13 @@ end
 % Add our utility and figure handler folders to the search path.
 symphonyPath = mfilename('fullpath');
 parentDir = fileparts(symphonyPath);
+
 addpath(fullfile(parentDir, 'Utility'));
 addpath(fullfile(parentDir, 'Rig_Configurations'));
 addpath(fullfile(parentDir, 'Figure Handlers'));
 addpath(fullfile(parentDir, 'StimGL'));
-clear symphonyPath parentDir
 
 if isempty(which('NET.convertArray'))
-    % Use the .NET stub classes instead of the real thing on non-PC platforms.
-    symphonyPath = mfilename('fullpath');
-    parentDir = fileparts(symphonyPath);
     addpath(fullfile(parentDir, filesep, 'Stubs'));
 else
     symphonyPath = 'C:\Program Files\Physion\Symphony\bin';
@@ -38,5 +38,9 @@ else
     NET.addAssembly(fullfile(symphonyPath, 'Symphony.SimulationDAQController.dll'));
     NET.addAssembly('System.Windows.Forms');
 end
-            
+
+%clean up variables used in the StartSymphony script
+clear symphonyPath parentDir
+
+%Instantiate the Symphony Instance
 symphonyInstance = Symphony.getInstance;  
