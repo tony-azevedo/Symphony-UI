@@ -6,8 +6,9 @@
 % Clear the memory of all the variables and clear the command window
 % NOTE: clear all and clear classes will remove breakpoints. Therefore
 % comment out if debugging
+
 close all
-clear all classes *
+% clear all classes *
 clc
 
 Application = 'Symphony UI'  %#ok<NOPTS,NASGU>
@@ -21,10 +22,16 @@ end
 symphonyPath = mfilename('fullpath');
 parentDir = fileparts(symphonyPath);
 
+addpath(parentDir);
 addpath(fullfile(parentDir, 'Utility'));
-addpath(fullfile(parentDir, 'Rig_Configurations'));
 addpath(fullfile(parentDir, 'Figure Handlers'));
 addpath(fullfile(parentDir, 'StimGL'));
+addpath(fullfile(parentDir, 'Figures'));
+
+% need to add including all subfolders
+rigConfigFF = fullfile(parentDir, 'Rig_Configurations');
+addpath(genpath(rigConfigFF));
+clear rigConfigFF
 
 if isempty(which('NET.convertArray'))
     addpath(fullfile(parentDir, filesep, 'Stubs'));

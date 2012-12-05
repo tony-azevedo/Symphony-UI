@@ -483,15 +483,22 @@ try
     % Allow the protocol to apply any of the new settings to the rig.
     handles.protocol.prepareRig();
     handles.protocol.rigConfig.prepared();
-    handles.protocol.rigPrepared = true;        
+    handles.protocol.rigPrepared = true;  
+    handles.edited = true;
 catch ME
     % TODO: What should be done if the rig can't be prepared?
-    throw(ME);
+    if strcmp(ME.message(1:15), 'Invalid Voltage')
+        waitfor(errordlg(ME.message(17:end), ME.message(1:15)));
+        handles.edited = false;
+    else
+        throw(ME);
+    end
 end
 
-handles.edited = true;
-guidata(handles.figure, handles);
-uiresume;
+if(handles.edited)
+    guidata(handles.figure, handles);
+    uiresume;
+end
 end
 
 %% helper function to set new values in the UI

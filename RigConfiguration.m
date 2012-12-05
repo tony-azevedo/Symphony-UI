@@ -364,9 +364,31 @@ classdef RigConfiguration < handle
         end
         
         
-        function setDeviceBackground(obj, deviceName, background)
+        function setDeviceBackground(obj, deviceName, backgroundSCM, background)
             device = obj.deviceWithName(deviceName);
-            device.Background = background;
+            acceptableMinVoltage = true;
+            acceptableMaxVoltage = true;
+                
+            if nargin == 4
+                if (isprop(obj,'minVoltage') && background < obj.minVoltage)
+                    acceptableMinVoltage = false;
+                end
+
+                if (isprop(obj,'maxVoltage') && background > obj.maxVoltage)
+                    acceptableMaxVoltage = false;
+                end
+            end
+            
+            if acceptableMinVoltage && acceptableMaxVoltage
+                device.Background = backgroundSCM;
+            else
+              exception = MException( ... 
+                  'RigConfiguration:setDeviceBackground', ... 
+                  'Invalid Voltage:The Light mean must fall between the range %uv and %uv' , ...
+                  obj.minVoltage , obj.maxVoltage...
+                  );
+              throwAsCaller(exception);  
+            end
         end
         
         

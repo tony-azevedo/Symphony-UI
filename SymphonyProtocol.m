@@ -151,7 +151,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
        %% Log Functions
        % sendToLog can either take a cell input or a string
        function sendToLog(obj,varargin)
-           if nargin > 0 && ~isempty(obj.loggingHandles)
+           if nargin > 0 && (~isempty(obj.loggingHandles))
                s = get(obj.loggingHandles.edit3,'string');
                formatSpec ='%s\r%s';
 
@@ -198,7 +198,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 obj.parseFile(currentFile);
             end
             
-            if ~isempty(obj.logFileHeaderFile) && exist(obj.logFileHeaderFile, 'file') == 2
+            if isprop(obj,'logFileHeaderFile') && ~isempty(obj.logFileHeaderFile) && exist(obj.logFileHeaderFile, 'file') == 2
                 obj.parseFile(obj.logFileHeaderFile);   
             end    
        end 
@@ -442,27 +442,42 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.epoch.Stimuli.Add(device, stim);
         end
         
-        function setDeviceBackground(obj, deviceName, background, units)
+        function setDeviceBackground(obj, deviceName, background, units, lightMean)
             % Set a constant stimulus value to be sent to the device.
             
             import Symphony.Core.*;
             
             device = obj.rigConfig.deviceWithName(deviceName);
+            
             if isempty(device)
                 error('There is no device named ''%s''.', deviceName);
             end
             
-            if nargin == 4
-                background = Measurement(background, units);
+            if nargin == 5 && strcmp(lightMean,'lightMean')
+                sendVoltage = true;
+            else
+                sendVoltage = false;
+            end
+            
+            if nargin == 4 || nargin == 5
+                backgroundSCM = Measurement(background, units);
             elseif isnumeric(background)
-                background = Measurement(background, 'V');
-            elseif ~isa(background, 'Symphony.Core.Measurement')
+                backgroundSCM = Measurement(background, 'V');
+            elseif isa(background, 'Symphony.Core.Measurement')
+                backgroundSCM = background;
+                sendVoltage = false;
+            else
                 error('Symphony:InvalidBackground', 'The background value for a device must be a number or a Symphony.Core.Measurement');
             end
             
-            device.Background = background;
+            if sendVoltage
+                obj.rigConfig.setDeviceBackground(deviceName, backgroundSCM, background);
+            else
+                obj.rigConfig.setDeviceBackground(deviceName, backgroundSCM);
+            end
+            
             if ~isempty(obj.epoch)
-                obj.epoch.SetBackground(device, background, obj.deviceSampleRate(device, 'OUT'));
+                obj.epoch.SetBackground(device, backgroundSCM, obj.deviceSampleRate(device, 'OUT'));
             end
         end
         

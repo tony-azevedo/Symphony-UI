@@ -8,8 +8,7 @@ classdef BasicElectrophysiology < RigConfiguration
     properties (Constant)
         displayName = 'Basic Electrophysiology'
     end
-    
-    
+        
     methods
         
         % Initializing a superclass from a subclass requires the subclass

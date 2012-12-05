@@ -11,6 +11,10 @@ classdef LEDBoxElectrophysiology < RigConfiguration
         displayName = 'LED Box Electrophysiology'
     end
     
+    properties
+        maxVoltage = 10;
+        minVoltage = 0;
+    end
     
     methods
         

@@ -100,7 +100,7 @@ classdef ThreeChannelLED < SymphonyProtocol
             end
             
             obj.setDeviceBackground([obj.getProtocolPropertiesValue('CHANNELS') 'AORB'], ttl1, '_unitless_');
-            obj.setDeviceBackground(obj.getProtocolPropertiesValue('CHANNELS'), obj.getProtocolPropertiesValue('lightMean'), 'V');
+            obj.setDeviceBackground(obj.getProtocolPropertiesValue('CHANNELS'), obj.getProtocolPropertiesValue('lightMean'), 'V', 'lightMean');
 
             if strcmp(obj.rigConfig.multiClampMode('Amplifier_Ch1'), 'IClamp')
                 obj.setDeviceBackground('Amplifier_Ch1', double(obj.getProtocolPropertiesValue('preSynapticHold')) * 1e-12, 'A');
