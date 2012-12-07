@@ -123,7 +123,7 @@ classdef LEDFamily < SymphonyProtocol
             else
                 obj.setDeviceBackground('Amplifier_Ch1', double(obj.getProtocolPropertiesValue('preSynapticHold')) * 1e-12, 'A');
             end 
-            obj.addStimulus('LED', 'LED stimulus', stimulus, 'V');    %
+            obj.addStimulus(obj.getProtocolPropertiesValue('CHANNELS'), 'LED stimulus', stimulus, 'V');    %
         end
         
         
