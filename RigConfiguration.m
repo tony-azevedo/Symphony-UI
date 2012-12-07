@@ -334,6 +334,14 @@ classdef RigConfiguration < handle
             d = listValues(obj.controller.Devices);
         end
         
+        function isDevice = isDevice(obj, name)
+            isDevice = false;
+            device = obj.deviceWithName(name);
+            
+            if ~isempty(device)
+                isDevice = true;
+            end
+        end
         
         function [device, digitalChannel] = deviceWithName(obj, name)
             ind = find(strcmp(obj.hekaDigitalOutNames, name));

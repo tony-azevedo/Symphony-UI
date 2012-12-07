@@ -196,9 +196,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             if exist(currentFile, 'file') == 2
                 obj.parseFile(currentFile);
-            end
-            
-            if isprop(obj,'logFileHeaderFile') && ~isempty(obj.logFileHeaderFile) && exist(obj.logFileHeaderFile, 'file') == 2
+            elseif isprop(obj,'logFileHeaderFile') && ~isempty(obj.logFileHeaderFile) && exist(obj.logFileHeaderFile, 'file') == 2
                 obj.parseFile(obj.logFileHeaderFile);   
             end    
        end 
@@ -242,8 +240,27 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 obj.prevEpochGroup = obj.epochGroup;
              end   
        end
-
-        %% Symphony Functions
+       
+       %% Heat Recording
+       function average = recordSolutionTemp(obj)
+            recordedTemp = obj.response('HeatSync');
+            samples = length(recordedTemp); 
+            total = 0;
+            
+            for i = 1:samples
+                total = total + recordedTemp(i);
+            end
+            
+            %The total is multiplied by 10 as the Heat Controller response
+            %is a factor of 10 lower then the actual value.
+            average = 10 * (total/samples);
+            
+             m = 3; % Number of significant decimals
+             k = floor(log10(abs(average)))-m+1;
+             average = round(average/10^k)*10^k;
+       end
+       
+       %% Symphony Functions
         function setState(obj, state)
             obj.state = state;
             notify(obj, 'StateChanged');
@@ -541,13 +558,24 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function completeEpoch(obj)
             % Override this method to perform any post-analysis, etc. on the current epoch.
             if ~isempty(obj.loggingHandles)
-                formatSpec = '            Epoch # %u     Start Time:%u:%u:%u      Duration (ms):%u';
-                s = sprintf(formatSpec, ...
-                    obj.epochNumContinuous, ...
-                    obj.epoch.StartTime.Item2.DateTime.Hour, ...
-                    obj.epoch.StartTime.Item2.DateTime.Minute, ...
-                    obj.epoch.StartTime.Item2.DateTime.Second, ...
-                    obj.epoch.Duration.Item2.TotalMilliseconds);
+                if obj.rigConfig.isDevice('HeatSync')
+                    formatSpec = '            Epoch # %u     Start Time:%u:%u:%u      Duration (ms):%u      Temperature (degrees celsius):%g';
+                    s = sprintf(formatSpec, ...
+                        obj.epochNumContinuous, ...
+                        obj.epoch.StartTime.Item2.DateTime.Hour, ...
+                        obj.epoch.StartTime.Item2.DateTime.Minute, ...
+                        obj.epoch.StartTime.Item2.DateTime.Second, ...
+                        obj.epoch.Duration.Item2.TotalMilliseconds, ...
+                        obj.recordSolutionTemp);
+                else
+                     formatSpec = '            Epoch # %u     Start Time:%u:%u:%u      Duration (ms):%u';
+                    s = sprintf(formatSpec, ...
+                        obj.epochNumContinuous, ...
+                        obj.epoch.StartTime.Item2.DateTime.Hour, ...
+                        obj.epoch.StartTime.Item2.DateTime.Minute, ...
+                        obj.epoch.StartTime.Item2.DateTime.Second, ...
+                        obj.epoch.Duration.Item2.TotalMilliseconds);
+                end
                 obj.sendToLog(s);
             end
             obj.updateFigures();

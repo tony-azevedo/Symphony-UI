@@ -145,8 +145,7 @@ classdef OneChannelLED < SymphonyProtocol
                 stats.var = 0;
             end
         end
-        
-        
+                
         function completeEpoch(obj)
             % Call the base class method which updates the figures.
             completeEpoch@SymphonyProtocol(obj);

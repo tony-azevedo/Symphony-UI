@@ -31,12 +31,15 @@ classdef LEDBoxElectrophysiology < RigConfiguration
         
         function createDevices(obj)
             obj.addMultiClampDevice('Amplifier_Ch1', 1, 'ANALOG_OUT.0', 'ANALOG_IN.0');
+            
             obj.addDevice('Ch1', 'ANALOG_OUT.1', '');   % output only
             obj.addDevice('Ch2', 'ANALOG_OUT.2', '');   % output only
             obj.addDevice('Ch3', 'ANALOG_OUT.3', '');   % output only
             obj.addDevice('Ch1AORB', 'DIGITAL_OUT.1', '');   % output only
             obj.addDevice('Ch2AORB', 'DIGITAL_OUT.1', '');   % output only
             obj.addDevice('Ch3AORB', 'DIGITAL_OUT.1', '');   % output only
+            
+            obj.addDevice('HeatSync', '', 'ANALOG_IN.2');   % input only
         end
         
     end
