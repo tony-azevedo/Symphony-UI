@@ -165,15 +165,21 @@ classdef (Sealed) logger < handle
         end
         
         function changeHiddenLogFileFolder( pl , ~ , ~ )
-           pl.folders.hidden = uigetdir(pl.folders.hidden, 'Log File Location');
-           setpref('SymphonyLogger', 'hiddenFolder', pl.folders.hidden);
-           set(pl.fsGUIObjects.hiddenView, 'String', pl.folders.hidden);
+           temp =  uigetdir(pl.folders.hidden, 'Log File Location');
+           if temp ~= 0
+               pl.folders.hidden = temp;
+               setpref('SymphonyLogger', 'hiddenFolder', pl.folders.hidden);
+               set(pl.fsGUIObjects.hiddenView, 'String', pl.folders.hidden);
+           end
         end
 
        function changeMainLogFileFolder( pl , ~ , ~ )
-           pl.folders.main = uigetdir(pl.folders.main, 'Log File Location');
-           setpref('SymphonyLogger', 'mainFolder', pl.folders.main);
-           set(pl.fsGUIObjects.mainView, 'String', pl.folders.main);
+           temp = uigetdir(pl.folders.main, 'Log File Location');
+           if temp ~= 0
+               pl.folders.main = temp;
+               setpref('SymphonyLogger', 'mainFolder', pl.folders.main);
+               set(pl.fsGUIObjects.mainView, 'String', pl.folders.main);
+           end
         end
 
         function showGui(pl)

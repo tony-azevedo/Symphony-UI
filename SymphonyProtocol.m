@@ -55,7 +55,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
 
     properties (SetAccess = public, GetAccess = private)       
         epochNumContinuous = 0
-        timeString = 'HH:MM:SS'    
+        timeString = 'HH:MM:SS'   
+        solutionControlerDeviceStatus
 	end
     
     events

@@ -98,10 +98,11 @@ classdef (Sealed) Symphony < handle
             singleObj = localObj;
         end
         
-        function solutionControllerChange( ~ , eventData )
+        function solutionControllerChange( ~ , eventData , protocol )
             h = eventData.AffectedObject;
             if(~strcmp(h.deviceStatus,''))
                 h.updateGUI();
+                protocol.solutionControlerDeviceStatus = h.deviceStatus;
             end
         end        
     end
@@ -382,6 +383,7 @@ classdef (Sealed) Symphony < handle
         end
         
         %% Petris Functions
+        %creating a menu
         function addLabMenu(obj)
             obj.mh = uimenu(obj.mainWindow,'Label','Petri''s Lab Features'); 
             uimenu(obj.mh,'Label','Solution Controller','Callback',@(hObject,eventdata)solutionController(obj,hObject,eventdata));
@@ -389,12 +391,14 @@ classdef (Sealed) Symphony < handle
             obj.lf = uimenu(obj.mh,'Label','Log File');
             obj.lfStart = uimenu(obj.lf,'Label','Start ','Enable','on','Callback',@(hObject,eventdata)logFile(obj,hObject,eventdata, true));
             obj.lfStop = uimenu(obj.lf,'Label','Stop','Enable','off','Callback',@(hObject,eventdata)logFile(obj,hObject,eventdata, false));
+            
+            uimenu(obj.mh,'Label','Quit','Callback', @(hObject,eventdata)closeRequestFcn(obj,hObject,eventdata));
         end    
         
         %Solution Controller
         function solutionController(obj, ~, ~)
             obj.sController = SolControlMatlab({'port',7},{'channels',5});
-            addlistener(obj.sController,'deviceStatus','PostSet',@obj.solutionControllerChange);
+            addlistener(obj.sController,'deviceStatus','PostSet',@( metaProp , eventData )obj.solutionControllerChange( metaProp , eventData, obj.protocol));            
         end
         
         %Log File
