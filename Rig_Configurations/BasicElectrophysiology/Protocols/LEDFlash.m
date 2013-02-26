@@ -54,14 +54,7 @@ classdef LEDFlash < SymphonyProtocol
 
     methods
         function obj = LEDFlash(varargin)
-            if nargin == 2
-                logging = varargin{1};
-                logFileFolders = varargin{2};
-            else
-                logging = 0;
-                logFileFolders = {};
-            end
-            obj = obj@SymphonyProtocol(logging, logFileFolders);
+%             obj = obj@SymphonyProtocol();
         end
         
         function [stimulus, lightAmplitude] = stimulusForEpoch(obj, ~) % epoch Num is usually required

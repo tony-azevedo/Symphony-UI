@@ -54,15 +54,7 @@ classdef OneChannelLED < SymphonyProtocol
     
     methods
         function obj = OneChannelLED(varargin)
-            if nargin == 2
-                logging = varargin{1};
-                logFileFolders = varargin{2};
-            else
-                logging = 0;
-                logFileFolders = {};
-            end
-            
-            obj = obj@SymphonyProtocol(logging, logFileFolders);
+%             obj = obj@SymphonyProtocol();
         end
         
         function [stimulus, lightAmplitude] = stimulusForEpoch(obj, ~) % epoch Num is usually required
@@ -110,9 +102,9 @@ classdef OneChannelLED < SymphonyProtocol
             % Call the base class method which clears all figures.
             prepareRun@SymphonyProtocol(obj);
 
-            obj.openFigure('Response');
-            obj.openFigure('Mean Response', 'GroupByParams', {'lightAmplitude'});
-            obj.openFigure('Response Statistics', 'StatsCallback', @responseStatistics);
+            % obj.openFigure('Response');
+            % obj.openFigure('Mean Response', 'GroupByParams', {'lightAmplitude'});
+            % obj.openFigure('Response Statistics', 'StatsCallback', @responseStatistics);
         end
         
         

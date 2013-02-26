@@ -37,11 +37,14 @@ classdef (Sealed) Symphony < handle
         notesNode
         
         symphonyDir
-        logFileFolder
-        hiddenLogFileFolder
         
-        loggingOnDefault
-        logging
+        % Variables for Petri's Functionality
+        sController
+        petrilogger
+        mh
+        lf
+        lfStop
+        lfStart
     end
     
     %% Constructor
@@ -65,20 +68,10 @@ classdef (Sealed) Symphony < handle
             obj.discoverRigConfigurations();
             obj.discoverFigureHandlers();
             obj.discoverSources();
-            
-            obj.hiddenLogFileFolder = fullfile(obj.symphonyDir, 'log_files_hidden');
-            obj.loggingOnDefault = 0;
-            obj.logging = 0;
-            
-            if ispref('SymphonyProtocol', 'logFileFolder')
-                obj.logFileFolder = getpref('SymphonyProtocol', 'logFileFolder');
-            else
-                obj.logFileFolder = fullfile(obj.symphonyDir, 'log_files');
-                setpref('SymphonyProtocol', 'logFileFolder', obj.logFileFolder);
-            end
-            
-            
+                        
             obj.setRigConfig();
+            
+            obj.petrilogger = logger();
             
             if ~isempty(obj.rigConfig)
                 obj.setRigProtocols();
@@ -104,6 +97,13 @@ classdef (Sealed) Symphony < handle
             end
             singleObj = localObj;
         end
+        
+        function solutionControllerChange( ~ , eventData )
+            h = eventData.AffectedObject;
+            if(~strcmp(h.deviceStatus,''))
+                h.updateGUI();
+            end
+        end        
     end
     
     methods
@@ -269,16 +269,13 @@ classdef (Sealed) Symphony < handle
         end
         
         function newProtocol = createProtocol(obj, className)
-            if ~isempty(obj.protocol)
-                obj.protocol.closeLog();
-            end
-            
             % Create an instance of the protocol class.
             constructor = str2func(className);
-            newProtocol = constructor(obj.logging, {obj.logFileFolder,obj.hiddenLogFileFolder});
+            newProtocol = constructor();
             
             newProtocol.rigConfig = obj.rigConfig;
             newProtocol.figureHandlerClasses = obj.figureHandlerClasses;
+            newProtocol.petrilogger = obj.petrilogger;
             
             % Use any previously set parameters.
             params = getpref('Symphony', [className '_Defaults'], struct);
@@ -384,31 +381,55 @@ classdef (Sealed) Symphony < handle
             end
         end
         
-        %% Logging
-        function enableLogging(obj, ~, ~)
-            obj.logging = get(obj.controls.enableLoggingCheckbox, 'Value');
+        %% Petris Functions
+        function addLabMenu(obj)
+            obj.mh = uimenu(obj.mainWindow,'Label','Petri''s Lab Features'); 
+            uimenu(obj.mh,'Label','Solution Controller','Callback',@(hObject,eventdata)solutionController(obj,hObject,eventdata));
             
-            if(obj.logging)
-                obj.protocol.logFileFolders = {obj.logFileFolder,obj.hiddenLogFileFolder};
-                obj.protocol.openLog();
+            obj.lf = uimenu(obj.mh,'Label','Log File');
+            obj.lfStart = uimenu(obj.lf,'Label','Start ','Enable','on','Callback',@(hObject,eventdata)logFile(obj,hObject,eventdata, true));
+            obj.lfStop = uimenu(obj.lf,'Label','Stop','Enable','off','Callback',@(hObject,eventdata)logFile(obj,hObject,eventdata, false));
+        end    
+        
+        %Solution Controller
+        function solutionController(obj, ~, ~)
+            obj.sController = SolControlMatlab({'port',7},{'channels',5});
+            addlistener(obj.sController,'deviceStatus','PostSet',@obj.solutionControllerChange);
+        end
+        
+        %Log File
+        function logFile(obj, ~, ~, status)
+            if status
+                startEnable = 'off';
+                stopEnable = 'on';
+                
+                if ~isvalid(obj.petrilogger)
+                    obj.petrilogger = logger(); 
+                    obj.protocol.petrilogger = obj.petrilogger;
+                end
+                
+                obj.petrilogger.start({'main','C:\Users\local_admin\Desktop'},{'hidden','C:\Users\local_admin\Desktop'});
             else
                 deleteLog = questdlg('Are you sure you want to stop logging', 'Stop Logging', 'Yes', 'No', 'No');
                 if strcmp(deleteLog, 'Yes')
-                    obj.protocol.closeLog();
-                else
-                    set(obj.controls.enableLoggingCheckbox, 'Value', 1);
+                    startEnable = 'on';
+                    stopEnable = 'off';  
+                    obj.deleteLogFile();
                 end
             end
+            
+            set(obj.lfStart, 'Enable', startEnable);
+            set(obj.lfStop, 'Enable', stopEnable);
         end
         
-        function changeLogFileFolder(obj,~,~)
-            obj.logFileFolder = uigetdir(obj.logFileFolder, 'Log File Location');
-            setpref('SymphonyProtocol', 'logFileFolder', obj.logFileFolder);
-            obj.protocol.logFileFolder = obj.logFileFolder;
-            set(obj.controls.loggingFolderView, 'String', obj.logFileFolder);
+        function deleteLogFile(obj)
+            if isvalid(obj.petrilogger) && obj.petrilogger.isValid
+                delete(obj.petrilogger.gui);
+                delete(obj.petrilogger);        
+            end
         end
-        
-        %% GUI layout/control
+                
+        %% GUI layout/control                
         function showMainWindow(obj)
             import Symphony.Core.*;
             
@@ -420,8 +441,6 @@ classdef (Sealed) Symphony < handle
             else
                 addlProps = {};
             end
-            
-            obj.protocol.logFileFolders = {obj.logFileFolder,obj.hiddenLogFileFolder};
             
             % Create the user interface.
             obj.mainWindow = figure(...
@@ -436,6 +455,8 @@ classdef (Sealed) Symphony < handle
                 'Tag', 'figure', ...
                 addlProps{:});
             
+            obj.addLabMenu();
+            
             bgColor = get(obj.mainWindow, 'Color');
             
             obj.controls = struct();
@@ -449,7 +470,7 @@ classdef (Sealed) Symphony < handle
                 'Title', 'Rig Configuration', ...
                 'Tag', 'protocolPanel', ...
                 'Clipping', 'on', ...
-                'Position', [10 329 336 50], ...
+                'Position', [10 279 336 50], ...
                 'BackgroundColor', bgColor);
             
             obj.controls.rigConfigPopup = uicontrol(...
@@ -700,49 +721,6 @@ classdef (Sealed) Symphony < handle
                 'String', 'Close', ...
                 'Tag', 'closeEpochGroupButton');
             
-            % Create the Log File Controls
-            
-            obj.controls.logFilePanel = uipanel(...
-                'Parent', obj.mainWindow, ...
-                'Units', 'points', ...
-                'FontSize', 12, ...
-                'Title', 'Log File', ...
-                'Tag', 'logFilePanel', ...
-                'Clipping', 'on', ...
-                'Position', [10 10 336 50], ...
-                'BackgroundColor', bgColor);
-            
-            obj.controls.enableLoggingCheckbox = uicontrol(...
-                'Parent', obj.controls.logFilePanel, ...
-                'Units', 'points', ...
-                'Callback', @(hObject,eventdata)enableLogging(obj,hObject,eventdata), ...
-                'FontSize', 12, ...
-                'Position', [10 10 200 20], ...
-                'BackgroundColor', bgColor, ...
-                'String', 'Enable the Symphony Log File', ...
-                'Value', obj.loggingOnDefault, ...
-                'Style', 'checkbox', ...
-                'Tag', 'saveEpochsCheckbox');
-            
-            obj.controls.loggingFolderView = uicontrol(...
-                'Parent', obj.controls.logFilePanel, ...
-                'Units','points',...
-                'BackgroundColor',bgColor,...
-                'Enable','off',...
-                'Position',[200 10 250 22],...
-                'String', obj.logFileFolder,...
-                'Style','edit',...
-                'Tag','loggingFolderView');
-            
-            obj.controls.loggingFolderChange = uicontrol(...
-                'Parent', obj.controls.logFilePanel, ...
-                'Units','points',...
-                'Callback',@(hObject,eventdata)changeLogFileFolder(obj,hObject,eventdata),...
-                'Position',[450 10 44 22],...
-                'BackgroundColor', bgColor, ...
-                'String','Change',...
-                'Tag','loggingFolderChange');
-            
             % Attempt to set button images using Java.
             try
                 drawnow
@@ -777,10 +755,6 @@ classdef (Sealed) Symphony < handle
                     jWindow.setMinimumSize(java.awt.Dimension(540, 280));
                 end
             catch ME %#ok<NASGU>
-            end
-            
-            if obj.loggingOnDefault
-                obj.enableLogging
             end
         end
         
@@ -847,11 +821,6 @@ classdef (Sealed) Symphony < handle
             closeGroupPos = get(obj.controls.closeEpochGroupButton, 'Position');
             closeGroupPos(1) = epochPanelPos(3) - 14 - closeGroupPos(3);
             set(obj.controls.closeEpochGroupButton, 'Position', closeGroupPos);
-            
-            % Expand the logFilePanel to the full width and keep it at the top.
-            logFilePanel = get(obj.controls.logFilePanel, 'Position');
-            logFilePanel(3) = figWidth - 10 - 10;
-            set(obj.controls.logFilePanel, 'Position', logFilePanel);
         end
         
         
@@ -995,6 +964,8 @@ classdef (Sealed) Symphony < handle
                 end
             end
             
+            obj.deleteLogFile();
+            
             % Break the reference loop on the source hierarchy so it gets deleted.
             delete(obj.sources);
             
@@ -1002,10 +973,7 @@ classdef (Sealed) Symphony < handle
             obj.rigConfig.close();
             delete(obj.rigConfig);
             
-            
-            % close the protocols log functionality
-            obj.protocol.closeLog();
-            
+                        
             % Remember the window position.
             setpref('Symphony', 'MainWindow_Position', get(obj.mainWindow, 'Position'));
             
@@ -1108,8 +1076,6 @@ classdef (Sealed) Symphony < handle
                 
                 obj.protocol.epochGroup = obj.epochGroup;
                 
-                obj.protocol.logEpochGroup();
-                
                 obj.epochGroup.beginPersistence(obj.persistor);
                 
                 obj.updateUIState();
@@ -1155,8 +1121,6 @@ classdef (Sealed) Symphony < handle
         
         
         %% Notes
-        
-        
         function promptForNote(obj, ~, ~)
             noteText = inputdlg('Enter a note:', 'Symphony Note', 4, {''}, 'on');
             

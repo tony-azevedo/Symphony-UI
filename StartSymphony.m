@@ -7,7 +7,7 @@
 % NOTE: clear all and clear classes will remove breakpoints. Therefore
 % comment out if debugging
 
-close all
+% close all
 % clear all classes *
 clc
 
@@ -26,12 +26,18 @@ addpath(parentDir);
 addpath(fullfile(parentDir, 'Utility'));
 addpath(fullfile(parentDir, 'Figure Handlers'));
 addpath(fullfile(parentDir, 'StimGL'));
-addpath(fullfile(parentDir, 'Figures'));
+addpath(fullfile(parentDir, 'petri_required_libraries'));
+
+% Libraries Required for
+petriDir = fullfile(parentDir, 'petri_required_libraries');
+javaaddpath(fullfile(petriDir, 'ComPortConnector.jar'));
+import com.comportconnector.lib.*;
 
 % need to add including all subfolders
 rigConfigFF = fullfile(parentDir, 'Rig_Configurations');
 addpath(genpath(rigConfigFF));
-clear rigConfigFF
+
+clear rigConfigFF petriDir
 
 if isempty(which('NET.convertArray'))
     addpath(fullfile(parentDir, filesep, 'Stubs'));
@@ -44,10 +50,11 @@ else
     NET.addAssembly(fullfile(symphonyPath, 'HekaDAQInterface.dll'));
     NET.addAssembly(fullfile(symphonyPath, 'Symphony.SimulationDAQController.dll'));
     NET.addAssembly('System.Windows.Forms');
+    
 end
 
 %clean up variables used in the StartSymphony script
-clear symphonyPath parentDir
+clear symphonyPath parentDir 
 
 %Instantiate the Symphony Instance
 symphonyInstance = Symphony.getInstance;  

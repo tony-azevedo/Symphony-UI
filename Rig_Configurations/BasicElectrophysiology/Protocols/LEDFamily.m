@@ -51,14 +51,14 @@ classdef LEDFamily < SymphonyProtocol
     
     methods
         function obj = LEDFamily(varargin)
-            if nargin == 2
-                logging = varargin{1};
-                logFileFolders = varargin{2};
-            else
-                logging = 0;
-                logFileFolders = {};
-            end
-            obj = obj@SymphonyProtocol(logging, logFileFolders);
+%             if nargin == 2
+%                 logging = varargin{1};
+%                 logFileFolders = varargin{2};
+%             else
+%                 logging = 0;
+%                 logFileFolders = {};
+%             end
+%             obj = obj@SymphonyProtocol(logging, logFileFolders);
         end
         
         function [stimulus, lightAmplitude] = stimulusForEpoch(obj, epochNum)

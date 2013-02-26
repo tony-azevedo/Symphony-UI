@@ -41,6 +41,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
         protocolProperties = {}     % A Map that contains the properties and values for the protocol. This allows for multiple channels
         previousEpochProtocol = {}
+        petrilogger;
     end
     
     properties
@@ -52,19 +53,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         multiClampMode = 'VClamp'
     end
 
-    properties (SetAccess = public, GetAccess = private)
-        % Logging Variables can be set by Symphony but can only be used by
-        % the Symphony Protocol Class
-        log = {}
-        loggingHandles = {}
-        hfig
-        
+    properties (SetAccess = public, GetAccess = private)       
         epochNumContinuous = 0
-        
-        epochGroup = {}
-        prevEpochGroup = {}
-        logFileFolders
-        
         timeString = 'HH:MM:SS'    
 	end
     
@@ -72,22 +62,31 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         StateChanged
     end
     
+    properties (SetAccess = public, GetAccess = private, SetObservable, GetObservable)
+        epochGroup = {}
+    end
+    
+    methods (Static)
+        % The Epoch Group is changed in Symphony, however we only want to
+        % log in the Protocol. So we are listening for the change.
+        function epochGroupChange( ~ ,eventData)
+            h = eventData.AffectedObject;
+            if(h.loggingIsValid)
+                h.logEpochGroup;
+            end
+        end
+        
+    end
     
     methods
         %% Constructor (Can be overriden in the protocol)
-        function obj = SymphonyProtocol(logging, logFileFolders)
+        function obj = SymphonyProtocol()
             obj = obj@handle();
             
             obj.setState('stopped');
             obj.responses = containers.Map();
-            obj.protocolProperties = obj.createChannelParameters;
-            obj.logFileFolders = logFileFolders;
-            
-            if logging && ~isempty(obj.logFileFolders)
-                obj.openLog();
-            end
-            
-            obj.protocolProperties = obj.createChannelParameters;
+            obj.protocolProperties = obj.createChannelParameters; 
+            addlistener(obj,'epochGroup','PostSet',@obj.epochGroupChange);
         end 
 
         %% Parameters for the Protocol
@@ -149,74 +148,19 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
         
        %% Log Functions
-       % sendToLog can either take a cell input or a string
-       function sendToLog(obj,varargin)
-           if nargin > 0 && (~isempty(obj.loggingHandles))
-               s = get(obj.loggingHandles.edit3,'string');
-               formatSpec ='%s\r%s';
-
-                for v = 1:(nargin-1)
-                    if isa(varargin{v},'cell')
-                        for c = 1:length(varargin{v})
-                             for l = 1:length(varargin{v}{c})  
-                                s = sprintf(formatSpec,s,varargin{v}{c}{l}); 
-                             end
-                        end    
-                    elseif ischar(varargin{v});
-                        s = sprintf(formatSpec,s,varargin{v}); 
-                    end
-                end
-
-                set(obj.loggingHandles.edit3,'string',s);
-                obj.loggingHandles = guidata(obj.hfig);
-           end
-       end
-       
-       % A function to parse a simple text file
-       function  parseFile(obj, s)
-           if ~isempty(obj.loggingHandles)
-               fid = fopen(s, 'r');
-               logFileHeader = textscan(fid, '%s', 'Delimiter', '\n');
-               fclose(fid);
-               
-               obj.sendToLog(logFileHeader);
-           end
-       end
-       
-       % A function to open the log file       
-       function openLog(obj)
-            obj.log = logFile(obj.logFileFolders);
-            set(0, 'showHiddenHandles', 'on');
-            obj.hfig = gcf;
-            obj.loggingHandles = guidata(obj.hfig);
-            
-            dateStamp = datestr(now, 'mm_dd_yy');
-            formatString = '%s%s%s%s';
-            currentFile = sprintf(formatString,obj.logFileFolders{1},'\',dateStamp,'.log');
-            
-            if exist(currentFile, 'file') == 2
-                obj.parseFile(currentFile);
-            elseif isprop(obj,'logFileHeaderFile') && ~isempty(obj.logFileHeaderFile) && exist(obj.logFileHeaderFile, 'file') == 2
-                obj.parseFile(obj.logFileHeaderFile);   
-            end    
-       end 
-       
-       %A function to close the log file
-       function closeLog(obj)
-           if ~isempty(obj.loggingHandles)
-               logFile('save_Callback',obj.loggingHandles.edit3,[],obj.loggingHandles,obj.logFileFolders);
-               delete(obj.log)
-               obj.loggingHandles = {};
+       function bool = loggingIsValid(obj)      
+           if isvalid(obj.petrilogger) && obj.petrilogger.isValid
+               bool = true;
+           else
+               bool = false;
                obj.epochNumContinuous = 0;
            end
        end
-       
+              
        %A function to send information about created epoch groups through
        %to the log file
        function logEpochGroup(obj)
-            if ~isempty(obj.loggingHandles) && ...
-               ~isempty(obj.epochGroup) && ...
-               ~isequal(obj.prevEpochGroup, obj.epochGroup)
+            if ~isempty(obj.epochGroup)
                 if isempty(obj.epochGroup.parentGroup)
                     formatSpec = '\r\rPARENT GROUP (CELL)\rTIME: %s\rID: %s\rLabel: %s\rKeywords: %s\rSource: %s\rMouse ID: %s\rCell ID: %s\rRig Name: %s'; 
                     s = sprintf(formatSpec, ...
@@ -236,8 +180,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     obj.epochGroup.keywords);
                 end
                     
-                obj.sendToLog(s);
-                obj.prevEpochGroup = obj.epochGroup;
+                obj.petrilogger.log(s);
              end   
        end
        
@@ -251,11 +194,19 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 total = total + recordedTemp(i);
             end
             
-            %The total is multiplied by 10 as the Heat Controller response
-            %is a factor of 10 lower then the actual value.
             average = 10 * (total/samples);
+            m = 3; % Number of significant decimals, default to 3
             
-             m = 3; % Number of significant decimals
+            if average < 1
+                m = 1;
+            elseif average < 10
+                m = 2;
+            elseif average < 100
+                m = 3;
+            elseif average < 1000
+                m = 4;
+            end
+            
              k = floor(log10(abs(average)))-m+1;
              average = round(average/10^k)*10^k;
        end
@@ -273,10 +224,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function prepareRig(obj)            
             obj.rigConfig.sampleRate = obj.getProtocolPropertiesValue('sampleRate');
-            if ~isempty(obj.loggingHandles)
+            if obj.loggingIsValid
                 formatSpec = '\rTIME:%s\rRIG: %s\rPROTOCOL: %s\r';    
                 s = sprintf(formatSpec,datestr(now,obj.timeString),obj.rigConfig.displayName,obj.displayName);
-                obj.sendToLog(s);
+                obj.petrilogger.log(s);
             end
         end
         
@@ -286,7 +237,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.epochNum = 0;
             obj.clearFigures()
             
-            if ~isempty(obj.loggingHandles) && isprop(obj, 'propertiesToLog')
+            if obj.loggingIsValid && isprop(obj, 'propertiesToLog')
                 if ~isempty(obj.propertiesToLog)
                     count = numel(obj.propertiesToLog);
                     
@@ -319,7 +270,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                         x = x + 1;
                     end    
                     
-                    obj.sendToLog(s);
+                    obj.petrilogger.log(s);
                     clear s formatSpec
                 end
             end
@@ -331,7 +282,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function prepareEpoch(obj)
             % Override this method to add stimulii, record responses, change parameters, etc.
-            
             import Symphony.Core.*;
             
             % Create a new epoch.
@@ -557,7 +507,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     
         function completeEpoch(obj)
             % Override this method to perform any post-analysis, etc. on the current epoch.
-            if ~isempty(obj.loggingHandles)
+            if obj.loggingIsValid
                 if obj.rigConfig.isDevice('HeatSync')
                     formatSpec = '            Epoch # %u     Start Time:%u:%u:%u      Duration (ms):%u      Temperature:%gC';
                     s = sprintf(formatSpec, ...
@@ -568,7 +518,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                         obj.epoch.Duration.Item2.TotalMilliseconds, ...
                         obj.recordSolutionTemp);
                 else
-                     formatSpec = '            Epoch # %u     Start Time:%u:%u:%u      Duration (ms):%u';
+                    formatSpec = '            Epoch # %u     Start Time:%u:%u:%u      Duration (ms):%u';
                     s = sprintf(formatSpec, ...
                         obj.epochNumContinuous, ...
                         obj.epoch.StartTime.Item2.DateTime.Hour, ...
@@ -576,7 +526,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                         obj.epoch.StartTime.Item2.DateTime.Second, ...
                         obj.epoch.Duration.Item2.TotalMilliseconds);
                 end
-                obj.sendToLog(s);
+                obj.petrilogger.log(s);
             end
             obj.updateFigures();
             obj.previousEpochProtocol = obj.epoch.ProtocolParameters;
@@ -591,9 +541,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function completeRun(obj)
             % Override this method to perform any actions after the last epoch has completed.
-            if ~isempty(obj.loggingHandles)
-                logFile('save_Callback',obj.loggingHandles.edit3,[],obj.loggingHandles,obj.logFileFolders);
+            if obj.loggingIsValid
+                obj.petrilogger.saveFcn(false,false);
             end
+            
             obj.setState('stopped');
         end
         
