@@ -31,9 +31,6 @@ classdef OneChannelLED < SymphonyProtocol
     end
     
     properties (Hidden)
-        % Required if you have a header to load.
-        logFileHeaderFile = sprintf('%s.log',mfilename('fullpath'));
-        
         % Required for Logging functionality
         propertiesToLog = { ...
             'prePoints' ...

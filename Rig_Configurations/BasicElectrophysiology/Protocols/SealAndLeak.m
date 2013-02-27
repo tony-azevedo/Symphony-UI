@@ -21,11 +21,6 @@ classdef SealAndLeak < SymphonyProtocol
     end
     
     properties (Hidden)
-        % Two Required variables if you have a header to load.
-        % Example below:
-        
-        % Required if you have a header to load.
-        logFileHeaderFile = '';
 %        
 %         propertiesToLog = { ...
 %             'epochDuration' ...

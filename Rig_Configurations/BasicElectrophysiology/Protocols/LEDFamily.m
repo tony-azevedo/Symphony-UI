@@ -32,9 +32,6 @@ classdef LEDFamily < SymphonyProtocol
     end
     
     properties (Hidden)
-        % Required if you have a header to load.
-        logFileHeaderFile = '';
-        
         % Required for Logging functionality
         propertiesToLog = { ...
             'prePoints' ...

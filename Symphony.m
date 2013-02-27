@@ -392,7 +392,7 @@ classdef (Sealed) Symphony < handle
             obj.lfStart = uimenu(obj.lf,'Label','Start ','Enable','on','Callback',@(hObject,eventdata)logFile(obj,hObject,eventdata, true));
             obj.lfStop = uimenu(obj.lf,'Label','Stop','Enable','off','Callback',@(hObject,eventdata)logFile(obj,hObject,eventdata, false));
             
-            uimenu(obj.mh,'Label','Quit','Callback', @(hObject,eventdata)closeRequestFcn(obj,hObject,eventdata));
+            uimenu(obj.mh,'Label','Quit','Accelerator','q','Callback', @(hObject,eventdata)closeRequestFcn(obj,hObject,eventdata));
         end    
         
         %Solution Controller
@@ -428,6 +428,8 @@ classdef (Sealed) Symphony < handle
         
         function deleteLogFile(obj)
             if isvalid(obj.petrilogger) && obj.petrilogger.isValid
+                obj.petrilogger.stopTimer;
+                delete(obj.petrilogger.saveTimer);
                 delete(obj.petrilogger.gui);
                 delete(obj.petrilogger);        
             end

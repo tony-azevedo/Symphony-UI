@@ -44,7 +44,7 @@ classdef (Sealed) SolControlMatlab < handle
 
     %% Main Methods
     methods          
-        function sc = SolControlMatlab(varargin)
+        function sc = SolControlMatlab( varargin )
             narginchk(0,2);
             sc.channels = 5;
             

@@ -48,7 +48,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         sampleRate = {10000, 20000, 50000}      % in Hz        
     end
     
-    
     properties (Hidden, SetAccess = private)
         multiClampMode = 'VClamp'
     end
@@ -56,7 +55,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     properties (SetAccess = public, GetAccess = private)       
         epochNumContinuous = 0
         timeString = 'HH:MM:SS'   
-        solutionControlerDeviceStatus
+        solutionControlerDeviceStatus = ''
 	end
     
     events
@@ -226,7 +225,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function prepareRig(obj)            
             obj.rigConfig.sampleRate = obj.getProtocolPropertiesValue('sampleRate');
             if obj.loggingIsValid
-                formatSpec = '\rTIME:%s\rRIG: %s\rPROTOCOL: %s\r';    
+                formatSpec = '\rTIME:%s\rRIG: %s\rPROTOCOL: %s';    
                 s = sprintf(formatSpec,datestr(now,obj.timeString),obj.rigConfig.displayName,obj.displayName);
                 obj.petrilogger.log(s);
             end
@@ -261,8 +260,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                                 formatSpec ='%s%s = %i  ';
                             end
                             
-                            if isequal(obj.propertiesToLog{f},'preSynapticHold') ...
-                                    && f == count
+                            if isequal(obj.propertiesToLog{f},'preSynapticHold') && f == count
                                 formatSpec = '%s\r        %s = %i  ';
                             end
                         end
@@ -509,16 +507,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function completeEpoch(obj)
             % Override this method to perform any post-analysis, etc. on the current epoch.
             if obj.loggingIsValid
-                if obj.rigConfig.isDevice('HeatSync')
-                    formatSpec = '            Epoch # %u     Start Time:%u:%u:%u      Duration (ms):%u      Temperature:%gC';
-                    s = sprintf(formatSpec, ...
-                        obj.epochNumContinuous, ...
-                        obj.epoch.StartTime.Item2.DateTime.Hour, ...
-                        obj.epoch.StartTime.Item2.DateTime.Minute, ...
-                        obj.epoch.StartTime.Item2.DateTime.Second, ...
-                        obj.epoch.Duration.Item2.TotalMilliseconds, ...
-                        obj.recordSolutionTemp);
-                else
                     formatSpec = '            Epoch # %u     Start Time:%u:%u:%u      Duration (ms):%u';
                     s = sprintf(formatSpec, ...
                         obj.epochNumContinuous, ...
@@ -526,7 +514,12 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                         obj.epoch.StartTime.Item2.DateTime.Minute, ...
                         obj.epoch.StartTime.Item2.DateTime.Second, ...
                         obj.epoch.Duration.Item2.TotalMilliseconds);
+                
+                if obj.rigConfig.isDevice('HeatSync')
+                    formatSpec = '%s      Temperature:%gC';
+                    s = sprintf(formatSpec, s, obj.recordSolutionTemp);
                 end
+                
                 obj.petrilogger.log(s);
             end
             obj.updateFigures();
