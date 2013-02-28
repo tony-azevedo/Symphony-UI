@@ -5,10 +5,10 @@
 %
 % Modified 27-Aug-2012 TWA to create new Color Rig
 
-classdef RetinaElectrophysiology < RigConfiguration
+classdef LEDBoxElectrophysiology < RigConfiguration
     
     properties (Constant)
-        displayName = 'Retina Electrophysiology'
+        displayName = 'LED Box Electrophysiology'
     end
     
     properties
@@ -20,7 +20,7 @@ classdef RetinaElectrophysiology < RigConfiguration
         
         % Initializing a superclass from a subclass requires the subclass
         % to handle the input variables
-        function rc = RetinaElectrophysiology(varargin)
+        function rc = LEDBoxElectrophysiology(varargin)
             if nargin == 1
                 allowMultiClampDevices = varargin{1};
             else

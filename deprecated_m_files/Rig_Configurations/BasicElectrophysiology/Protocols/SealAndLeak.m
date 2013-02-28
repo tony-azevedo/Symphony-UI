@@ -21,8 +21,12 @@ classdef SealAndLeak < SymphonyProtocol
     end
     
     properties (Hidden)
-        propertiesToLog
-        %propertiesToLog = {}; 
+%        
+%         propertiesToLog = { ...
+%             'epochDuration' ...
+%             'pulseDuration' ...
+%             'pulseAmplitude' ...
+%         };     
 
         % variables to determin how many channels the protocol has
         channels = 1;
@@ -30,6 +34,10 @@ classdef SealAndLeak < SymphonyProtocol
     end
     
     methods        
+        function dn = requiredDeviceNames(obj) %#ok<MANU>
+            dn = {'Amplifier_Ch1'};
+        end
+        
         function obj = SealAndLeak(varargin)
 %             obj = obj@SymphonyProtocol();
         end

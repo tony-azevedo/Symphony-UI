@@ -41,22 +41,23 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
         protocolProperties = {}     % A Map that contains the properties and values for the protocol. This allows for multiple channels
         previousEpochProtocol = {}
-        petrilogger;
+        
+        petrilogger
+        timeString = 'HH:MM:SS'
+        epochNumContinuous = 0
+    end
+    
+    properties (GetAccess = public, SetAccess = public, Hidden)
+        solutionControler
     end
     
     properties
-        sampleRate = {10000, 20000, 50000}      % in Hz        
+        sampleRate = {10000, 20000, 50000}      % in Hz    
     end
     
     properties (Hidden, SetAccess = private)
         multiClampMode = 'VClamp'
     end
-
-    properties (SetAccess = public, GetAccess = private)       
-        epochNumContinuous = 0
-        timeString = 'HH:MM:SS'   
-        solutionControlerDeviceStatus = ''
-	end
     
     events
         StateChanged
@@ -82,10 +83,14 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         %% Constructor (Can be overriden in the protocol)
         function obj = SymphonyProtocol()
             obj = obj@handle();
-            
             obj.setState('stopped');
             obj.responses = containers.Map();
             obj.protocolProperties = obj.createChannelParameters; 
+            
+            obj.solutionControler = struct();
+            obj.solutionControler.deviceStatus = '';
+            obj.solutionControler.recordStatus = false;
+            
             addlistener(obj,'epochGroup','PostSet',@obj.epochGroupChange);
         end 
 
@@ -149,11 +154,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
        %% Log Functions
        function bool = loggingIsValid(obj)      
-           if isvalid(obj.petrilogger) && obj.petrilogger.isValid
+           if ~isempty(obj.petrilogger) && isvalid(obj.petrilogger) && obj.petrilogger.isValid && ~isempty(obj.propertiesToLog)
                bool = true;
            else
                bool = false;
-               obj.epochNumContinuous = 0;
            end
        end
               
@@ -224,6 +228,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function prepareRig(obj)            
             obj.rigConfig.sampleRate = obj.getProtocolPropertiesValue('sampleRate');
+            obj.epochNumContinuous = 0;
             if obj.loggingIsValid
                 formatSpec = '\rTIME:%s\rRIG: %s\rPROTOCOL: %s';    
                 s = sprintf(formatSpec,datestr(now,obj.timeString),obj.rigConfig.displayName,obj.displayName);
@@ -255,13 +260,13 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
 
                         if ~ischar(value)
                             if f == 1
-                                formatSpec ='\r%s%s = %i  ';
+                                formatSpec ='\r%s%s = %d  ';
                             else
-                                formatSpec ='%s%s = %i  ';
+                                formatSpec ='%s%s = %d  ';
                             end
                             
                             if isequal(obj.propertiesToLog{f},'preSynapticHold') && f == count
-                                formatSpec = '%s\r        %s = %i  ';
+                                formatSpec = '%s\r        %s = %d  ';
                             end
                         end
 
@@ -518,6 +523,20 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 if obj.rigConfig.isDevice('HeatSync')
                     formatSpec = '%s      Temperature:%gC';
                     s = sprintf(formatSpec, s, obj.recordSolutionTemp);
+                end
+                
+                if obj.solutionControler.recordStatus
+                    formatSpec = '%s      %s';
+                    s = sprintf(formatSpec, s, 'valve:');
+                    
+                    status = textscan(obj.solutionControler.deviceStatus, '%s', 'delimiter', sprintf(','));
+                    formatSpec = '%s %d';
+                    
+                    for v = 2:length(status{1})
+                         s = sprintf(formatSpec, s, str2double(status{1}{v}));
+                    end
+                    
+                    obj.solutionControler.recordStatus = false;
                 end
                 
                 obj.petrilogger.log(s);

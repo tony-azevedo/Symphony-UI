@@ -3,7 +3,7 @@
 %  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
 %  http://license.janelia.org/license/jfrc_copyright_1_1.html
 
-classdef (Sealed) Symphony < handle
+classdef Symphony < handle
     %% Properties
     properties
         mainWindow                  % Figure handle of the main window
@@ -37,18 +37,10 @@ classdef (Sealed) Symphony < handle
         notesNode
         
         symphonyDir
-        
-        % Variables for Petri's Functionality
-        sController
-        petrilogger
-        mh
-        lf
-        lfStop
-        lfStart
     end
     
     %% Constructor
-    methods (Access = private)
+    methods
         function obj = Symphony
             import Symphony.Core.*;
             
@@ -70,9 +62,7 @@ classdef (Sealed) Symphony < handle
             obj.discoverSources();
                         
             obj.setRigConfig();
-            
-            obj.petrilogger = logger();
-            
+                        
             if ~isempty(obj.rigConfig)
                 obj.setRigProtocols();
                 obj.createNewProtocol(1);
@@ -86,28 +76,7 @@ classdef (Sealed) Symphony < handle
                 obj.closeRequestOnError();
             end
         end
-    end
-    
-    %% Instantiation Method for the Symphony Application
-    methods (Static)
-        function singleObj = getInstance
-            persistent localObj
-            if isempty(localObj) || ~isvalid(localObj)
-                localObj = Symphony;
-            end
-            singleObj = localObj;
-        end
         
-        function solutionControllerChange( ~ , eventData , protocol )
-            h = eventData.AffectedObject;
-            if(~strcmp(h.deviceStatus,''))
-                h.updateGUI();
-                protocol.solutionControlerDeviceStatus = h.deviceStatus;
-            end
-        end        
-    end
-    
-    methods
         %% Rig Configurations
         function discoverRigConfigurations(obj)
             % Get the list of rig configurations from the folder.
@@ -276,7 +245,6 @@ classdef (Sealed) Symphony < handle
             
             newProtocol.rigConfig = obj.rigConfig;
             newProtocol.figureHandlerClasses = obj.figureHandlerClasses;
-            newProtocol.petrilogger = obj.petrilogger;
             
             % Use any previously set parameters.
             params = getpref('Symphony', [className '_Defaults'], struct);
@@ -382,59 +350,6 @@ classdef (Sealed) Symphony < handle
             end
         end
         
-        %% Petris Functions
-        %creating a menu
-        function addLabMenu(obj)
-            obj.mh = uimenu(obj.mainWindow,'Label','Petri''s Lab Features'); 
-            uimenu(obj.mh,'Label','Solution Controller','Callback',@(hObject,eventdata)solutionController(obj,hObject,eventdata));
-            
-            obj.lf = uimenu(obj.mh,'Label','Log File');
-            obj.lfStart = uimenu(obj.lf,'Label','Start ','Enable','on','Callback',@(hObject,eventdata)logFile(obj,hObject,eventdata, true));
-            obj.lfStop = uimenu(obj.lf,'Label','Stop','Enable','off','Callback',@(hObject,eventdata)logFile(obj,hObject,eventdata, false));
-            
-            uimenu(obj.mh,'Label','Quit','Accelerator','q','Callback', @(hObject,eventdata)closeRequestFcn(obj,hObject,eventdata));
-        end    
-        
-        %Solution Controller
-        function solutionController(obj, ~, ~)
-            obj.sController = SolControlMatlab({'port',7},{'channels',5});
-            addlistener(obj.sController,'deviceStatus','PostSet',@( metaProp , eventData )obj.solutionControllerChange( metaProp , eventData, obj.protocol));            
-        end
-        
-        %Log File
-        function logFile(obj, ~, ~, status)
-            if status
-                startEnable = 'off';
-                stopEnable = 'on';
-                
-                if ~isvalid(obj.petrilogger)
-                    obj.petrilogger = logger(); 
-                    obj.protocol.petrilogger = obj.petrilogger;
-                end
-                
-                obj.petrilogger.start({'main','C:\Users\local_admin\Desktop'},{'hidden','C:\Users\local_admin\Desktop'});
-            else
-                deleteLog = questdlg('Are you sure you want to stop logging', 'Stop Logging', 'Yes', 'No', 'No');
-                if strcmp(deleteLog, 'Yes')
-                    startEnable = 'on';
-                    stopEnable = 'off';  
-                    obj.deleteLogFile();
-                end
-            end
-            
-            set(obj.lfStart, 'Enable', startEnable);
-            set(obj.lfStop, 'Enable', stopEnable);
-        end
-        
-        function deleteLogFile(obj)
-            if isvalid(obj.petrilogger) && obj.petrilogger.isValid
-                obj.petrilogger.stopTimer;
-                delete(obj.petrilogger.saveTimer);
-                delete(obj.petrilogger.gui);
-                delete(obj.petrilogger);        
-            end
-        end
-                
         %% GUI layout/control                
         function showMainWindow(obj)
             import Symphony.Core.*;
@@ -461,7 +376,6 @@ classdef (Sealed) Symphony < handle
                 'Tag', 'figure', ...
                 addlProps{:});
             
-            obj.addLabMenu();
             
             bgColor = get(obj.mainWindow, 'Color');
             
@@ -959,9 +873,12 @@ classdef (Sealed) Symphony < handle
             clear all *;
         end
         
+        function close(obj) %#ok<MANU>
+            %override method to close necessary items
+        end
+
         function closeRequestFcn(obj, ~, ~)
             % TODO: need to stop the protocol?
-            
             obj.protocol.closeFigures();
             
             if ~isempty(obj.epochGroup)
@@ -970,31 +887,23 @@ classdef (Sealed) Symphony < handle
                 end
             end
             
-            obj.deleteLogFile();
-            
             % Break the reference loop on the source hierarchy so it gets deleted.
             delete(obj.sources);
             
             % Release any hold we have on hardware.
             obj.rigConfig.close();
             delete(obj.rigConfig);
-            
-                        
+              
             % Remember the window position.
             setpref('Symphony', 'MainWindow_Position', get(obj.mainWindow, 'Position'));
             
             % Delete the Main Window.
             delete(obj.mainWindow);
             
-            % deleting the symphony Instance
-            symphonyInstance = Symphony.getInstance;
-            delete(symphonyInstance);
+            obj.close;
             
             % Delete the entire Symphony object
             delete(obj);
-            
-            close all;
-            clear all *;
         end
         
         
@@ -1088,14 +997,12 @@ classdef (Sealed) Symphony < handle
             end
         end
         
-        
         function saveMetadata(obj)
             [pathstr, name, ~] = fileparts(obj.persistPath);
             metadataPath = fullfile(pathstr,[name '_metadata.xml']);
             xmlwrite(metadataPath, obj.metadataDoc);
         end
-        
-        
+                
         function closeEpochGroup(obj, ~, ~)
             if ~isempty(obj.epochGroup)
                 % Clean up the epoch group and persistor.
@@ -1141,7 +1048,6 @@ classdef (Sealed) Symphony < handle
             end
         end
         
-        
         function addNote(obj, noteText, time)
             if nargin == 2
                 time = char(obj.rigConfig.controller.Clock.Now().ToString());
@@ -1160,8 +1066,6 @@ classdef (Sealed) Symphony < handle
         
         
         %% Protocol starting/pausing/stopping
-        
-        
         function startAcquisition(obj, ~, ~)
             % Edit the protocol parameters if the user hasn't done so already.
             if ~obj.protocol.rigPrepared

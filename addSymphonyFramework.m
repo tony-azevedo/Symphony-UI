@@ -9,6 +9,7 @@ function addSymphonyFramework()
         symphonyPath = mfilename('fullpath');
         parentDir = fileparts(symphonyPath);
         addpath(fullfile(parentDir, filesep, 'Stubs'));
+        clear parentDir
     else
         symphonyPath = 'C:\Program Files\Physion\Symphony\bin';
         
@@ -20,4 +21,5 @@ function addSymphonyFramework()
         
         NET.addAssembly('System.Windows.Forms');
     end
+    clear symphonyPath 
 end

@@ -1,4 +1,4 @@
-classdef (Sealed) SolControlMatlab < handle
+classdef (Sealed) SolutionController < handle
     %% 
     properties (SetAccess = private, GetAccess = public)
         %the connection object
@@ -44,7 +44,7 @@ classdef (Sealed) SolControlMatlab < handle
 
     %% Main Methods
     methods          
-        function sc = SolControlMatlab( varargin )
+        function sc = SolutionController( varargin )
             narginchk(0,2);
             sc.channels = 5;
             
@@ -399,22 +399,26 @@ classdef (Sealed) SolControlMatlab < handle
             status = fscanf(sc.conn);
         end
         
-        function disconnect(sc, ~ , ~ )
-            sc.deviceStatus = sc.status('S');
-            
-            sc.stopTimer;
-            fclose(sc.conn);
-            
-            set(sc.guiObjects.Disconnect, 'Enable', 'Off');
-            set(sc.guiObjects.Connect, 'Enable', 'On');    
-            set(sc.guiObjects.Ports, 'Enable', 'On');       
-            
-            for v = 1:sc.channels
-                sc.changeValveStatus(v, 3, 3);
+        function disconnect( varargin )
+            narginchk(1,3);
+            sc =  varargin{1};
+            if isa(sc,'SolutionController')
+                sc.deviceStatus = sc.status('S');
+
+                sc.stopTimer;
+                fclose(sc.conn);
+
+                set(sc.guiObjects.Disconnect, 'Enable', 'Off');
+                set(sc.guiObjects.Connect, 'Enable', 'On');    
+                set(sc.guiObjects.Ports, 'Enable', 'On');       
+
+                for v = 1:sc.channels
+                    sc.changeValveStatus(v, 3, 3);
+                end
+
+                sc.deviceStatus = '';
+                sc.readControl = '';
             end
-            
-            sc.deviceStatus = '';
-            sc.readControl = '';
         end
         
         function valveStatus( sc , ~ , ~ )
@@ -449,23 +453,27 @@ classdef (Sealed) SolControlMatlab < handle
             end
         end
         
-        function connect(sc, ~ , ~ )
-            sc.portValue = get(sc.guiObjects.Ports,'Value');
-            sc.port = sc.portList{sc.portValue};
-            
-            sc.conn = serial(sc.port);
-            
-            sc.conn.BaudRate = 57600;
-            sc.conn.ReadAsyncMode = 'continuous';
-            sc.conn.Terminator = 'LF/CR';
-            
-            fopen(sc.conn);
- 
-            set(sc.guiObjects.Disconnect, 'Enable', 'On');
-            set(sc.guiObjects.Connect, 'Enable', 'Off');
-            set(sc.guiObjects.Ports, 'Enable', 'Off');
-            
-            sc.startTimer;
+        function connect( varargin )
+            narginchk(1,3);
+            sc =  varargin{1};
+            if isa(sc,'SolutionController')
+                sc.portValue = get(sc.guiObjects.Ports,'Value');
+                sc.port = sc.portList{sc.portValue};
+
+                sc.conn = serial(sc.port);
+
+                sc.conn.BaudRate = 57600;
+                sc.conn.ReadAsyncMode = 'continuous';
+                sc.conn.Terminator = 'LF/CR';
+
+                fopen(sc.conn);
+
+                set(sc.guiObjects.Disconnect, 'Enable', 'On');
+                set(sc.guiObjects.Connect, 'Enable', 'Off');
+                set(sc.guiObjects.Ports, 'Enable', 'Off');
+
+                sc.startTimer;
+            end
         end 
     end
 end
