@@ -12,14 +12,14 @@ classdef PetriSymphony < Symphony
     
     %% Instantiation Method for the Symphony Application
     methods (Static)
-        function solutionControllerChange( ~ , eventData , protocol )
-            h = eventData.AffectedObject;
-            if(~strcmp(h.deviceStatus,''))
-                h.updateGUI();
-                protocol.solutionControler.deviceStatus = h.deviceStatus;
-                protocol.solutionControler.recordStatus = true;
-            end
-        end        
+%         function solutionControllerChange( ~ , eventData , protocol )
+%             h = eventData.AffectedObject;
+%             if(~strcmp(h.deviceStatus,''))
+%                 h.updateGUI();
+%                 protocol.solutionControler.deviceStatus = h.deviceStatus;
+%                 protocol.solutionControler.recordStatus = true;
+%             end
+%         end        
         
         function singleObj = getInstance
             persistent localObj
@@ -33,7 +33,6 @@ classdef PetriSymphony < Symphony
     methods (Access = private)
         function obj = PetriSymphony
             obj =  obj@Symphony();
-            obj.petrilogger = logger();
         end
     end
     
@@ -54,7 +53,9 @@ classdef PetriSymphony < Symphony
             narginchk(1,3);
             obj =  varargin{1};
             if isa(obj,'PetriSymphony')
-                obj.sController = SolutionController({'port',7},{'channels',5});
+%                 obj.sController = @(p, c)SolutionController({'port',7} , {'channels',5});
+%                 batch(obj.sController,'matlabpool',1);
+                  obj.sController =  SolutionController({'port',8} , {'channels',5});
                 addlistener(obj.sController,'deviceStatus','PostSet',@( metaProp , eventData )obj.solutionControllerChange( metaProp , eventData, obj.protocol));   
             end
         end
@@ -65,10 +66,8 @@ classdef PetriSymphony < Symphony
                 startEnable = 'off';
                 stopEnable = 'on';
                 
-                if ~isvalid(obj.petrilogger)
-                    obj.petrilogger = logger(); 
-                    obj.protocol.petrilogger = obj.petrilogger;
-                end
+                obj.petrilogger = logger(); 
+                obj.protocol.petrilogger = obj.petrilogger;
                 
                 obj.petrilogger.start({'main','C:\Users\local_admin\Desktop'},{'hidden','C:\Users\local_admin\Desktop'});
             else

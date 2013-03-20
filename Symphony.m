@@ -241,9 +241,8 @@ classdef Symphony < handle
         function newProtocol = createProtocol(obj, className)
             % Create an instance of the protocol class.
             constructor = str2func(className);
-            newProtocol = constructor();
+            newProtocol = constructor(obj.rigConfig);
             
-            newProtocol.rigConfig = obj.rigConfig;
             newProtocol.figureHandlerClasses = obj.figureHandlerClasses;
             
             % Use any previously set parameters.

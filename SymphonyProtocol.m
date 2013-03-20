@@ -81,7 +81,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
     methods
         %% Constructor (Can be overriden in the protocol)
-        function obj = SymphonyProtocol()
+        function obj = SymphonyProtocol(rigConfig)
             obj = obj@handle();
             obj.setState('stopped');
             obj.responses = containers.Map();
@@ -90,6 +90,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.solutionControler = struct();
             obj.solutionControler.deviceStatus = '';
             obj.solutionControler.recordStatus = false;
+            
+            obj.rigConfig = rigConfig;
             
             addlistener(obj,'epochGroup','PostSet',@obj.epochGroupChange);
         end 

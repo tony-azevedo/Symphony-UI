@@ -30,8 +30,8 @@ classdef SealAndLeak < SymphonyProtocol
     end
     
     methods        
-        function obj = SealAndLeak(varargin)
-%             obj = obj@SymphonyProtocol();
+        function obj = SealAndLeak(rigConfig)
+             obj = obj@SymphonyProtocol(rigConfig);
         end
 
         function prepareRig(obj)

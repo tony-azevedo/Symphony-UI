@@ -7,27 +7,12 @@
 %  http://license.janelia.org/license/jfrc_copyright_1_1.html
 %
 %  Modified by TA 9.8.12 from LED Family to create a single LED pulse protocol
-classdef OneChannelLED < SymphonyProtocol
+classdef LEDFamily < SymphonyProtocol
 
     properties (Constant, Hidden)
         identifier = 'helsinki.yliopisto.pal'
         version = 1
-        displayName = 'One Channel LED'
 		rigIdentifier = 'RetinaElectrophysiology'
-    end
-    
-    properties
-        stimPoints = uint16(100);
-        prePoints = uint16(1000);
-        tailPoints = uint16(4000);
-        stimAmplitude = 0.5;
-        lightMean = 0.0;
-        preSynapticHold = -60;
-        numberOfAverages = uint8(5);
-        interpulseInterval = 0.6;
-        continuousRun = false;
-        CHANNELS = {'Ch1'};
-        TTL1 = {'A','B'};
     end
     
     properties (Hidden)
@@ -39,19 +24,27 @@ classdef OneChannelLED < SymphonyProtocol
             'stimAmplitude' ...
             'preSynapticHold' ...
         };    
-        
-        % variables to determin how many channels the protocol has
-        channels = 1;
-        selectedChannel = 1         % The channel selected within the protocol
     end
-    
+
+    methods (Static)
+        function solutionControllerChange( ~ , eventData )
+            h = eventData.AffectedObject;
+            if(~strcmp(h.deviceStatus,''))
+                h.updateGUI();
+                obj.solutionControler.deviceStatus = h.deviceStatus;
+                obj.solutionControler.recordStatus = true;
+            end
+        end           
+    end          
+
     properties (Dependent = true, SetAccess = private) % these properties are inherited - i.e., not modifiable
         % ampOfLastStep;  
     end
     
     methods
-        function obj = OneChannelLED(rigConfig)
+        function obj = LEDFamily(rigConfig)
              obj = obj@SymphonyProtocol(rigConfig);
+             addlistener(obj.rigConfig.customDevices.('SolutionController'),'deviceStatus','PostSet',@( metaProp , eventData )obj.solutionControllerChange( metaProp , eventData));   
         end
         
         function [stimulus, lightAmplitude] = stimulusForEpoch(obj, ~) % epoch Num is usually required

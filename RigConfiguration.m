@@ -13,6 +13,7 @@ classdef RigConfiguration < handle
     properties
         controller
         allowMultiClampDevices
+        customDevices = struct();
     end
     
     
@@ -183,6 +184,20 @@ classdef RigConfiguration < handle
             end
         end
         
+        function addCustomDeviceListener(obj, deviceName, var, when, changeFunction)
+             if isfield(obj.customDevices,deviceName)
+                addlistener( obj.customDevices.(deviceName), var, when , changeFunction);
+             end
+        end
+        
+        function addCustomDevice(obj, deviceName, object, parameters)
+            constructor = str2func(object);
+            if ~isempty(parameters) && iscell(parameters)
+                obj.customDevices.(deviceName) = constructor(parameters);
+            else
+                obj.customDevices.(deviceName) = constructor();
+            end 
+        end
         
         function addDevice(obj, deviceName, outStreamName, inStreamName)
             import Symphony.Core.*;
@@ -413,6 +428,8 @@ classdef RigConfiguration < handle
                 obj.controller.DAQController.CloseHardware();
             end
         end
+        
+        
         
     end
     

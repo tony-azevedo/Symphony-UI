@@ -49,7 +49,7 @@ classdef (Sealed) SolutionController < handle
             sc.channels = 5;
             
             for v = 1:(nargin)
-                input = varargin{v};
+                input = varargin{1}{v};
                 
                 if iscell(input)
                     
@@ -322,12 +322,15 @@ classdef (Sealed) SolutionController < handle
         function changeValveStatus(sc, valve, status, control)
             name = sc.channelCode(valve);
 
+            onBtn = '';
+            offBtn = '';  
+                    
             % status values:
             % 0 = Off
             % 1 = On
             % 2 = Overloaded
             % 3 = Disconnecting From the Device. (ie. No Color Marker)
-
+            
             switch status
                 case 0
                     c = [1 0 0];
@@ -366,12 +369,16 @@ classdef (Sealed) SolutionController < handle
                         device = 'Remote switch';
                 end     
             end
-                        
-            label = ['Open' name];
-            set(sc.guiObjects.(label), 'Enable', onBtn);
-
-            label = ['Close' name];
-            set(sc.guiObjects.(label), 'Enable', offBtn);
+            
+            if ~isempty(onBtn)
+                label = ['Open' name];
+                set(sc.guiObjects.(label), 'Enable', onBtn);
+            end
+            
+            if ~isempty(offBtn)
+                label = ['Close' name];
+                set(sc.guiObjects.(label), 'Enable', offBtn);
+            end
             
             label = ['PortsLabel' name];
             set(sc.guiObjects.(label), 'String', device);          

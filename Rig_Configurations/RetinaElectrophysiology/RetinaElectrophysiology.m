@@ -16,6 +16,15 @@ classdef RetinaElectrophysiology < RigConfiguration
         minVoltage = 0;
     end
     
+    methods (Static)
+        function solutionControllerChange( ~ , eventData )
+            h = eventData.AffectedObject;
+            if(~strcmp(h.deviceStatus,''))
+                h.updateGUI();
+            end
+        end           
+    end
+    
     methods
         
         % Initializing a superclass from a subclass requires the subclass
@@ -41,7 +50,11 @@ classdef RetinaElectrophysiology < RigConfiguration
             obj.addDevice('Ch3AORB', 'DIGITAL_OUT.1', '');   % output only
             
             obj.addDevice('HeatSync', '', 'ANALOG_IN.2');   % input only
-        end
-        
+            
+            obj.addCustomDevice('SolutionController','SolutionController', {{'port',7} , {'channels',5}});
+            
+            changeFunctionHandle =  @( metaProp , eventData )obj.solutionControllerChange( metaProp , eventData );
+            % obj.addCustomDeviceListener('SolutionController', 'deviceStatus', 'PostSet', changeFunctionHandle);
+        end 
     end
 end

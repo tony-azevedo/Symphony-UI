@@ -183,9 +183,39 @@ end
 if handles.showStimuli
     % Create axes for displaying sample stimuli.
     figure(handles.figure);
-    handles.stimuliAxes = axes('Units', 'points', 'Position', [labelWidth + 225 + 30 40 axesHeight axesHeight - 10]);
+    handles.stimuliAxes = axes('Units', 'points', 'Position', [labelWidth + 225 + 100 40 axesHeight - 100 axesHeight - 20]);
     updateStimuli(handles);
 end
+
+handles.autoUpdateFigure = uicontrol(...
+    'Parent', handles.figure,...
+    'Units', 'points', ...
+    'Callback', @(hObject,eventdata)addDiagramListener(hObject,eventdata,guidata(hObject), textFieldParamNames, true), ...
+    'Position', [labelWidth + 225 + 30 10 75 20], ...
+    'String', 'Start Auto Update', ...
+    'TooltipString', 'automatically update the figure', ...
+    'enable', 'on', ...
+    'Tag', 'resetButton');
+
+handles.stopAutoUpdateFigure = uicontrol(...
+    'Parent', handles.figure,...
+    'Units', 'points', ...
+    'Callback', @(hObject,eventdata)addDiagramListener(hObject,eventdata,guidata(hObject), textFieldParamNames, false), ...
+    'Position', [labelWidth + 225 + 30 + 75 10 75 20], ...
+    'String', 'Stop auto Update', ...
+    'TooltipString', 'stop automatically updating the figure', ...
+    'enable', 'off', ...
+    'Tag', 'resetButton');
+
+handles.manualUpdateFigure = uicontrol(...
+    'Parent', handles.figure,...
+    'Units', 'points', ...
+    'Callback', @(hObject,eventdata)allValuesChanged(hObject,eventdata,guidata(hObject)), ...
+    'Position', [labelWidth + 225 + 30 + 150 10 75 20], ...
+    'String', 'Manual Update', ...
+    'enable', 'on', ...
+    'TooltipString', 'manually update the figure values', ...
+    'Tag', 'resetButton');
 
 handles.resetButton = uicontrol(...
     'Parent', handles.figure,...
@@ -214,18 +244,6 @@ handles.saveButton = uicontrol(...
 
 guidata(handles.figure, handles);
 
-% Try to add Java callbacks so that the stimuli and dependent values can be updated as new values are being typed.
-drawnow
-for i = 1:length(textFieldParamNames)
-    paramName = textFieldParamNames{i};
-    hObject = handles.([paramName 'Edit']);
-    try
-        javaHandle = findjobj(hObject);
-        set(javaHandle, 'FocusLostCallback', {@valueChanged, hObject, paramName});
-    catch ME %#ok<NASGU>
-    end
-end
-
 % Wait for the user to cancel or save.
 uiwait;
 
@@ -239,6 +257,29 @@ end
 end
 
 %% GUI Callback functions
+
+function addDiagramListener(~, ~, handles, textFieldParamNames, status)
+    for i = 1:length(textFieldParamNames)
+        paramName = textFieldParamNames{i};
+        paramTag = [paramName 'Edit'];
+        hObject = handles.(paramTag);
+        if status
+            set(hObject, 'KeyPressFcn', {@valueChanged, hObject, paramName});
+            autoOn = 'off';
+            autoOff = 'on';
+            manualUpdate = 'off';
+        else
+            set(hObject, 'KeyPressFcn', '');
+            autoOn = 'on';
+            autoOff = 'off';
+            manualUpdate = 'on';            
+        end
+        set(handles.('autoUpdateFigure'), 'enable', autoOn);
+        set(handles.('stopAutoUpdateFigure'), 'enable', autoOff);
+        set(handles.('manualUpdateFigure'), 'enable', manualUpdate);
+    end
+end
+
 function checkboxToggled(~, ~, handles, paramName)
 updateSingleValue(handles, paramName);
 updateStimuli(handles);
@@ -265,15 +306,14 @@ end
 
 % If a textbox looses focus the value is updated
 function valueChanged(~, ~, hObject, paramName)
-try
 handles = guidata(hObject);    
 updateSingleValue(handles, paramName);
 updateStimuli(handles);
 drawnow
-catch ME %#ok<NASGU>
-    % The text box looses focus on the enter key/esc key being pressed
-    % therefore this function gets called after the GUI has been dealt with
 end
+
+function allValuesChanged(~, ~, handles)   
+    updateValues(handles);   
 end
 
 function stepValue(~, ~, handles, paramTag, direction, paramName)
@@ -367,7 +407,8 @@ end
 
 function updateValues(handles)
 % Push all values into the copy of the plug-in.
-handles.protocolCopy.protocolProperties = setProtocolsProperties(handles, handles.protocolCopy);
+% handles.protocolCopy.protocolProperties = setProtocolsProperties(handles, handles.protocolCopy);
+applyCurrentValues(handles);
 
 handles.edited = true;
 guidata(handles.figure, handles);
@@ -433,13 +474,14 @@ guidata(handles.figure, handles);
 uiresume;
 end
 
-function saveEditParameters(~, ~, handles)
+function applyCurrentValues(handles)
 params = handles.protocolCopy.protocolProperties;
 paramNames = keys(params);
 paramCount = params.Count;
 paramChannel = handles.protocolCopy.selectedChannel;
 
 channels = handles.protocolCopy.channels;
+
 
 for paramIndex = 1:paramCount
     paramName = paramNames{paramIndex};
@@ -471,7 +513,11 @@ for paramIndex = 1:paramCount
         end
         handles.protocolCopy.protocolProperties(paramName) = temp;
 end
+        guidata(handles.figure, handles);
+end
 
+function saveEditParameters(~, ~, handles)
+    applyCurrentValues(handles);
 try    
     % update the SymphonyProtocol object with the changes made to the copy
     handles.protocol.protocolProperties = handles.protocolCopy.protocolProperties;
