@@ -360,7 +360,7 @@ end
 
 
 function cancelNewGroup(~, ~, ~)
-    uiresume
+   uiresume
 end
 
 
