@@ -57,6 +57,11 @@ classdef ExampleChartRecorder < SymphonyProtocol
             chunkOfData = eventData.Data;
             fromDevice = char(eventData.Device.Name);
             
+            % We're not interested in any other device data beyond the amp
+            if ~strcmpi(fromDevice, obj.amp)
+                return
+            end
+            
             % Convert the data to a Matlab vector.
             chunk = double(Measurement.ToQuantityArray(chunkOfData.Data));
             
