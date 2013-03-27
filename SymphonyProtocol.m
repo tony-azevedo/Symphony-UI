@@ -41,6 +41,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         allowSavingEpochs = true    % An indication if this protocol allows it's data to be persisted.
         persistor = []              % The persistor to use with each epoch.
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
+        listeners = {}              % An array of event listeners associated with this protocol.
     end
     
     
@@ -56,8 +57,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
     methods
         
-        function obj = SymphonyProtocol()
+        function obj = SymphonyProtocol(rigConfig)
             obj = obj@handle();
+            
+            obj.rigConfig = rigConfig;
             
             obj.setState('stopped');
             obj.responses = containers.Map();
@@ -539,6 +542,40 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 obj.setState('stopping');
                 
                 obj.rigConfig.controller.CancelRun();
+            end
+        end
+        
+        
+        function addEventListener(obj, source, eventName, callback)
+            % Add an event listener to this protocol.
+            % Be careful about the method you use to add event handlers; they persist until the protocol is destroyed
+            % and will stack if you add the same listener more than once. In general only add listeners in your constructor.
+            
+            obj.listeners{end + 1} = addlistener(source, eventName, callback);
+        end
+        
+        
+        function delete(obj)
+            % Delete all event listeners.
+            while ~isempty(obj.listeners)
+                delete(obj.listeners{1});
+                obj.listeners(1) = [];
+            end
+        end
+     
+    end
+    
+    
+    methods (Access = protected)
+        
+        function copy = copyElement(obj)
+            copy = copyElement@matlab.mixin.Copyable(obj);
+            
+            % Copy all event listeners.
+            copy.listeners = {};
+            for i = 1:length(obj.listeners)
+                listener = obj.listeners{i};
+                copy.addEventListener(obj.rigConfig.controller, listener.EventName, listener.Callback);
             end
         end
         

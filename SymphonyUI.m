@@ -265,8 +265,7 @@ classdef SymphonyUI < handle
         function newProtocol = createProtocol(obj, className)           
             % Create an instance of the protocol class.
             constructor = str2func(className);
-            newProtocol = constructor();
-            newProtocol.rigConfig = obj.rigConfig;
+            newProtocol = constructor(obj.rigConfig);
             newProtocol.figureHandlerClasses = obj.figureHandlerClasses;
             
             % Set default or saved values for each parameter.
@@ -887,6 +886,9 @@ classdef SymphonyUI < handle
                     elseif obj.wasSavingEpochs
                         set(obj.controls.saveEpochsCheckbox, 'Value', get(obj.controls.saveEpochsCheckbox, 'Max'));
                     end
+                    
+                    % Force delete the old protocol to ensure it's listeners are deleted.
+                    delete(oldProtocol);
                 else
                     % User selected cancel on the initial edit params window.
                     % Revert back to the old protocol.
@@ -898,6 +900,9 @@ classdef SymphonyUI < handle
                         protocolValue = 1;
                     end
                     set(obj.controls.protocolPopup, 'Value', protocolValue);
+                    
+                    % Force delete the new protocol to ensure it's listeners are deleted.
+                    delete(newProtocol)
                 end
             end
         end
