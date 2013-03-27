@@ -130,9 +130,15 @@ The points where you can customize behavior are:
     continueRun():
         override this method to indicate if there are any more epochs to be run.
         default behavior: return true unless the user has paused or stopped the protocol
-    prepareEpoch():
-        override this method to add stimuli, set parameters, etc.
-        default behavior: set default device background and record the response from any device with an input stream
+    prepareEpochStimuli():
+        override this method to add stimuli to the current epoch.
+        default behavior: set default device background
+    prepareEpochResponses():
+        override this method to record responses in the current epoch.
+        default behavior: record the response from any device with an input stream
+    prepareEpochAttributes():
+        override this method to add parameters, keywords, etc. in the current epoch.
+        default behavior: add any keywords specified by the user
     completeEpoch():
         override this method to perform any post-epoch clean up, analysis, etc.
         default behavior: update all figures
@@ -199,6 +205,11 @@ class SimpleProtocol < SymphonyProtocol
     
     methods
         
+        function obj = SimpleProtocol(rigConfig)
+            % Call the base constructor.
+            obj = obj@SymphonyProtocol(rigConfig);
+        end
+
         function stimuli = sampleStimuli(obj)
             % Return sample stimuli based on the current paramaters.
             stimuli = cell(1, obj.numberOfEpochs);
@@ -215,7 +226,7 @@ class SimpleProtocol < SymphonyProtocol
             obj.openFigure('Response');
         end
         
-        function prepareEpoch(obj)
+        function prepareEpochStimuli(obj)
             % Call the base class method which sets up default backgrounds and records responses.
             prepareEpoch@SymphonyProtocol(obj);
             
