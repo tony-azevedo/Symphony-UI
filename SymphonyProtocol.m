@@ -2,7 +2,9 @@
 %
 % Interesting methods to override:
 % * prepareRun
-% * prepareEpoch
+% * prepareStimuli
+% * prepareResponses
+% * prepareAttributes
 % * completeEpoch
 % * continueRun
 % * completeRun
@@ -141,29 +143,38 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function stimuli = sampleStimuli(obj) %#ok<MANU>
             stimuli = {};
         end
+      
         
-        
-        function prepareEpoch(obj)
-            % Override this method to add stimulii, record responses, change parameters, etc.
+        function prepareStimuli(obj)
+            % Override this method to add stimuli to the current epoch and set background values for devices.
             
             import Symphony.Core.*;
             
-            % Create a new epoch.
-            obj.epochNum = obj.epochNum + 1;
-            obj.epoch = Epoch(obj.identifier);
-
-            % Add any keywords specified by the user.
-            for i = 1:length(obj.epochKeywords)
-                obj.epoch.Keywords.Add(obj.epochKeywords{i});
-            end
-            
-            % Set the default background value and record any input streams for each device.
+            % Set the default background value for each device.
             devices = obj.rigConfig.devices();
             for i = 1:length(devices)
                 device = devices{i};
                 
                 % Set each device's background for this epoch to be the same as the inter-epoch background.
                 obj.setDeviceBackground(char(device.Name), device.Background);
+            end
+        end
+        
+        
+        function prepareResponses(obj)
+            % Override this method to specify responses to record for the current epoch.
+            
+            import Symphony.Core.*;
+            
+            % Indefinite epochs cannot record responses.
+            if obj.epoch.IsIndefinite()
+                return
+            end
+            
+            % Record a response from all devices with an input stream.
+            devices = obj.rigConfig.devices();
+            for i = 1:length(devices)
+                device = devices{i};
                 
                 % Record the response from any device that has an input stream.
                 [~, streams] = dictionaryKeysAndValues(device.Streams);
@@ -177,6 +188,16 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             % Clear out the cache of responses.
             obj.responses = containers.Map();
+        end
+        
+                
+        function prepareAttributes(obj)
+            % Override this method to add parameters, keywords, etc. to the current epoch.
+
+            % Add any keywords specified by the user.
+            for i = 1:length(obj.epochKeywords)
+                obj.epoch.Keywords.Add(obj.epochKeywords{i});
+            end
         end
         
         
@@ -227,8 +248,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
         
         
-        function addStimulus(obj, deviceName, stimulusID, stimulusData, units)
+        function addStimulus(obj, deviceName, stimulusID, stimulusData, units, durationInSeconds)
             % Queue data to send to the named device when the epoch is run.
+            % Duration is optional. Specifying a duration longer than the stimulus data will cause the stimulus to repeat 
+            % as needed. Specifying a duration of 'indefinite' will cause the stimulus to repeat indefinitely.
             
             import Symphony.Core.*;
             
@@ -265,9 +288,18 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 stimDataList = Measurement.FromArray(stimulusData, units);
             end
             
-            outputData = OutputData(stimDataList, obj.deviceSampleRate(device, 'OUT'), true);
+            outputData = OutputData(stimDataList, obj.deviceSampleRate(device, 'OUT'));
             
-            stim = RenderedStimulus(stimulusID, structToDictionary(struct()), outputData);
+            providedDuration = nargin >= 6;
+            if ~providedDuration
+                duration = TimeSpanOption(outputData.Duration);
+            elseif strcmpi(durationInSeconds, 'indefinite')
+                duration = TimeSpanOption.Indefinite;
+            else
+                duration = TimeSpanOption(System.TimeSpan.FromSeconds(durationInSeconds));
+            end
+            
+            stim = RepeatingRenderedStimulus(stimulusID, structToDictionary(struct()), outputData, duration);
             
             obj.epoch.Stimuli.Add(device, stim);
         end
@@ -320,7 +352,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function recordResponse(obj, deviceName)
             % Record the response from the device with the given name when the epoch runs.
-            
+                        
             import Symphony.Core.*;
             
             device = obj.rigConfig.deviceWithName(deviceName);
@@ -385,9 +417,16 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function runEpoch(obj)
             % This is a core method that runs a single epoch of the protocol.
             
+            import Symphony.Core.*;
+            
             try
-                % Tell the Symphony framework to run the epoch.
-                obj.rigConfig.controller.RunEpoch(obj.epoch, obj.persistor);
+                % Tell the Symphony framework to run the epoch in the background.
+                obj.rigConfig.controller.RunEpoch(obj.epoch, obj.persistor, true);
+                
+                % Spin until the epoch completes, listening for events.
+                while obj.rigConfig.controller.Running
+                    pause(0.25);
+                end
             catch e
                 % TODO: is it OK to hold up the run with the error dialog or should errors be logged and displayed at the end?
                 message = ['An error occurred while running the protocol.' char(10) char(10)];
@@ -425,6 +464,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function run(obj)
             % This is the core method that runs a protocol, everything else is preparation for this.
             
+            import Symphony.Core.*;
+            
             try
                 if ~strcmp(obj.state, 'paused')
                     % Prepare the run.
@@ -437,8 +478,14 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 while obj.continueRun()
                     % Run a single epoch.
                     
+                    % Create the epoch.
+                    obj.epochNum = obj.epochNum + 1;
+                    obj.epoch = Epoch(obj.identifier);
+                    
                     % Prepare the epoch: set backgrounds, add stimuli, record responses, add parameters, etc.
-                    obj.prepareEpoch();
+                    obj.prepareStimuli();
+                    obj.prepareResponses();
+                    obj.prepareAttributes();
                     
                     % Persist the params now that the sub-class has had a chance to tweak them.
                     pluginParams = obj.parameters(true);
@@ -477,8 +524,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         
         function pause(obj)
-            % Set a flag that will be checked after the current epoch completes.
+            % Set a flag that will be checked after the controller stops the current run.
             obj.setState('pausing');
+            
+            obj.rigConfig.controller.CancelRun();
         end
         
         
@@ -486,8 +535,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             if strcmp(obj.state, 'paused')
                 obj.completeRun()
             else
-                % Set a flag that will be checked after the current epoch completes.
+                % Set a flag that will be checked after the controller stops the current run.
                 obj.setState('stopping');
+                
+                obj.rigConfig.controller.CancelRun();
             end
         end
         
