@@ -2,9 +2,9 @@
 %
 % Interesting methods to override:
 % * prepareRun
-% * prepareStimuli
-% * prepareResponses
-% * prepareAttributes
+% * prepareEpochStimuli
+% * prepareEpochResponses
+% * prepareEpochAttributes
 % * completeEpoch
 % * continueRun
 % * completeRun
@@ -148,7 +148,23 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
       
         
-        function prepareStimuli(obj)
+        function prepareEpoch(obj)
+            % Avoid overriding this method.
+            % Override instead: prepareEpochStimuli, prepareEpochResponses, prepareEpochAttributes.
+            
+            import Symphony.Core.*;
+            
+            % Create the epoch.
+            obj.epochNum = obj.epochNum + 1;
+            obj.epoch = Epoch(obj.identifier);
+            
+            obj.prepareEpochStimuli();
+            obj.prepareEpochResponses();
+            obj.prepareEpochAttributes();
+        end
+        
+        
+        function prepareEpochStimuli(obj)
             % Override this method to add stimuli to the current epoch and set background values for devices.
             
             import Symphony.Core.*;
@@ -164,10 +180,13 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
         
         
-        function prepareResponses(obj)
+        function prepareEpochResponses(obj)
             % Override this method to specify responses to record for the current epoch.
             
             import Symphony.Core.*;
+            
+            % Clear out the cache of responses.
+            obj.responses = containers.Map();
             
             % Indefinite epochs cannot record responses.
             if obj.epoch.IsIndefinite()
@@ -188,13 +207,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     end
                 end
             end
-            
-            % Clear out the cache of responses.
-            obj.responses = containers.Map();
         end
         
                 
-        function prepareAttributes(obj)
+        function prepareEpochAttributes(obj)
             % Override this method to add parameters, keywords, etc. to the current epoch.
 
             % Add any keywords specified by the user.
@@ -428,7 +444,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 
                 % Spin until the epoch completes, listening for events.
                 while obj.rigConfig.controller.Running
-                    pause(0.25);
+                    % Need a small pause to stop Matlab from grinding to a halt.
+                    pause(0.01);
                 end
             catch e
                 % TODO: is it OK to hold up the run with the error dialog or should errors be logged and displayed at the end?
@@ -467,8 +484,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function run(obj)
             % This is the core method that runs a protocol, everything else is preparation for this.
             
-            import Symphony.Core.*;
-            
             try
                 if ~strcmp(obj.state, 'paused')
                     % Prepare the run.
@@ -481,14 +496,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 while obj.continueRun()
                     % Run a single epoch.
                     
-                    % Create the epoch.
-                    obj.epochNum = obj.epochNum + 1;
-                    obj.epoch = Epoch(obj.identifier);
-                    
                     % Prepare the epoch: set backgrounds, add stimuli, record responses, add parameters, etc.
-                    obj.prepareStimuli();
-                    obj.prepareResponses();
-                    obj.prepareAttributes();
+                    obj.prepareEpoch();
                     
                     % Persist the params now that the sub-class has had a chance to tweak them.
                     pluginParams = obj.parameters(true);
@@ -506,7 +515,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     end
                     
                     obj.runEpoch();
-                                        
+                    
                     % Perform any post-epoch analysis, clean up, etc.
                     obj.completeEpoch();
                     
