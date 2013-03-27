@@ -39,6 +39,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         figureHandlers = {}
         figureHandlerParams = {}
         allowSavingEpochs = true    % An indication if this protocol allows it's data to be persisted.
+        allowPausing = true         % An indication if this protocol allows pausing during acquisition.
         persistor = []              % The persistor to use with each epoch.
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
         listeners = {}              % An array of event listeners associated with this protocol.
@@ -517,7 +518,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     obj.runEpoch();
                     
                     % Perform any post-epoch analysis, clean up, etc.
-                    obj.completeEpoch();
+                    if ~strcmp(obj.state, 'stopping')
+                        obj.completeEpoch();
+                    end
                     
                     % Force any figures to redraw and any events (clicking the Pause or Stop buttons in particular) to get processed.
                     drawnow;
@@ -536,10 +539,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         
         function pause(obj)
-            % Set a flag that will be checked after the controller stops the current run.
-            obj.setState('pausing');
-            
-            obj.rigConfig.controller.CancelRun();
+            % Set a flag that will be checked after the current epoch completes.
+            obj.setState('pausing'); 
         end
         
         

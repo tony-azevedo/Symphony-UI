@@ -1038,7 +1038,11 @@ classdef SymphonyUI < handle
 
                 if strcmp(obj.protocol.state, 'running')
                     set(obj.controls.startButton, 'Enable', 'off');
-                    set(obj.controls.pauseButton, 'Enable', 'on');
+                    if obj.protocol.allowPausing
+                        set(obj.controls.pauseButton, 'Enable', 'on');
+                    else
+                        set(obj.controls.pauseButton, 'Enable', 'off');
+                    end
                     set(obj.controls.editParametersButton, 'Enable', 'off');
                     set(obj.controls.epochKeywordsEdit, 'Enable', 'off');
                     set(obj.controls.addNoteButton, 'Enable', 'off');
