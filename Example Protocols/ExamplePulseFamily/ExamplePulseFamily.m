@@ -44,6 +44,12 @@ classdef ExamplePulseFamily < SymphonyProtocol
         end     
         
         
+        function obj = ExamplePulseFamily(rigConfig)
+            % Call the base constructor.
+            obj = obj@SymphonyProtocol(rigConfig);
+        end 
+        
+        
         function prepareRun(obj)
             % Call the base method.
             prepareRun@SymphonyProtocol(obj);
@@ -84,9 +90,9 @@ classdef ExamplePulseFamily < SymphonyProtocol
         end
        
         
-        function prepareEpoch(obj)
+        function prepareEpochStimuli(obj)
             % Call the base method.
-            prepareEpoch@SymphonyProtocol(obj);           
+            prepareEpochStimuli@SymphonyProtocol(obj);           
             
             % Set the amp hold signal.
             if strcmp(obj.rigConfig.multiClampMode(obj.amp), 'VClamp')
@@ -97,7 +103,6 @@ classdef ExamplePulseFamily < SymphonyProtocol
             
             % Add the amp pulse stimulus to the epoch.
             pulseNum = mod(obj.epochNum - 1, obj.pulsesInFamily) + 1;
-            disp(pulseNum);
             [stim, units] = obj.stimulusForPulseNum(pulseNum);
             obj.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units);
         end
