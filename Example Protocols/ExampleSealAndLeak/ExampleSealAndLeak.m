@@ -57,14 +57,14 @@ classdef ExampleSealAndLeak < SymphonyProtocol
         end
         
         
-        function obj = ExampleSealAndLeak(rigConfig)
-            % Call the base constructor.
-            obj = obj@SymphonyProtocol(rigConfig);
+        function prepareProtocol(obj)
+            % Call the base method.
+            prepareProtocol@SymphonyProtocol(obj);
             
             % Epochs of indefinite duration, like those produced by this protocol, cannot be saved. 
             obj.allowSavingEpochs = false;
-            obj.allowPausing = false;
-        end
+            obj.allowPausing = false;            
+        end  
         
         
         function [stim, units] = stimulus(obj)

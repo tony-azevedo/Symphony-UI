@@ -39,13 +39,7 @@ classdef ExamplePulse < SymphonyProtocol
                 case {'pulseAmplitude', 'preAndTailSignal', 'ampHoldSignal'}
                     p.units = 'mV or pA';
             end
-        end     
-        
-        
-        function obj = ExamplePulse(rigConfig)
-            % Call the base constructor.
-            obj = obj@SymphonyProtocol(rigConfig);
-        end 
+        end
         
         
         function prepareRun(obj)

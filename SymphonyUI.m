@@ -265,8 +265,10 @@ classdef SymphonyUI < handle
         function newProtocol = createProtocol(obj, className)           
             % Create an instance of the protocol class.
             constructor = str2func(className);
-            newProtocol = constructor(obj.rigConfig);
+            newProtocol = constructor();
+            newProtocol.rigConfig = obj.rigConfig;
             newProtocol.figureHandlerClasses = obj.figureHandlerClasses;
+            newProtocol.prepareProtocol();
             
             % Set default or saved values for each parameter.
             savedParams = getpref('Symphony', [className '_Defaults'], struct);

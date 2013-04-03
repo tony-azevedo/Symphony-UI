@@ -41,13 +41,7 @@ classdef ExamplePulseFamily < SymphonyProtocol
                 case {'firstPulseSignal', 'incrementPerPulse', 'preAndTailSignal', 'ampHoldSignal'}
                     p.units = 'mV or pA';
             end
-        end     
-        
-        
-        function obj = ExamplePulseFamily(rigConfig)
-            % Call the base constructor.
-            obj = obj@SymphonyProtocol(rigConfig);
-        end 
+        end
         
         
         function prepareRun(obj)

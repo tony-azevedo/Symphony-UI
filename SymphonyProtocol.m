@@ -58,11 +58,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
     methods
         
-        function obj = SymphonyProtocol(rigConfig)
+        function obj = SymphonyProtocol()
             obj = obj@handle();
-            
-            obj.rigConfig = rigConfig;
-            
+                        
             obj.setState('stopped');
             obj.responses = containers.Map();
         end 
@@ -77,6 +75,13 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function dn = requiredDeviceNames(obj) %#ok<MANU>
             % Override this method to indicate the names of devices that are required for this protocol.
             dn = {};
+        end
+        
+        
+        function prepareProtocol(obj)
+            % Override this method to perform any actions required to prepare this protocol after it is instantiated, e.g. add event listeners, etc.
+            % This method is like the constructor but is called after a rig config has been assigned to the protocol.
+            
         end
         
         
@@ -558,8 +563,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function addEventListener(obj, source, eventName, callback)
             % Add an event listener to this protocol.
-            % Be careful about the method you use to add event handlers; they persist until the protocol is destroyed
-            % and will stack if you add the same listener more than once. In general only add listeners in your constructor.
+            % Be careful about the method you use to add event listeners; they persist until the protocol is destroyed
+            % and will stack if you add the same listener more than once. In general only add listeners in prepareProtocol.
             
             obj.listeners{end + 1} = addlistener(source, eventName, callback);
         end
