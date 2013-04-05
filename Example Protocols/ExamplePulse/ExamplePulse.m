@@ -39,7 +39,7 @@ classdef ExamplePulse < SymphonyProtocol
                 case {'pulseAmplitude', 'preAndTailSignal', 'ampHoldSignal'}
                     p.units = 'mV or pA';
             end
-        end     
+        end
         
         
         function prepareRun(obj)

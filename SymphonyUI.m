@@ -268,6 +268,7 @@ classdef SymphonyUI < handle
             newProtocol = constructor();
             newProtocol.rigConfig = obj.rigConfig;
             newProtocol.figureHandlerClasses = obj.figureHandlerClasses;
+            newProtocol.prepareProtocol();
             
             % Set default or saved values for each parameter.
             savedParams = getpref('Symphony', [className '_Defaults'], struct);
@@ -887,6 +888,9 @@ classdef SymphonyUI < handle
                     elseif obj.wasSavingEpochs
                         set(obj.controls.saveEpochsCheckbox, 'Value', get(obj.controls.saveEpochsCheckbox, 'Max'));
                     end
+                    
+                    % Force delete the old protocol to ensure it's listeners are deleted.
+                    delete(oldProtocol);
                 else
                     % User selected cancel on the initial edit params window.
                     % Revert back to the old protocol.
@@ -898,6 +902,9 @@ classdef SymphonyUI < handle
                         protocolValue = 1;
                     end
                     set(obj.controls.protocolPopup, 'Value', protocolValue);
+                    
+                    % Force delete the new protocol to ensure it's listeners are deleted.
+                    delete(newProtocol)
                 end
             end
         end
@@ -1033,7 +1040,11 @@ classdef SymphonyUI < handle
 
                 if strcmp(obj.protocol.state, 'running')
                     set(obj.controls.startButton, 'Enable', 'off');
-                    set(obj.controls.pauseButton, 'Enable', 'on');
+                    if obj.protocol.allowPausing
+                        set(obj.controls.pauseButton, 'Enable', 'on');
+                    else
+                        set(obj.controls.pauseButton, 'Enable', 'off');
+                    end
                     set(obj.controls.editParametersButton, 'Enable', 'off');
                     set(obj.controls.epochKeywordsEdit, 'Enable', 'off');
                     set(obj.controls.addNoteButton, 'Enable', 'off');

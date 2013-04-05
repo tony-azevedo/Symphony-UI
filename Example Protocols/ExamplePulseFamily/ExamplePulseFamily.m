@@ -41,7 +41,7 @@ classdef ExamplePulseFamily < SymphonyProtocol
                 case {'firstPulseSignal', 'incrementPerPulse', 'preAndTailSignal', 'ampHoldSignal'}
                     p.units = 'mV or pA';
             end
-        end     
+        end
         
         
         function prepareRun(obj)
@@ -97,7 +97,6 @@ classdef ExamplePulseFamily < SymphonyProtocol
             
             % Add the amp pulse stimulus to the epoch.
             pulseNum = mod(obj.epochNum - 1, obj.pulsesInFamily) + 1;
-            disp(pulseNum);
             [stim, units] = obj.stimulusForPulseNum(pulseNum);
             obj.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units);
         end

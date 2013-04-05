@@ -37,8 +37,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         figureHandlers = {}
         figureHandlerParams = {}
         allowSavingEpochs = true    % An indication if this protocol allows it's data to be persisted.
+        allowPausing = true         % An indication if this protocol allows pausing during acquisition.
         persistor = []              % The persistor to use with each epoch.
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
+        listeners = {}              % An array of event listeners associated with this protocol.
     end
     
     
@@ -56,7 +58,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function obj = SymphonyProtocol()
             obj = obj@handle();
-            
+                        
             obj.setState('stopped');
             obj.responses = containers.Map();
         end 
@@ -71,6 +73,13 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function dn = requiredDeviceNames(obj) %#ok<MANU>
             % Override this method to indicate the names of devices that are required for this protocol.
             dn = {};
+        end
+        
+        
+        function prepareProtocol(obj)
+            % Override this method to perform any actions required to prepare this protocol after it is instantiated, e.g. add event listeners, etc.
+            % This method is like the constructor but is called after a rig config has been assigned to the protocol.
+            
         end
         
         
@@ -141,10 +150,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function stimuli = sampleStimuli(obj) %#ok<MANU>
             stimuli = {};
         end
-        
+      
         
         function prepareEpoch(obj)
-            % Override this method to add stimulii, record responses, change parameters, etc.
+            % Override this method to add stimuli, record responses, change parameters, etc.
             
             import Symphony.Core.*;
             
@@ -227,8 +236,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
         
         
-        function addStimulus(obj, deviceName, stimulusID, stimulusData, units)
+        function addStimulus(obj, deviceName, stimulusID, stimulusData, units, durationInSeconds)
             % Queue data to send to the named device when the epoch is run.
+            % Duration is optional. Specifying a duration longer than the stimulus data will cause the stimulus to repeat 
+            % as needed. Specifying a duration of 'indefinite' will cause the stimulus to repeat indefinitely.
             
             import Symphony.Core.*;
             
@@ -265,9 +276,18 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 stimDataList = Measurement.FromArray(stimulusData, units);
             end
             
-            outputData = OutputData(stimDataList, obj.deviceSampleRate(device, 'OUT'), true);
+            outputData = OutputData(stimDataList, obj.deviceSampleRate(device, 'OUT'));
             
-            stim = RenderedStimulus(stimulusID, structToDictionary(struct()), outputData);
+            providedDuration = nargin >= 6;
+            if ~providedDuration
+                duration = TimeSpanOption(outputData.Duration);
+            elseif strcmpi(durationInSeconds, 'indefinite')
+                duration = TimeSpanOption.Indefinite;
+            else
+                duration = TimeSpanOption(System.TimeSpan.FromSeconds(durationInSeconds));
+            end
+            
+            stim = RepeatingRenderedStimulus(stimulusID, structToDictionary(struct()), outputData, duration);
             
             obj.epoch.Stimuli.Add(device, stim);
         end
@@ -320,7 +340,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function recordResponse(obj, deviceName)
             % Record the response from the device with the given name when the epoch runs.
-            
+                        
             import Symphony.Core.*;
             
             device = obj.rigConfig.deviceWithName(deviceName);
@@ -383,19 +403,23 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         
         function runEpoch(obj)
-            % This is a core method that runs a single epoch of the protocol.
+            % This is a core method that runs the current epoch prepared by the protocol.
             
-            try
-                % Tell the Symphony framework to run the epoch.
-                obj.rigConfig.controller.RunEpoch(obj.epoch, obj.persistor);
-            catch e
+            import Symphony.Core.*;
+            
+            % Tell the Symphony framework to run the epoch in the background.
+            task = obj.rigConfig.controller.RunEpochAsync(obj.epoch, obj.persistor);
+
+            % Spin until the run completes, listening for events.
+            while obj.rigConfig.controller.Running
+                % Need a small pause to stop Matlab from grinding to a halt.
+                pause(0.01);
+            end
+            
+            if task.IsFaulted
                 % TODO: is it OK to hold up the run with the error dialog or should errors be logged and displayed at the end?
                 message = ['An error occurred while running the protocol.' char(10) char(10)];
-                if (isa(e, 'NET.NetException'))
-                    message = [message netReport(e)]; %#ok<AGROW>
-                else
-                    message = [message getReport(e, 'extended', 'hyperlinks', 'off')]; %#ok<AGROW>
-                end
+                message = [message netReport(NET.NetException('', '', task.Exception.Flatten()))];
                 waitfor(errordlg(message));
             end 
         end
@@ -456,9 +480,11 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     end
                     
                     obj.runEpoch();
-                                        
+                    
                     % Perform any post-epoch analysis, clean up, etc.
-                    obj.completeEpoch();
+                    if ~strcmp(obj.state, 'stopping')
+                        obj.completeEpoch();
+                    end
                     
                     % Force any figures to redraw and any events (clicking the Pause or Stop buttons in particular) to get processed.
                     drawnow;
@@ -478,7 +504,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function pause(obj)
             % Set a flag that will be checked after the current epoch completes.
-            obj.setState('pausing');
+            obj.setState('pausing'); 
         end
         
         
@@ -486,8 +512,44 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             if strcmp(obj.state, 'paused')
                 obj.completeRun()
             else
-                % Set a flag that will be checked after the current epoch completes.
+                % Set a flag that will be checked after the controller stops the current run.
                 obj.setState('stopping');
+                
+                obj.rigConfig.controller.CancelRun();
+            end
+        end
+        
+        
+        function addEventListener(obj, source, eventName, callback)
+            % Add an event listener to this protocol.
+            % Be careful about the method you use to add event listeners; they persist until the protocol is destroyed
+            % and will stack if you add the same listener more than once. In general only add listeners in prepareProtocol.
+            
+            obj.listeners{end + 1} = addlistener(source, eventName, callback);
+        end
+        
+        
+        function delete(obj)
+            % Delete all event listeners.
+            while ~isempty(obj.listeners)
+                delete(obj.listeners{1});
+                obj.listeners(1) = [];
+            end
+        end
+     
+    end
+    
+    
+    methods (Access = protected)
+        
+        function copy = copyElement(obj)
+            copy = copyElement@matlab.mixin.Copyable(obj);
+            
+            % Copy all event listeners.
+            copy.listeners = {};
+            for i = 1:length(obj.listeners)
+                listener = obj.listeners{i};
+                copy.addEventListener(obj.rigConfig.controller, listener.EventName, listener.Callback);
             end
         end
         

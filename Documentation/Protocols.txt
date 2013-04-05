@@ -198,7 +198,7 @@ class SimpleProtocol < SymphonyProtocol
     end
     
     methods
-        
+
         function stimuli = sampleStimuli(obj)
             % Return sample stimuli based on the current paramaters.
             stimuli = cell(1, obj.numberOfEpochs);
