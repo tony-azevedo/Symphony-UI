@@ -440,27 +440,23 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         
         function runEpoch(obj)
-            % This is a core method that runs a single epoch of the protocol.
+            % This is a core method that runs the current epoch prepared by the protocol.
             
             import Symphony.Core.*;
             
-            try
-                % Tell the Symphony framework to run the epoch in the background.
-                obj.rigConfig.controller.RunEpoch(obj.epoch, obj.persistor, true);
-                
-                % Spin until the epoch completes, listening for events.
-                while obj.rigConfig.controller.Running
-                    % Need a small pause to stop Matlab from grinding to a halt.
-                    pause(0.01);
-                end
-            catch e
+            % Tell the Symphony framework to run the epoch in the background.
+            task = obj.rigConfig.controller.RunEpochAsync(obj.epoch, obj.persistor);
+
+            % Spin until the run completes, listening for events.
+            while obj.rigConfig.controller.Running
+                % Need a small pause to stop Matlab from grinding to a halt.
+                pause(0.01);
+            end
+            
+            if task.IsFaulted
                 % TODO: is it OK to hold up the run with the error dialog or should errors be logged and displayed at the end?
                 message = ['An error occurred while running the protocol.' char(10) char(10)];
-                if (isa(e, 'NET.NetException'))
-                    message = [message netReport(e)]; %#ok<AGROW>
-                else
-                    message = [message getReport(e, 'extended', 'hyperlinks', 'off')]; %#ok<AGROW>
-                end
+                message = [message netReport(NET.NetException('', '', task.Exception.Flatten()))];
                 waitfor(errordlg(message));
             end 
         end
