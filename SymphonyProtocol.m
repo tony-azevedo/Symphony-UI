@@ -189,62 +189,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
         
         
-        function prepareEpochStimuli(obj)
-            % Override this method to add stimuli to the current epoch and set background values for devices.
-            
-            import Symphony.Core.*;
-            
-            % Set the default background value for each device.
-            devices = obj.rigConfig.devices();
-            for i = 1:length(devices)
-                device = devices{i};
-                
-                % Set each device's background for this epoch to be the same as the inter-epoch background.
-                obj.setDeviceBackground(char(device.Name), device.Background);
-            end
-        end
-        
-        
-        function prepareEpochResponses(obj)
-            % Override this method to specify responses to record for the current epoch.
-            
-            import Symphony.Core.*;
-            
-            % Clear out the cache of responses.
-            obj.responses = containers.Map();
-            
-            % Indefinite epochs cannot record responses.
-            if obj.epoch.IsIndefinite()
-                return
-            end
-            
-            % Record a response from all devices with an input stream.
-            devices = obj.rigConfig.devices();
-            for i = 1:length(devices)
-                device = devices{i};
-                
-                % Record the response from any device that has an input stream.
-                [~, streams] = dictionaryKeysAndValues(device.Streams);
-                for j = 1:length(streams)
-                    if isa(streams{j}, 'Symphony.Core.DAQInputStream')
-                        obj.recordResponse(char(device.Name));
-                        break
-                    end
-                end
-            end
-        end
-        
-                
-        function prepareEpochAttributes(obj)
-            % Override this method to add parameters, keywords, etc. to the current epoch.
-
-            % Add any keywords specified by the user.
-            for i = 1:length(obj.epochKeywords)
-                obj.epoch.Keywords.Add(obj.epochKeywords{i});
-            end
-        end
-        
-        
         function addParameter(obj, name, value)
             if ~ischar(value) && length(value) > 1
                 if isnumeric(value)
