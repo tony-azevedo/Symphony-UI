@@ -220,7 +220,7 @@ class SimpleProtocol < SymphonyProtocol
             obj.openFigure('Response');
         end
         
-        function prepareEpochStimuli(obj)
+        function prepareEpoch(obj)
             % Call the base class method which sets up default backgrounds and records responses.
             prepareEpoch@SymphonyProtocol(obj);
             
