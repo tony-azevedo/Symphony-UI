@@ -106,9 +106,9 @@ classdef ExampleChartRecorder < SymphonyProtocol
         end
        
         
-        function prepareEpochStimuli(obj)
+        function prepareEpoch(obj)
             % Call the base method.
-            prepareEpochStimuli@SymphonyProtocol(obj);           
+            prepareEpoch@SymphonyProtocol(obj);           
                        
             % Set the amp hold signal.
             if strcmp(obj.rigConfig.multiClampMode(obj.amp), 'VClamp')
@@ -120,6 +120,11 @@ classdef ExampleChartRecorder < SymphonyProtocol
             % Add an indefinite empty stimulus just so we can monitor the response.
             [stim, units] = obj.stimulus();
             obj.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units, 'indefinite');
+        end
+        
+        
+        function recordResponse(obj, ~) %#ok<MANU>
+            % Responses cannot be recorded for indefinite epochs so we must override this method with an empty implementation.
         end
         
         

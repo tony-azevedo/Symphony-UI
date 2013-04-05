@@ -2,9 +2,7 @@
 %
 % Interesting methods to override:
 % * prepareRun
-% * prepareEpochStimuli
-% * prepareEpochResponses
-% * prepareEpochAttributes
+% * prepareEpoch
 % * completeEpoch
 % * continueRun
 % * completeRun
@@ -155,18 +153,39 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
       
         
         function prepareEpoch(obj)
-            % Avoid overriding this method.
-            % Override instead: prepareEpochStimuli, prepareEpochResponses, prepareEpochAttributes.
+            % Override this method to add stimuli, record responses, change parameters, etc.
             
             import Symphony.Core.*;
             
-            % Create the epoch.
+            % Create a new epoch.
             obj.epochNum = obj.epochNum + 1;
             obj.epoch = Epoch(obj.identifier);
+
+            % Add any keywords specified by the user.
+            for i = 1:length(obj.epochKeywords)
+                obj.epoch.Keywords.Add(obj.epochKeywords{i});
+            end
             
-            obj.prepareEpochStimuli();
-            obj.prepareEpochResponses();
-            obj.prepareEpochAttributes();
+            % Set the default background value and record any input streams for each device.
+            devices = obj.rigConfig.devices();
+            for i = 1:length(devices)
+                device = devices{i};
+                
+                % Set each device's background for this epoch to be the same as the inter-epoch background.
+                obj.setDeviceBackground(char(device.Name), device.Background);
+                
+                % Record the response from any device that has an input stream.
+                [~, streams] = dictionaryKeysAndValues(device.Streams);
+                for j = 1:length(streams)
+                    if isa(streams{j}, 'Symphony.Core.DAQInputStream')
+                        obj.recordResponse(char(device.Name));
+                        break
+                    end
+                end
+            end
+            
+            % Clear out the cache of responses.
+            obj.responses = containers.Map();
         end
         
         

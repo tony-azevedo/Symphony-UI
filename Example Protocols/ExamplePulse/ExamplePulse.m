@@ -79,9 +79,9 @@ classdef ExamplePulse < SymphonyProtocol
         end
        
         
-        function prepareEpochStimuli(obj)
+        function prepareEpoch(obj)
             % Call the base method.
-            prepareEpochStimuli@SymphonyProtocol(obj);           
+            prepareEpoch@SymphonyProtocol(obj);           
             
             % Set the amp hold signal.
             if strcmp(obj.rigConfig.multiClampMode(obj.amp), 'VClamp')

@@ -94,9 +94,9 @@ classdef ExampleSealAndLeak < SymphonyProtocol
         end
        
         
-        function prepareEpochStimuli(obj)            
+        function prepareEpoch(obj)            
             % Call the base method.
-            prepareEpochStimuli@SymphonyProtocol(obj);           
+            prepareEpoch@SymphonyProtocol(obj);           
             
             % Set the amp hold signal.
             if strcmp(obj.rigConfig.multiClampMode(obj.amp), 'VClamp')
@@ -110,6 +110,11 @@ classdef ExampleSealAndLeak < SymphonyProtocol
             obj.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units, 'indefinite');
         end
 
+        
+        function recordResponse(obj, ~) %#ok<MANU>
+            % Responses cannot be recorded for indefinite epochs so we must override this method with an empty implementation.
+        end
+        
         
         function keepGoing = continueRun(obj)
             % Check the base class method to make sure the user hasn't paused or stopped the protocol.
