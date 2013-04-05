@@ -198,11 +198,6 @@ class SimpleProtocol < SymphonyProtocol
     end
     
     methods
-        
-        function obj = SimpleProtocol(rigConfig)
-            % Call the base constructor.
-            obj = obj@SymphonyProtocol(rigConfig);
-        end
 
         function stimuli = sampleStimuli(obj)
             % Return sample stimuli based on the current paramaters.
