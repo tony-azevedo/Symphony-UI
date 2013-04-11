@@ -422,6 +422,15 @@ classdef RigConfiguration < handle
             end
         end
         
+        
+        function delete(obj)
+            % Force dispose any multiclamp devices to ensure commander listeners are removed.
+            devices = obj.multiClampDevices();
+            for i = 1:length(devices)
+                devices{i}.Dispose();
+            end
+        end
+        
     end
     
     
