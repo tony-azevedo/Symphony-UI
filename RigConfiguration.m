@@ -243,16 +243,16 @@ classdef RigConfiguration < handle
             mode = '';
             while isempty(mode) || (~strcmp(mode, 'VClamp') && ~strcmp(mode, 'I0') && ~strcmp(mode, 'IClamp'))
                 gotMode = false;
-                try
+                
+                if device.HasDeviceOutputParameters
                     mode = char(device.CurrentDeviceOutputParameters.Data.OperatingMode);
                     if strcmp(mode, 'VClamp') || strcmp(mode, 'I0') || strcmp(mode, 'IClamp')
                         gotMode = true;
                     end
-                catch ME %#ok<NASGU>
                 end
 
                 if ~gotMode
-                    input('Please toggle the MultiClamp commander mode then press enter (or Ctrl-C to cancel)...', 's');
+                    input(['Please toggle the MultiClamp commander for ' deviceName ' mode then press enter (or Ctrl-C to cancel)...'], 's');
                 end
             end
         end
