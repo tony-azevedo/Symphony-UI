@@ -1,1 +1,4 @@
 saved_parameters/
+
+# Matlab autosave files
+*.asv
