@@ -18,10 +18,15 @@ classdef ExampleRig < RigConfiguration
             % ITC Input Channel = ADC Input 0 (ANALOG_IN.0)
             obj.addMultiClampDevice('Amplifier_Ch1', 1, 'ANALOG_OUT.0', 'ANALOG_IN.0'); 
             
-            % Add a device named 'LED'.
+            % Add a device named 'Red_LED'.
             % ITC Output Channel = DAC Output 1 (ANALOG_OUT.1)
             % ITC Input Channel = None
-            obj.addDevice('LED', 'ANALOG_OUT.1', '');
+            obj.addDevice('Red_LED', 'ANALOG_OUT.1', '');
+            
+            % Add a device named 'Green_LED'.
+            % ITC Output Channel = DAC Output 2 (ANALOG_OUT.2)
+            % ITC Input Channel = None
+            obj.addDevice('Green_LED', 'ANALOG_OUT.2', '');
             
             % Add a device named 'Photodiode'.
             % ITC Output Channel = None

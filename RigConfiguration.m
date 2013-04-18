@@ -243,16 +243,16 @@ classdef RigConfiguration < handle
             mode = '';
             while isempty(mode) || (~strcmp(mode, 'VClamp') && ~strcmp(mode, 'I0') && ~strcmp(mode, 'IClamp'))
                 gotMode = false;
-                try
+                
+                if device.HasDeviceOutputParameters
                     mode = char(device.CurrentDeviceOutputParameters.Data.OperatingMode);
                     if strcmp(mode, 'VClamp') || strcmp(mode, 'I0') || strcmp(mode, 'IClamp')
                         gotMode = true;
                     end
-                catch ME %#ok<NASGU>
                 end
 
                 if ~gotMode
-                    input('Please toggle the MultiClamp commander mode then press enter (or Ctrl-C to cancel)...', 's');
+                    input(['Please toggle the MultiClamp commander for ' deviceName ' mode then press enter (or Ctrl-C to cancel)...'], 's');
                 end
             end
         end
@@ -419,6 +419,15 @@ classdef RigConfiguration < handle
             % Release any hold we have on hardware.
             if isa(obj.controller.DAQController, 'Heka.HekaDAQController')
                 obj.controller.DAQController.CloseHardware();
+            end
+        end
+        
+        
+        function delete(obj)
+            % Force dispose any multiclamp devices to ensure commander listeners are removed.
+            devices = obj.multiClampDevices();
+            for i = 1:length(devices)
+                devices{i}.Dispose();
             end
         end
         

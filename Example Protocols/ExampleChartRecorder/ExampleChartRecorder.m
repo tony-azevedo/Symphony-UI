@@ -16,6 +16,10 @@ classdef ExampleChartRecorder < SymphonyProtocol
         bufferSize = 10
     end
     
+    properties (Hidden)
+        receivedDataListener
+    end
+    
     methods           
         
         function p = parameterProperty(obj, parameterName)
@@ -40,12 +44,9 @@ classdef ExampleChartRecorder < SymphonyProtocol
             
             % Epochs of indefinite duration, like those produced by this protocol, cannot be saved. 
             obj.allowSavingEpochs = false;
-            obj.allowPausing = false;
-            
-            % Add an event listener to call our receiveInputData method when the controller receives new data.
-            obj.addEventListener(obj.rigConfig.controller, 'ReceivedInputData', @(src, data) obj.receiveInputData(src, data));            
-        end  
-        
+            obj.allowPausing = false;            
+        end
+
         
         function receiveInputData(obj, ~, eventData)
             % The controller receives chunks of input data from devices as an epoch runs. We can store and plot those 
@@ -90,6 +91,9 @@ classdef ExampleChartRecorder < SymphonyProtocol
             
             % Open a figure to show the amp response.
             obj.openFigure('Response', obj.amp);
+                    
+            % Add an event listener to call our receiveInputData method when the controller receives new data.
+            obj.receivedDataListener = addlistener(obj.rigConfig.controller, 'ReceivedInputData', @(src, data) obj.receiveInputData(src, data));
         end
         
         
@@ -136,6 +140,15 @@ classdef ExampleChartRecorder < SymphonyProtocol
             if keepGoing
                 keepGoing = obj.epochNum < 1;
             end
+        end
+        
+        
+        function completeRun(obj)
+            % Call the base method.
+            completeRun@SymphonyProtocol(obj);
+            
+            % Delete our event listener (don't forget if you add them you need to delete them!)
+            delete(obj.receivedDataListener);
         end
         
     end
