@@ -417,17 +417,15 @@ classdef RigConfiguration < handle
         
         function close(obj)
             % Release any hold we have on hardware.
-            if isa(obj.controller.DAQController, 'Heka.HekaDAQController')
-                obj.controller.DAQController.CloseHardware();
-            end
-        end
-        
-        
-        function delete(obj)
+            
             % Force dispose any multiclamp devices to ensure commander listeners are removed.
             devices = obj.multiClampDevices();
             for i = 1:length(devices)
                 devices{i}.Dispose();
+            end
+            
+            if isa(obj.controller.DAQController, 'Heka.HekaDAQController')
+                obj.controller.DAQController.CloseHardware();
             end
         end
         
