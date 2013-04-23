@@ -4,7 +4,7 @@ See Overview.txt in the Documentation folder to get started with Symphony.
 
 The Janelia Farm Research Campus Software Copyright 1.1
 
-Copyright (c) 2012, Howard Hughes Medical Institute, All rights reserved.
+Copyright (c) 2013, Howard Hughes Medical Institute, All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are
