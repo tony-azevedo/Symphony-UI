@@ -166,7 +166,7 @@ classdef SymphonyUI < handle
             end
             
             if ~isempty(obj.rigConfig)
-                obj.rigConfig.close()
+                obj.rigConfig.close();
             end
             
             try
@@ -174,12 +174,15 @@ classdef SymphonyUI < handle
                 obj.rigConfig = constructor();
             
                 setpref('Symphony', 'LastChosenRigConfig', configClassName);
-            catch ME
-                % The user cancelled editing the parameters so switch back to the previous rig configuration.
+            catch ME                
                 configValue = find(strcmp(obj.rigConfigClassNames, class(obj.rigConfig)));
                 set(obj.controls.rigConfigPopup, 'Value', configValue);
                 
                 waitfor(errordlg(['Could not create the device:' char(10) char(10) ME.message], 'Symphony'));
+                
+                % Reconstruct the current rig config to re-init hardware
+                constructor = str2func(class(obj.rigConfig));
+                obj.rigConfig = constructor();
             end
             
             % Recreate the current protocol with the new rig configuration.
