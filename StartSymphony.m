@@ -4,39 +4,29 @@
 %  All rights reserved.
 %  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
 %  http://license.janelia.org/license/jfrc_copyright_1_1.html
-
-if verLessThan('matlab', '7.12')
-    error('Symphony requires MATLAB 7.12.0 (R2011a) or later');
-end
-
-% Add base directories to the path.
-symphonyPath = mfilename('fullpath');
-parentDir = fileparts(symphonyPath);
-addpath(fullfile(parentDir, 'Utility'));
-addpath(fullfile(parentDir, 'StimGL'));
-clear symphonyPath parentDir
-
-% Load the Symphony .NET framework
-addSymphonyFramework();
-
-% Declare or retrieve the current Symphony instance
-global symphonyInstance;
-
-if isempty(symphonyInstance)
-    % Run the built-in configuration script.
-    run('symconfig');
+function StartSymphony( varargin )
+    narginchk(0,1); 
     
-    % Run the user specific configuration script.
-    up = userpath;
-    up = regexprep(up, ';', ''); % Remove semicolon at end of userpath
-    if exist(fullfile(up, 'symconfig.m'), 'file')
-        run(fullfile(up, 'symconfig'));
+    if nargin == 1 && islogical(varargin{1}) && varargin{1}
+        close all
+        clear all classes *
+        clearvars -global
+        clc        
     end
-    clear up
     
-    % Create the Symphony instance
-    symphonyInstance = SymphonyUI(rigConfigsDir, protocolsDir, figureHandlersDir, sourcesFile);
-    clear rigConfigsDir protocolsDir figureHandlersDir sourcesFile
-else
-    symphonyInstance.showMainWindow();
+    if verLessThan('matlab', '7.12')
+        error('Symphony requires MATLAB 7.12.0 (R2011a) or later');
+    end
+
+    % Add base directories to the path.
+    symphonyPath = mfilename('fullpath');
+    parentDir = fileparts(symphonyPath);
+    addpath(fullfile(parentDir, 'Utility'));
+    addpath(fullfile(parentDir, 'StimGL'));
+    clear symphonyPath parentDir
+
+    % Load the Symphony .NET framework
+    addSymphonyFramework();
+    
+    SymphonyUI.getInstance;
 end
