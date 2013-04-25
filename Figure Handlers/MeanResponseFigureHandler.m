@@ -6,11 +6,6 @@
 % GroupByParams (string | cell array of strings)
 %   List of epoch parameters whose values are used to group mean responses. The default is all current epoch parameters.
 
-%  Copyright (c) 2012 Howard Hughes Medical Institute.
-%  All rights reserved.
-%  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
-%  http://license.janelia.org/license/jfrc_copyright_1_1.html
-
 classdef MeanResponseFigureHandler < FigureHandler
     
     properties (Constant)

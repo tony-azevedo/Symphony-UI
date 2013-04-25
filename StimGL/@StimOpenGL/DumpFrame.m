@@ -29,11 +29,6 @@
 %                directions, respectively.
 %
 
-%  Copyright (c) 2012 Howard Hughes Medical Institute.
-%  All rights reserved.
-%  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
-%  http://license.janelia.org/license/jfrc_copyright_1_1.html
-
 function [imgdat] = DumpFrame(s, frameNum, varargin)
       if (~length(varargin)),
         imgdat = DumpFrames(s, frameNum, 1);

@@ -7,11 +7,6 @@
 %                is accurate and reliable and is the rate the plugin should
 %                be using as it runs.
 
-%  Copyright (c) 2012 Howard Hughes Medical Institute.
-%  All rights reserved.
-%  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
-%  http://license.janelia.org/license/jfrc_copyright_1_1.html
-
 function [ret] = GetRefreshRate(s)
 
     ret = sscanf(DoQueryCmd(s, 'GETREFRESHRATE'), '%d');
