@@ -10,11 +10,6 @@
 %                jumps or backwards jumps being slow). Returns true on
 %                success or 0 on failure. 
 
-%  Copyright (c) 2012 Howard Hughes Medical Institute.
-%  All rights reserved.
-%  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
-%  http://license.janelia.org/license/jfrc_copyright_1_1.html
-
 function [res] = DumpFrameToFile(s, frameNum, outfile_bmp, varargin)
 %     if (~length(Running(s))),
 %         res = 0;

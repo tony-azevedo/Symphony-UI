@@ -1,4 +1,4 @@
-Protocols
-Rig Configurations
-Unit Testing
-ExternalDevices
+saved_parameters/
+
+# Matlab autosave files
+*.asv
