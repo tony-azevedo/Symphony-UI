@@ -11,11 +11,6 @@
 %                call GetParams specifying which plugin you are interested
 %                in.
 
-%  Copyright (c) 2012 Howard Hughes Medical Institute.
-%  All rights reserved.
-%  Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
-%  http://license.janelia.org/license/jfrc_copyright_1_1.html
-
 function [ret] = GetParams(s, plugin)
 
     if (~ischar(plugin)), error ('Plugin argument (argument 2) must be a string'); end;
