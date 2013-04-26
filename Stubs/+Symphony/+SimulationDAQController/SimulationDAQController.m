@@ -11,14 +11,19 @@ classdef SimulationDAQController < Symphony.Core.DAQControllerBase
     end
     
     methods
-        function obj = SimulationDAQController()
-            obj = obj@Symphony.Core.DAQControllerBase ();
+        
+        function obj = SimulationDAQController(simulationTimeStep)
+            obj = obj@Symphony.Core.DAQControllerBase();
             
-            obj.SampleRate = Symphony.Core.Measurement(100, 'Hz');
+            obj.ProcessInterval = simulationTimeStep;
         end
+        
         
         function now = Now(obj) %#ok<MANU>
             now = System.DateTimeOffset.Now;
         end
+        
+        
+        
     end
 end

@@ -11,6 +11,7 @@ classdef Controller < Symphony.Core.ITimelineProducer
         Configuration
         HardwareControllers
         CurrentEpoch
+        Running
     end
     
     methods
@@ -46,6 +47,17 @@ classdef Controller < Symphony.Core.ITimelineProducer
         end
         
         
+        function t = RunEpochAsync(obj, epoch, persistor)
+            t = System.Threading.Tasks.Task();
+            try
+                obj.RunEpoch(epoch, persistor)
+            catch ME
+                t.IsFaulted = true;
+                t.Exception = System.AggregateException(getReport(ME, 'extended', 'hyperlinks', 'off'));
+            end
+        end
+        
+        
         function RunEpoch(obj, epoch, persistor)
             import Symphony.Core.*;
             
@@ -58,7 +70,7 @@ classdef Controller < Symphony.Core.ITimelineProducer
             epochDuration = 0;
             for i = 1:epoch.Stimuli.Count()
                 stimulus = epoch.Stimuli.Values{i};
-                epochDuration = max([epochDuration stimulus.Duration()]);
+                epochDuration = max([epochDuration stimulus.Duration().Item2.TotalSeconds]);
             end
             
             % Create dummy responses.
@@ -68,12 +80,18 @@ classdef Controller < Symphony.Core.ITimelineProducer
                 if epoch.Stimuli.ContainsKey(device)
                     % Copy the stimulii to the responses.
                     stimulus = epoch.Stimuli.Item(device);
-                    epoch.Responses.Values{i} = InputData(stimulus.Data.Data, stimulus.Data.SampleRate, now);
+                    
+                    e = stimulus.DataBlocks(stimulus.Duration.Item2);
+                    e = e.GetEnumerator();
+                    [b, e] = e.MoveNext();
+                    d = e.Current();
+                    
+                    epoch.Responses.Values{i} = InputData(d.Data, d.SampleRate, now);
                 else
                     % Generate random noise for the response.
                     response = epoch.Responses.Values{i};
                     samples = epochDuration * response.SampleRate.Quantity;
-                    data = GenericList();
+                    data = GenericList(samples);
                     for j = 1:samples
                         data.Add(Measurement((rand(1, 1) * 1000 - 500) / 1000000, 'A'));
                     end
@@ -92,6 +110,12 @@ classdef Controller < Symphony.Core.ITimelineProducer
             
             obj.CurrentEpoch = [];
         end
+        
+        
+        function CancelRun(obj)
+            
+        end
+        
         
         function EndEpochGroup(~, persistor)
             persistor.EndEpochGroup();

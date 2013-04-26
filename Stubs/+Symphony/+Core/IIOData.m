@@ -13,6 +13,7 @@ classdef IIOData < handle
     end
     
     methods
+        
         function obj = IIOData(data, sampleRate, config)
             obj = obj@handle();
             
@@ -23,8 +24,9 @@ classdef IIOData < handle
             obj.Data = data;
             obj.SampleRate = sampleRate;
             obj.Configuration = config;
-            obj.Duration = obj.Data.Count / obj.SampleRate.Quantity;
+            obj.Duration = System.TimeSpan.FromSeconds(obj.Data.Count / obj.SampleRate.Quantity);
         end
+        
     end
     
 end

@@ -92,7 +92,7 @@ classdef RigConfiguration < handle
                 disp('Could not load the Heka driver, using the simulation controller instead.');
                 
                 Converters.Register('V', 'V', @(m) m);
-                daq = SimulationDAQController();
+                daq = SimulationDAQController(0.25);
                 daq.BeginSetup();
                 
                 daq.SimulationRunner = Simulation(@(output,step) loopbackSimulation(obj, output, step, outStream, inStream));

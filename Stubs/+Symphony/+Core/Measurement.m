@@ -20,8 +20,7 @@ classdef Measurement < handle
         baseExps = [24, 21, 18, 15, 12, 9, 6, 3, 2, 1, -1, -2, -3, -6, -9, -12, -15, -18, -21, -24, 0];
         UNITLESS = '';
     end
-    
-    
+        
     methods
         
         function obj = Measurement(quantity, arg1, arg2)
@@ -65,12 +64,19 @@ classdef Measurement < handle
             end
         end
         
+        
         function a = ToQuantityArray(list)
             a = cellfun(@(x) x.Quantity, list.Items);
         end
         
-        function u = HomogenousUnits(list)
-            u = list.Item(0).Unit;
+        
+        function u = HomogenousBaseUnits(list)
+            u = list.Item(0).BaseUnit;
+        end
+        
+        
+        function u = HomogenousDisplayUnits(list)
+            u = list.Item(0).DisplayUnit;
         end
         
     end
