@@ -2,3 +2,6 @@ saved_parameters/
 
 # Matlab autosave files
 *.asv
+
+# OS X stores
+*.DS_Store
