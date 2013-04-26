@@ -1,5 +1,3 @@
-% Wrapper script (NOT a function) to load the Symphony .NET assemblies correctly.
-
 % Copyright (c) 2012 Howard Hughes Medical Institute.
 % All rights reserved.
 % Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
