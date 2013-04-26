@@ -103,8 +103,8 @@ classdef SymphonyUI < handle
                 obj.symConfCheck(protocolsDir, 'dir'); %#ok<CPROP>
                 obj.symConfCheck(sourcesFile, 'file'); %#ok<CPROP>
                 obj.symConfCheck(figureHandlersDir, 'dir'); %#ok<CPROP>
-            catch ME
-                error('The symconfig file is missing a required variable.');
+            catch exception
+                throw(exception);
             end
             
             clear userDir userSymConfig defaultSymConfig rigConfigsDir protocolsDir sourcesFile figureHandlersDir
@@ -113,8 +113,10 @@ classdef SymphonyUI < handle
         function symConfCheck( obj , var , type)
             varName = inputname(2);
             
-            if ( ~exist( var , type ) ) && ( ~strcmp(varName,'figureHandlersDir') || strcmp(varName,'figureHandlersDir') &&  ~isempty(var) )
-                    error([ varName ' does not exist: ' var]);  
+            if ( ~exist( var , type ) ) && ( ~strcmp(varName,'figureHandlersDir') || strcmp(varName,'figureHandlersDir') &&  ~isempty(var) )   
+                exception = MException('VerifySymconfigFile:VariableError', ...
+                    [ The ' ' varName ' does not exist' ]);
+                throwAsCaller(exception);
             else
                 obj.( varName ) = var;
             end
@@ -196,7 +198,12 @@ classdef SymphonyUI < handle
         end
         
         function checkRigConfigAndProtocol(obj)
-            [ obj.rigConfigProtocolCompatiblity , obj.rigConfigCompatiblityMsg ] = obj.protocol.isCompatibleWithRigConfig(obj.rigConfig);
+            if ~isempty(obj.protocol) 
+                [ obj.rigConfigProtocolCompatiblity , obj.rigConfigCompatiblityMsg ] = obj.protocol.isCompatibleWithRigConfig(obj.rigConfig);
+            else
+                obj.rigConfigProtocolCompatiblity = false;
+                obj.rigConfigCompatiblityMsg = 'There is currently no protocol selected';
+            end
             obj.updateUIState();
         end
         
