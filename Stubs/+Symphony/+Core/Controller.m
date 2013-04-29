@@ -78,7 +78,7 @@ classdef Controller < Symphony.Core.ITimelineProducer
                     
                     e = stimulus.DataBlocks(stimulus.Duration.Item2);
                     e = e.GetEnumerator();
-                    [b, e] = e.MoveNext();
+                    [b, e] = e.MoveNext(e);
                     d = e.Current();
                     
                     epoch.Responses.Values{i} = InputData(d.Data, d.SampleRate, now);

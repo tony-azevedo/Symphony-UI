@@ -27,7 +27,7 @@ classdef RepeatingRenderedStimulus < handle
         
         function enumerable = DataBlocks(obj, blockDuration)
             % HACK: Creating an enumerable/enumerator class "on the fly" to avoid creating a bunch of class files.
-            enumerable.GetEnumerator = @()obj.GetDataEnumerator(blockDuration);
+            enumerable.GetEnumerator = @()DataEnumerator(obj.data, obj.duration, blockDuration);
         end
                 
         
@@ -37,46 +37,42 @@ classdef RepeatingRenderedStimulus < handle
         
     end
     
-    methods (Access = private)
-        
-        function e = GetDataEnumerator(obj, blockDuration)
-            e.local = obj.data;
-            e.index = System.TimeSpan.Zero();
-            
-            e.Current = [];
-            e.MoveNext = @()NextDataBlock(obj, e, blockDuration);
-        end
-        
-        
-        function [b, enum] = NextDataBlock(obj, enum, blockDuration)
-            enum.Current = [];
-            
-            isIndefinite = obj.Duration == Symphony.Core.TimeSpanOption.Indefinite();
-            
-            if enum.index > obj.Duration.Item2 && ~isIndefinite
-                b = false;
-                return;
-            end
-            
-            if blockDuration <= obj.Duration - enum.index || isIndefinite
-                dur = blockDuration;
-            else
-                dur = obj.Duration - enum.index;
-            end
-            
-            while (enum.local.Duration < dur)
-                enum.local = enum.local.Concat(obj.data);
-            end
-            
-            [head, rest] = enum.local.SplitData(dur);
-            enum.local = rest;
-            
-            enum.index = enum.index + dur;
-            
-            enum.Current = Symphony.Core.OutputData(head.Data, head.SampleRate, enum.index >= obj.Duration && ~isIndefinite);
-            b = true;
-        end
-        
-    end
-    
 end
+
+function enum = DataEnumerator(data, duration, blockDuration)
+    enum.local = data;
+    enum.index = System.TimeSpan.Zero();
+
+    enum.Current = [];
+    enum.MoveNext = @(e)MoveNext(e); 
+    
+    function [b, enum] = MoveNext(enum)
+        enum.Current = [];
+        
+        isIndefinite = duration == Symphony.Core.TimeSpanOption.Indefinite();
+        
+        if enum.index >= duration && ~isIndefinite
+            b = false;
+            return;
+        end
+        
+        if blockDuration <= duration - enum.index || isIndefinite
+            dur = blockDuration;
+        else
+            dur = duration - enum.index;
+        end
+
+        while (enum.local.Duration < dur)
+            enum.local = enum.local.Concat(data);
+        end
+
+        [head, rest] = enum.local.SplitData(dur);
+        enum.local = rest;
+
+        enum.index = enum.index + dur;
+
+        enum.Current = Symphony.Core.OutputData(head.Data, head.SampleRate, enum.index >= duration && ~isIndefinite);
+        b = true;
+    end
+end
+
