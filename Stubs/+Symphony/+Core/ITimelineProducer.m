@@ -1,14 +1,7 @@
 classdef ITimelineProducer < handle
-   
-    properties
+
+    properties (Abstract)
         Clock
     end
     
-    methods
-        function obj = ITimelineProducer()
-            obj = obj@handle();
-            
-            obj.Clock = [];
-        end
-    end
 end

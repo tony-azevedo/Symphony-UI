@@ -88,7 +88,6 @@ classdef RigConfiguration < handle
                 
                 Converters.Register('V', 'V', @(m) m);
                 daq = SimulationDAQController(0.25);
-                daq.BeginSetup();
                 
                 daq.SimulationRunner = Simulation(@(output,step) loopbackSimulation(obj, output, step, outStream, inStream));
             end

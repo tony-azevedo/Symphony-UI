@@ -1,14 +1,12 @@
 classdef IDAQOutputStream < Symphony.Core.IDAQStream
    
-    properties
+    properties (Abstract)
         Device
         HasMoreData
         Background
     end
     
-    methods
-        function obj = IDAQOutputStream()
-            obj = obj@Symphony.Core.IDAQStream();
-        end
+    methods (Abstract)
+        d = PullOutputData(obj, duration)
     end
 end

@@ -10,7 +10,12 @@ classdef SimulationDAQController < Symphony.Core.DAQControllerBase
         function obj = SimulationDAQController(simulationTimeStep)
             obj = obj@Symphony.Core.DAQControllerBase();
             
+            if nargin < 1
+                simulationTimeStep = System.TimeSpan.FromSeconds(0.5);
+            end
+            
             obj.ProcessInterval = simulationTimeStep;
+            obj.Clock = obj;
         end
         
         
@@ -19,6 +24,14 @@ classdef SimulationDAQController < Symphony.Core.DAQControllerBase
         end
         
         
+        function incomingData = ProcessLoopIteration(obj, outputData)
+            incomingData = obj.SimulationRunner(outputData);
+        end        
+        
+        
+        function AddStream(obj, stream)
+            obj.Streams.Add(stream);
+        end
         
     end
 end

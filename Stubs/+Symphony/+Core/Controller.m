@@ -1,6 +1,7 @@
 classdef Controller < Symphony.Core.ITimelineProducer
    
     properties
+        Clock
         DAQController
         Devices = {}
         Configuration
@@ -9,12 +10,7 @@ classdef Controller < Symphony.Core.ITimelineProducer
         Running
     end
     
-    methods
-        
-        function obj = Controller()
-            obj = obj@Symphony.Core.ITimelineProducer();
-        end
-        
+    methods      
         
         function AddDevice(obj, device)
             obj.Devices{end + 1} = device;

@@ -1,26 +1,12 @@
 classdef IDAQController < Symphony.Core.ITimelineProducer & Symphony.Core.IHardwareController
-   
-    properties
+    
+    properties (Abstract)
         Streams
+        OutputStreams
     end
     
-    methods
-        function obj = IDAQController()
-            obj = obj@Symphony.Core.ITimelineProducer();
-            
-            obj.Streams = GenericDictionary();
-        end
-        
-        function AddStream(obj, stream)
-            obj.Streams.Add(stream.Name, stream);
-        end
-        
-        function s = GetStream(obj, name)
-            s = obj.Streams.Item(name);
-        end
-        
-        function RequestStop(~)
-        end
-        
+    methods (Abstract)
+        s = GetStream(obj, name);
     end
+    
 end
