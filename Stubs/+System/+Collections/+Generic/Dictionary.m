@@ -1,17 +1,18 @@
-classdef GenericDictionary < handle
+classdef Dictionary < handle
    
-    properties
+    properties (SetAccess = private)
         Keys
         Values
+        Count
     end
     
     methods
-        function obj = GenericDictionary()
-            obj = obj@handle();
-            
+        
+        function obj = Dictionary()            
             obj.Keys = {};
             obj.Values = {};
         end
+        
         
         function Add(obj, key, value)
             for i = 1:numel(obj.Keys)
@@ -25,6 +26,7 @@ classdef GenericDictionary < handle
             obj.Values{end + 1} = value;
         end
         
+        
         function c = ContainsKey(obj, key)
             for i = 1:numel(obj.Keys)
                 if isequal(obj.Keys{i}, key)
@@ -35,6 +37,7 @@ classdef GenericDictionary < handle
             
             c = false;
         end
+        
         
         function v = Item(obj, key)
             for i = 1:numel(obj.Keys)
@@ -47,9 +50,11 @@ classdef GenericDictionary < handle
             error('Non-existent key');
         end
         
-        function c = Count(obj)
+        
+        function c = get.Count(obj)
             c = numel(obj.Keys);
         end
+        
     end
     
 end
