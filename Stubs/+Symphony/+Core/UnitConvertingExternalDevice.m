@@ -5,16 +5,20 @@ classdef UnitConvertingExternalDevice < Symphony.Core.ExternalDeviceBase
     end
     
     methods
-        function obj = UnitConvertingExternalDevice(varargin)
-            obj = obj@Symphony.Core.ExternalDeviceBase(varargin{:});
+        
+        function obj = UnitConvertingExternalDevice(name, manufacturer, controller, background)
+            obj = obj@Symphony.Core.ExternalDeviceBase(name, manufacturer, controller, background);
+        end
+               
+        
+        function d = PullOutputData(obj, stream, duration)
+            d = obj.Controller.PullOutputData(obj, duration);
         end
         
-        function BindStream(obj, arg1, arg2)
-            if nargin == 2
-                obj.Streams.Add(arg1.Name, arg1);
-            else
-                obj.Streams.Add(arg1, arg2);
-            end
+        
+        function PushInputData(obj, stream, inData)
+            obj.Controller.PushInputData(obj, inData);
         end
+        
     end
 end

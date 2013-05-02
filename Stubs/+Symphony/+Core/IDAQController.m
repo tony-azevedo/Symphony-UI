@@ -2,6 +2,7 @@ classdef IDAQController < Symphony.Core.ITimelineProducer & Symphony.Core.IHardw
     
     properties (Abstract)
         Streams
+        InputStreams
         OutputStreams
     end
     

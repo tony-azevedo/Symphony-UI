@@ -17,6 +17,16 @@ classdef MultiClampDevice < Symphony.Core.ExternalDeviceBase
         end
         
         
+        function d = PullOutputData(obj, stream, duration)
+            d = obj.Controller.PullOutputData(obj, duration); 
+        end
+        
+        
+        function PushInputData(obj, stream, inData)
+            obj.Controller.PushInputData(obj, inData);
+        end
+        
+        
         function b = HasDeviceOutputParameters(obj) %#ok<MANU>
             b = true;
         end

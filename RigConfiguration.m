@@ -87,22 +87,47 @@ classdef RigConfiguration < handle
                 disp('Could not load the Heka driver, using the simulation controller instead.');
                 
                 Converters.Register('V', 'V', @(m) m);
-                daq = SimulationDAQController(0.25);
+                daq = SimulationDAQController();
                 
-                daq.SimulationRunner = Simulation(@(output,step) loopbackSimulation(obj, output, step, outStream, inStream));
+                daq.SimulationRunner = @(output,step)loopbackSimulation(obj, output, step);
             end
             
             daq.Clock = daq;
         end
         
         
-        function input = loopbackSimulation(obj, output, ~, outStream, inStream)
+        function input = loopbackSimulation(obj, output, timeStep)
             import Symphony.Core.*;
             
-            input = NET.createGeneric('System.Collections.Generic.Dictionary', {'Symphony.Core.IDAQInputStream','Symphony.Core.IInputData'});
-            outData = output.Item(outStream);
-            inData = InputData(outData.Data, outData.SampleRate, obj.controller.Clock.Now);
-            input.Add(inStream, inData);
+            input = NET.createGeneric('System.Collections.Generic.Dictionary', {'IDAQInputStream', 'IInputData'});
+            daq = obj.controller.DAQController;
+            
+            inStreamEnum = daq.ActiveInputStreams.GetEnumerator();
+            
+            while inStreamEnum.MoveNext()
+                inStream = inStreamEnum.Current;
+                inData = [];
+                
+                outStreamEnum = output.Keys.GetEnumerator();
+                
+                while outStreamEnum.MoveNext()
+                    outStream = outStreamEnum.Current;
+                    
+                    if strcmp(outStream.Name, strrep(inStream.Name, '_IN.', '_OUT.'))
+                        outData = output.Item(outStream);
+                        inData = InputData(outData.Data, outData.SampleRate, daq.Clock.Now);
+                        break;
+                    end
+                end
+                
+                if isempty(inData)
+                    samples = timeStep;
+                    noise = Measurement.FromArray(rand(1, samples));
+                    inData = InputData(noise, daq.SampleRate, daq.Clock.Now);
+                end
+                
+                input.Add(inStream, inData);
+            end
         end
         
         
@@ -117,18 +142,18 @@ classdef RigConfiguration < handle
             srProp = findprop(obj.controller.DAQController, 'SampleRate');
             if isempty(srProp)
                 obj.proxySampleRate = rate;
-                
-                % Update the rate of all device streams.
-                devices = obj.devices();
-                for i = 1:length(devices)
-                     [~, streams] = dictionaryKeysAndValues(devices{i}.Streams);
-                     for j = 1:length(streams)
-                         streams{j}.SampleRate = Measurement(rate, 'Hz');
-                     end
-                end
-           else
+            else
                 obj.controller.DAQController.SampleRate = Measurement(rate, 'Hz');
-           end
+            end
+            
+            % Update the rate of all DAQ streams.
+            enum = obj.controller.DAQController.Streams.GetEnumerator;
+            while enum.MoveNext()
+                stream = enum.Current;
+                try %#ok<TRYNC>
+                    stream.SampleRate = Measurement(rate, 'Hz');
+                end
+            end
         end
         
         

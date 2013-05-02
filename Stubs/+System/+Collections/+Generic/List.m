@@ -4,7 +4,7 @@ classdef List < handle
         Count
     end
     
-    properties (Access = private)       
+    properties       
         items
         itemCount
     end
@@ -33,9 +33,13 @@ classdef List < handle
         end
         
         
-        function i = Item(obj, index)
+        function i = Item(obj, index, value)
             if index < 0 || index >= obj.itemCount
                 error('Out of range')
+            end
+            
+            if nargin > 2
+                obj.items{index + 1} = value;
             end
             
             i = obj.items{index + 1};   % index is zero based
@@ -64,6 +68,41 @@ classdef List < handle
         function l = Skip(obj, itemCount)
             l = System.Collections.Generic.List(obj.itemCount - itemCount);
             l.items = obj.items(itemCount+1:end);
+        end
+        
+        
+        function i = IndexOf(obj, item)
+            i = find(cellfun(@(c)isequal(c, item), obj.items), 1, 'first');
+            
+            if isempty(i)
+                i = -1;
+            else
+                i = i - 1;  % index is zero based
+            end
+        end
+        
+        
+        function b = Contains(obj, item)
+            b = obj.IndexOf(item) ~= -1;
+        end
+        
+        
+        function enum = GetEnumerator(obj)
+            enum = System.Collections.Generic.Enumerator(@MoveNext);
+            enum.State = 0;
+            
+            function b = MoveNext()
+                enum.Current = [];
+                
+                if enum.State + 1 > obj.itemCount
+                    b = false;
+                    return;
+                end
+                
+                enum.Current = obj.items{enum.State + 1};
+                enum.State = enum.State + 1;
+                b = true;
+            end
         end
         
     end

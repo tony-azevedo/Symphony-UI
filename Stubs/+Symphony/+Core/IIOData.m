@@ -1,7 +1,7 @@
 classdef IIOData < handle
    
     properties (Abstract)
-        Data                     % GenericList
+        Data                     % List
         SampleRate               % Measurement
         Duration
     end

@@ -9,50 +9,49 @@ classdef Dictionary < handle
     methods
         
         function obj = Dictionary()            
-            obj.Keys = {};
-            obj.Values = {};
+            obj.Keys = System.Collections.Generic.List();
+            obj.Values = System.Collections.Generic.List();
         end
         
         
         function Add(obj, key, value)
-            for i = 1:numel(obj.Keys)
-                if isequal(obj.Keys{i}, key)
-                    obj.Values{i} = value;
-                    return
-                end
+            if obj.Keys.Contains(key)
+                error('Key already exists');
             end
             
-            obj.Keys{end + 1} = key;
-            obj.Values{end + 1} = value;
+            obj.Keys.Add(key);
+            obj.Values.Add(value);
+        end
+        
+        
+        function i = Item(obj, key, value)
+            index = obj.Keys.IndexOf(key);
+                       
+            if nargin <= 2
+                if index == -1
+                    error('Key does not exist');
+                else
+                    i = obj.Values.Item(index);
+                end
+            else
+                if index == -1
+                    obj.Keys.Add(key);
+                    obj.Values.Add(value);
+                    i = value;
+                else
+                    i = obj.Values.Item(index, value);
+                end
+            end
         end
         
         
         function c = ContainsKey(obj, key)
-            for i = 1:numel(obj.Keys)
-                if isequal(obj.Keys{i}, key)
-                    c = true;
-                    return
-                end
-            end
-            
-            c = false;
-        end
-        
-        
-        function v = Item(obj, key)
-            for i = 1:numel(obj.Keys)
-                if isequal(obj.Keys{i}, key)
-                    v = obj.Values{i};
-                    return
-                end
-            end
-            
-            error('Non-existent key');
+            c = obj.Keys.Contains(key);
         end
         
         
         function c = get.Count(obj)
-            c = numel(obj.Keys);
+            c = obj.Keys.Count;
         end
         
     end

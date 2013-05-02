@@ -17,7 +17,7 @@ classdef ExternalDeviceBase < Symphony.Core.IExternalDevice
             obj.Controller = controller;
             obj.Background = background;
             
-            obj.Streams = GenericDictionary();
+            obj.Streams = System.Collections.Generic.Dictionary();
             
             obj.Controller.AddDevice(obj);
         end
@@ -25,10 +25,18 @@ classdef ExternalDeviceBase < Symphony.Core.IExternalDevice
         
         function device = BindStream(obj, arg1, arg2)            
             if nargin == 2
-                obj.Streams.Add(arg1.Name, arg1);
+                stream = arg1;
+                obj.Streams.Add(stream.Name, stream);
             else
-                obj.Streams.Add(arg1, arg2);
+                stream = arg2;
+                obj.Streams.Add(arg1, stream);
             end    
+            
+            if isa(stream, 'Symphony.Core.IDAQOutputStream')
+                stream.Device = obj;
+            else
+                stream.Devices.Add(obj);
+            end
             
             device = obj;
         end

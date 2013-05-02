@@ -4,4 +4,8 @@ classdef IDAQInputStream < Symphony.Core.IDAQStream
         Devices
     end
     
+    methods (Abstract)
+        PushInputData(obj, inData);
+    end
+    
 end

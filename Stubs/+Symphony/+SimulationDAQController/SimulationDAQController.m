@@ -25,7 +25,7 @@ classdef SimulationDAQController < Symphony.Core.DAQControllerBase
         
         
         function incomingData = ProcessLoopIteration(obj, outputData)
-            incomingData = obj.SimulationRunner(outputData);
+            incomingData = obj.SimulationRunner(outputData, obj.ProcessInterval);
         end        
         
         

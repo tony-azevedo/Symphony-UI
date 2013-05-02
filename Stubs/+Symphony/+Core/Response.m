@@ -2,6 +2,7 @@ classdef Response < handle
    
     properties
         Data
+        DataSegments
         DataConfigurationSpans
         SampleRate
         InputTime
@@ -9,15 +10,43 @@ classdef Response < handle
     end
     
     methods
+        
         function obj = Response()
             obj = obj@handle();
             
-            obj.Data = GenericList();
-            obj.DataConfigurationSpans = GenericList();
-            obj.SampleRate = Symphony.Core.Measurement(10000, 'Hz');
+            obj.DataSegments = System.Collections.Generic.List();
+            obj.DataConfigurationSpans = System.Collections.Generic.List();
             obj.InputTime = now;
-            obj.Duration = 0;   % TODO: calculate from length of data and sample rate?
         end
+        
+        
+        function AppendData(obj, data)
+            obj.DataSegments.Add(data);
+        end  
+        
+        
+        function d = get.Data(obj)
+            d = System.Collections.Generic.List();
+            
+            for i = 0:obj.DataSegments.Count-1
+                d.AddRange(obj.DataSegments.Item(i).Data);
+            end
+        end
+        
+        
+        function d = get.Duration(obj)
+            d = System.TimeSpan.Zero();
+            
+            for i = 0:obj.DataSegments.Count-1
+                d = d + obj.DataSegments.Item(i).Duration;
+            end
+        end
+        
+        
+        function s = get.SampleRate(obj)
+            s = obj.DataSegments.Item(0).SampleRate;
+        end
+        
     end
     
 end

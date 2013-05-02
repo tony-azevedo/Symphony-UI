@@ -1,9 +1,5 @@
-function obj = createGeneric(className, paramTypes, varargin)
-    if strcmp(className, 'System.Collections.Generic.Dictionary')
-        obj = GenericDictionary();
-    elseif strcmp(className, 'System.Collections.Generic.List')
-        obj = GenericList(varargin{:});
-    else
-        error('Unknown generic type ''%s''', className);
-    end
+function obj = createGeneric(className, ~, varargin)
+    constructor = str2func(className);
+    
+    obj = constructor(varargin{:});
 end

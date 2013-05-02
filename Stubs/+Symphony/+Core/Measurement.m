@@ -61,7 +61,10 @@ classdef Measurement < handle
         
         
         function a = ToQuantityArray(list)
-            a = cellfun(@(x) x.Quantity, list.Items);
+            a = zeros(1, list.Count);
+            for i = 1:list.Count
+                a(i) = list.Item(i-1).Quantity;
+            end
         end
         
         
