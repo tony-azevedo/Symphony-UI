@@ -11,6 +11,7 @@ classdef Controller < Symphony.Core.ITimelineProducer
     end
     
     events
+        NextEpochRequested
         PushedInputData
     end
     
@@ -65,10 +66,23 @@ classdef Controller < Symphony.Core.ITimelineProducer
         end
         
         
+        function PrepareRun(obj)
+            % TODO: Validate
+            
+            if obj.Running
+                error('Controller is running');
+            end
+            
+            obj.Running = true;
+        end                
+        
+        
         function t = RunEpochAsync(obj, epoch, persistor)
+            obj.PrepareRun();
+            
             t = System.Threading.Tasks.Task();
             try
-                obj.RunEpoch(epoch, persistor)
+                obj.CommonRunEpoch(epoch, persistor)
             catch ME
                 t.IsFaulted = true;
                 t.Exception = System.AggregateException(getReport(ME, 'extended', 'hyperlinks', 'off'));
@@ -76,77 +90,50 @@ classdef Controller < Symphony.Core.ITimelineProducer
         end
         
         
-%         function RunEpoch(obj, epoch, persistor)
-%             import Symphony.Core.*;
-%             
-%             tic;
-%             
-%             obj.CurrentEpoch = epoch;
-%             epoch.StartTime = now;
-%             
-%             % Figure out how long the epoch should run.
-%             epochDuration = 0;
-%             for i = 1:epoch.Stimuli.Count()
-%                 stimulus = epoch.Stimuli.Values{i};
-%                 epochDuration = max([epochDuration stimulus.Duration().Item2.TotalSeconds]);
-%             end
-%             
-%             % Create dummy responses.
-%             for i = 1:epoch.Responses.Count
-%                 device = epoch.Responses.Keys{i};
-%                 
-%                 if epoch.Stimuli.ContainsKey(device)
-%                     % Copy the stimulii to the responses.
-%                     stimulus = epoch.Stimuli.Item(device);
-%                     
-%                     e = stimulus.DataBlocks(stimulus.Duration.Item2);
-%                     e = e.GetEnumerator();
-%                     [b, e] = e.MoveNext(e);
-%                     d = e.Current();
-%                     
-%                     epoch.Responses.Values{i} = InputData(d.Data, d.SampleRate, now);
-%                 else
-%                     % Generate random noise for the response.
-%                     response = epoch.Responses.Values{i};
-%                     samples = epochDuration * response.SampleRate.Quantity;
-%                     data = System.Collections.Generic.List(samples);
-%                     for j = 1:samples
-%                         data.Add(Measurement((rand(1, 1) * 1000 - 500) / 1000000, 'A'));
-%                     end
-%                     response.Data = data;
-%                     respones.InputTime = now;
-%                 end
-%             end
-%             
-%             elapsedTime = toc;
-%             
-%             pause(epochDuration - elapsedTime);
-%             
-%             if ~isempty(persistor)
-%                 persistor.Serialize(epoch);
-%             end
-%             
-%             obj.CurrentEpoch = [];
-%         end
-        
-        function RunEpoch(obj, epoch, persistor)
+        function CommonRunEpoch(obj, epoch, persistor)
+            cEpoch = obj.CurrentEpoch;
+            
+            cleaner = onCleanup(@()obj.CleanupCommonRunEpoch(cEpoch));
+            
             obj.CurrentEpoch = epoch;
-            
-            inputPushed = addlistener(obj, 'PushedInputData', @(src,data)obj.InputPushed(src, data));
-            c = onCleanup(@()delete(inputPushed));
-            
-            obj.DAQController.Start(epoch.WaitForTrigger);
+            obj.RunCurrentEpoch(persistor);
         end
         
         
-        function InputPushed(obj, src, data)
-            epoch = data.Epoch;
+        function CleanupCommonRunEpoch(obj, epoch)
+            obj.CurrentEpoch = epoch;
+            obj.FinishRun();
+        end
+        
+        
+        function FinishRun(obj)
+            obj.Running = false;
+            % TODO: OnFinishedRun
+        end
+        
+        
+        function RunCurrentEpoch(obj, persistor)
+            inputPushed = addlistener(obj, 'PushedInputData', @(src, data)obj.InputPushed(src, data, persistor));
+            
+            c = onCleanup(@()delete(inputPushed));
+            
+            obj.CurrentEpoch.StartTime = now;
+            obj.DAQController.Start(obj.CurrentEpoch.WaitForTrigger);            
+        end
+        
+        
+        function InputPushed(obj, src, data, persistor)
+            epoch = obj.CurrentEpoch;
             
             if epoch.IsComplete
                 obj.DAQController.RequestStop();
+                
+                if ~isempty(persistor)
+                    persistor.Serialize(epoch);
+                end
             end
         end
-
+        
         
         function CancelRun(obj)
             obj.DAQController.RequestStop();

@@ -53,6 +53,27 @@ classdef Dictionary < handle
         function c = get.Count(obj)
             c = obj.Keys.Count;
         end
+
+        
+        function enum = GetEnumerator(obj)
+            enum = System.Collections.Generic.Enumerator(@MoveNext);
+            enum.State = 0;
+            
+            function b = MoveNext()
+                enum.Current = [];
+                
+                if enum.State + 1 > obj.Count
+                    b = false;
+                    return;
+                end
+                
+                key = obj.Keys.Item(enum.State);
+                value = obj.Values.Item(enum.State);
+                enum.Current = System.Collections.Generic.KeyValuePair(key, value);
+                enum.State = enum.State + 1;
+                b = true;
+            end            
+        end
         
     end
     

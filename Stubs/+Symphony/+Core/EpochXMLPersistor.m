@@ -54,9 +54,10 @@ classdef EpochXMLPersistor < Symphony.Core.EpochPersistor
             % Serialize the device backgrounds.
             backgroundsNode = obj.docNode.createElement('background');
             epochNode.appendChild(backgroundsNode);
-            for i = 1:epoch.Background.Count
-                device = epoch.Background.Keys{i};
-                background = epoch.Background.Values{i};
+            backgroundEnum = epoch.Background.GetEnumerator();
+            while backgroundEnum.MoveNext()
+                device = backgroundEnum.Current.Key;
+                background = backgroundEnum.Current.Value;
                 backgroundNode = obj.docNode.createElement(device.Name);
                 backgroundsNode.appendChild(backgroundNode);
                 backgroundMeasurementNode = obj.docNode.createElement('backgroundMeasurement');
@@ -73,9 +74,10 @@ classdef EpochXMLPersistor < Symphony.Core.EpochPersistor
             % Serialize the stimuli.
             stimuliNode = obj.docNode.createElement('stimuli');
             epochNode.appendChild(stimuliNode);
-            for i = 1:epoch.Stimuli.Count
-                device = epoch.Stimuli.Keys{i};
-                stimulus = epoch.Stimuli.Values{i};
+            stimulusEnum = epoch.Stimuli.GetEnumerator();
+            while stimulusEnum.MoveNext()
+                device = stimulusEnum.Current.Key;
+                stimulus = stimulusEnum.Current.Value;
                 stimulusNode = obj.docNode.createElement('stimulus');
                 stimulusNode.setAttribute('device', device.Name); 
                 stimulusNode.setAttribute('stimulusID', stimulus.StimulusID); 
@@ -87,9 +89,10 @@ classdef EpochXMLPersistor < Symphony.Core.EpochPersistor
             % Serialize the responses.
             responsesNode = obj.docNode.createElement('responses');
             epochNode.appendChild(responsesNode);
-            for i = 1:epoch.Responses.Count
-                device = epoch.Responses.Keys{i};
-                response = epoch.Responses.Values{i};
+            responseEnum = epoch.Responses.GetEnumerator();
+            while responseEnum.MoveNext()
+                device = responseEnum.Current.Key;
+                response = responseEnum.Current.Value;
                 responseNode = obj.docNode.createElement('response');
                 responseNode.setAttribute('device', device.Name); 
                 responsesNode.appendChild(responseNode);
@@ -131,9 +134,11 @@ classdef EpochXMLPersistor < Symphony.Core.EpochPersistor
         function serializeParameters(obj, rootNode, parameters, nodeName)
             paramsNode = obj.docNode.createElement(nodeName);
             rootNode.appendChild(paramsNode);
-            for i = 1:parameters.Count
-                name = parameters.Keys{i};
-                value = parameters.Values{i};
+            
+            paramEnum = parameters.GetEnumerator();
+            while paramEnum.MoveNext()
+                name = paramEnum.Current.Key;
+                value = paramEnum.Current.Value;
                 paramNode = obj.docNode.createElement(name);
                 if islogical(value)
                     if value
@@ -156,7 +161,7 @@ classdef EpochXMLPersistor < Symphony.Core.EpochPersistor
         function addMeasurementNode(obj, rootNode, measurement, nodeName)
             measurementNode = obj.docNode.createElement(nodeName);
             measurementNode.setAttribute('qty', num2str(measurement.Quantity));
-            measurementNode.setAttribute('unit', measurement.Unit);
+            measurementNode.setAttribute('unit', measurement.DisplayUnit);
             rootNode.appendChild(measurementNode);
         end
     end
