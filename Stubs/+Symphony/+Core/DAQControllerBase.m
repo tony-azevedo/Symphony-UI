@@ -64,6 +64,9 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
                 iterationDuration = obj.ProcessInterval.TotalSeconds;
                 obj.SleepForRestOfIteration(iterationStart, iterationDuration);
                 iterationStart = iterationStart + iterationDuration;
+                
+                % Need a small pause to allow MATLAB to catch up on events.
+                pause(0.001);
             end
             
         end
