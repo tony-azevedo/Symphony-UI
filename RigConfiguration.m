@@ -120,10 +120,11 @@ classdef RigConfiguration < handle
                     end
                 end
                 
+                % TODO: This would be much faster if we didn't simulate noise and used a single measurement instead.
                 if isempty(inData)
-                    samples = timeStep;
-                    noise = Measurement.FromArray(rand(1, samples));
-                    inData = InputData(noise, daq.SampleRate, daq.Clock.Now);
+                    samples = Symphony.Core.TimeSpanExtensions.Samples(timeStep, inStream.SampleRate);
+                    noise = Measurement.FromArray(rand(1, samples), 'V');
+                    inData = InputData(noise, inStream.SampleRate, daq.Clock.Now);
                 end
                 
                 input.Add(inStream, inData);
