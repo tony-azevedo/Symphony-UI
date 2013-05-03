@@ -12,6 +12,7 @@ classdef Controller < Symphony.Core.ITimelineProducer
     end
     
     events
+        ReceivedInputData
         NextEpochRequested
         PushedInputData
     end
@@ -49,6 +50,8 @@ classdef Controller < Symphony.Core.ITimelineProducer
         
         function PushInputData(obj, device, inData)
             
+            obj.OnReceivedInputData(device, inData);
+            
             if ~isempty(obj.CurrentEpoch) && obj.CurrentEpoch.Responses.ContainsKey(device)
                 response = obj.CurrentEpoch.Responses.Item(device);
                 
@@ -57,6 +60,11 @@ classdef Controller < Symphony.Core.ITimelineProducer
             end
             
             obj.OnPushedInputData(obj.CurrentEpoch);
+        end
+        
+        
+        function OnReceivedInputData(obj, device, inData)
+            notify(obj, 'ReceivedInputData', Symphony.Core.TimeStampedDeviceDataEventArgs(obj.Clock, device, inData));
         end
         
         

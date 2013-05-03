@@ -124,6 +124,11 @@ classdef Epoch < handle
         
         
         function c = get.IsComplete(obj)
+            if obj.IsIndefinite
+                c = false;
+                return;
+            end
+            
             for i = 0:obj.Responses.Values.Count-1
                 if obj.Responses.Values.Item(i).Duration < obj.Duration
                     c = false;
@@ -132,6 +137,18 @@ classdef Epoch < handle
             end
             
             c = true;
+        end
+        
+        
+        function indef = get.IsIndefinite(obj)
+            indef = false;
+            
+            for i = 0:obj.Stimuli.Values.Count-1
+                if obj.Stimuli.Values.Item(i).Duration == Symphony.Core.TimeSpanOption.Indefinite
+                    indef = true;
+                    break;
+                end
+            end
         end
         
     end

@@ -402,7 +402,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             import Symphony.Core.*;
             
             % Tell the Symphony framework to run the epoch in the background.
+            tic;
             task = obj.rigConfig.controller.RunEpochAsync(obj.epoch, obj.persistor);
+            toc;
 
             % Spin until the run completes, listening for events.
             while obj.rigConfig.controller.Running

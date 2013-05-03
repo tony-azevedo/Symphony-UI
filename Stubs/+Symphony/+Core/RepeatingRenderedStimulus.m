@@ -41,12 +41,12 @@ classdef RepeatingRenderedStimulus < handle
 
                     isIndefinite = obj.Duration == Symphony.Core.TimeSpanOption.Indefinite();
 
-                    if index >= obj.Duration && ~isIndefinite
+                    if ~isIndefinite && index >= obj.Duration
                         b = false;
                         return;
                     end
 
-                    if blockDuration <= obj.Duration - index || isIndefinite
+                    if isIndefinite || blockDuration <= obj.Duration - index
                         dur = blockDuration;
                     else
                         dur = obj.Duration - index;
@@ -61,7 +61,7 @@ classdef RepeatingRenderedStimulus < handle
 
                     index = index + dur;
 
-                    enum.Current = Symphony.Core.OutputData(head.Data, head.SampleRate, index >= obj.Duration && ~isIndefinite);
+                    enum.Current = Symphony.Core.OutputData(head.Data, head.SampleRate, ~isIndefinite && index >= obj.Duration);
                     enum.State.local = local;
                     enum.State.index = index;
                     b = true;
