@@ -23,6 +23,21 @@ classdef SimulationDAQController < Symphony.Core.DAQControllerBase & Symphony.Co
         end
         
         
+        function Start(obj, waitForTrigger)
+            obj.ResetOutputStreams();
+            
+            Start@Symphony.Core.DAQControllerBase(obj, waitForTrigger);
+        end
+        
+        
+        function ResetOutputStreams(obj)
+            outStreams = obj.ActiveOutputStreams;
+            for i = 0:outStreams.Count-1
+                outStreams.Item(i).Reset();
+            end
+        end
+        
+        
         function n = get.Now(obj) %#ok<MANU>
             n = System.DateTimeOffset.Now;
         end

@@ -46,6 +46,11 @@ classdef DAQOutputStream < Symphony.Core.IDAQOutputStream
             a = ~isempty(obj.Device);
         end
         
+        
+        function Reset(obj)
+            obj.LastDataPulled = false;
+        end
+        
     end
     
 end

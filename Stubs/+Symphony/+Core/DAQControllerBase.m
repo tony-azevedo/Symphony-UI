@@ -56,12 +56,11 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
             iterationStart = now;
             
             while obj.Running && ~obj.ShouldStop()
-                
                 outgoingData = obj.NextOutgoingData();
                 incomingData = obj.ProcessLoopIteration(outgoingData);
                 
                 obj.PushIncomingData(incomingData);
-                
+
                 iterationDuration = obj.ProcessInterval.TotalSeconds;
                 obj.SleepForRestOfIteration(iterationStart, iterationDuration);
                 iterationStart = iterationStart + iterationDuration;
@@ -164,7 +163,7 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
             
             outStreams = obj.ActiveOutputStreams;
             for i = 0:outStreams.Count-1
-                if outStreams.Item(1).HasMoreData
+                if outStreams.Item(i).HasMoreData
                     s.Add(outStreams.Item(i));
                 end
             end
