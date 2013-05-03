@@ -59,10 +59,15 @@ classdef Measurement < handle
     methods (Static)
         
         function m = FromArray(array, unit)
-            m = NET.createGeneric('System.Collections.Generic.List', {'Symphony.Core.Measurement'}, length(array));
+            % Why is preallocating slowing this down?
+            %m = NET.createGeneric('System.Collections.Generic.List', {'Symphony.Core.Measurement'}, length(array));
+            m = NET.createGeneric('System.Collections.Generic.List', {'Symphony.Core.Measurement'}, 0);
+            
+            % This is significantly faster than using Add
             for i=1:length(array)
-                m.Add(Symphony.Core.Measurement(array(i), unit));
+                m.Items(i) = Symphony.Core.Measurement(array(i), unit);
             end
+            m.ItemCount = length(array);
         end
         
         
