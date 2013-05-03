@@ -1,7 +1,3 @@
-% Copyright (c) 2012 Howard Hughes Medical Institute.
-% All rights reserved.
-% Use is subject to Janelia Farm Research Campus Software Copyright 1.1 license terms.
-% http://license.janelia.org/license/jfrc_copyright_1_1.html
 classdef SymphonyUI < handle
     
     properties
@@ -64,7 +60,7 @@ classdef SymphonyUI < handle
             end
             Logging.ConfigureLogging(fullfile(symphonyDir, 'debug_log.xml'), [symphonyParentDir '/debug_logs']);
             
-            obj.loadSymConfig(symphonyDir);
+            obj.loadSymphonyConfiguration(symphonyDir);
             
             % See what rig configurations, protocols, figure handlers and sources are available.
             obj.discoverRigConfigurations();
@@ -80,11 +76,10 @@ classdef SymphonyUI < handle
     end
     
     methods
-        % symconfig Load
         % @param symphonyDir: The Symphony Directory
         %
-        % This is a function to load the user preferences from the symconfig
-        function loadSymConfig(obj, symphonyDir)
+        % This is a function to load the user preferences from the symconfig.m file
+        function loadSymphonyConfiguration(obj, symphonyDir)
             
             userDir = regexprep(userpath, ';', ''); 
             userSymConfig = fullfile(userDir, 'symconfig');
@@ -99,10 +94,10 @@ classdef SymphonyUI < handle
             end
             
             try
-                obj.symConfCheck(rigConfigsDir, 'dir'); %#ok<CPROP>
-                obj.symConfCheck(protocolsDir, 'dir'); %#ok<CPROP>
-                obj.symConfCheck(sourcesFile, 'file'); %#ok<CPROP>
-                obj.symConfCheck(figureHandlersDir, 'dir'); %#ok<CPROP>
+                obj.checkSymphonyConfiguration(rigConfigsDir, 'dir'); %#ok<CPROP>
+                obj.checkSymphonyConfiguration(protocolsDir, 'dir'); %#ok<CPROP>
+                obj.checkSymphonyConfiguration(sourcesFile, 'file'); %#ok<CPROP>
+                obj.checkSymphonyConfiguration(figureHandlersDir, 'dir'); %#ok<CPROP>
             catch exception
                 throw(exception);
             end
@@ -110,7 +105,11 @@ classdef SymphonyUI < handle
             clear userDir userSymConfig defaultSymConfig rigConfigsDir protocolsDir sourcesFile figureHandlersDir
         end
         
-        function symConfCheck( obj , var , type)
+        % @param var: Var The variable to check
+        % @param typ: They type of check to perform, eg. 'dir', 'file',...
+        %
+        % This is a function to check if the user preferences are valid       
+        function checkSymphonyConfiguration( obj , var , type )
             varName = inputname(2);
             
             if ( ~exist( var , type ) ) && ( ~strcmp(varName,'figureHandlersDir') || strcmp(varName,'figureHandlersDir') &&  ~isempty(var) )   
@@ -1140,27 +1139,27 @@ classdef SymphonyUI < handle
             % opposed to the obj variable
             symphonyInstance = SymphonyUI.getInstance;
             
-                if ~isempty(symphonyInstance.protocol)
-                    symphonyInstance.protocol.closeFigures();
+            if ~isempty(symphonyInstance.protocol)
+                symphonyInstance.protocol.closeFigures();
+            end
+
+            if ~isempty(symphonyInstance.epochGroup)
+                while ~isempty(symphonyInstance.persistor)
+                    symphonyInstance.closeEpochGroup();
                 end
-            
-                if ~isempty(symphonyInstance.epochGroup)
-                    while ~isempty(symphonyInstance.persistor)
-                        symphonyInstance.closeEpochGroup();
-                    end
-                end
-                
-                % Break the reference loop on the source hierarchy so it gets deleted.
-                delete(symphonyInstance.sources);
-                
-                % Release any hold we have on hardware.
-                if ~isempty(symphonyInstance.rigConfig)
-                    symphonyInstance.rigConfig.close();
-                end
-                
-                % Remember the window position.
-                setpref('Symphony', 'MainWindow_Position', get(symphonyInstance.mainWindow, 'Position'));
-                delete(symphonyInstance.mainWindow);
+            end
+
+            % Break the reference loop on the source hierarchy so it gets deleted.
+            delete(symphonyInstance.sources);
+
+            % Release any hold we have on hardware.
+            if ~isempty(symphonyInstance.rigConfig)
+                symphonyInstance.rigConfig.close();
+            end
+
+            % Remember the window position.
+            setpref('Symphony', 'MainWindow_Position', get(symphonyInstance.mainWindow, 'Position'));
+            delete(symphonyInstance.mainWindow);
                 
             delete(symphonyInstance);     
         end
