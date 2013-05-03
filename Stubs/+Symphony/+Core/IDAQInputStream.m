@@ -1,6 +1,6 @@
 classdef IDAQInputStream < Symphony.Core.IDAQStream
    
-    properties (Abstract)
+    properties (Abstract, SetAccess = private)
         Devices
     end
     

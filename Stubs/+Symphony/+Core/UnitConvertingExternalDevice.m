@@ -11,12 +11,12 @@ classdef UnitConvertingExternalDevice < Symphony.Core.ExternalDeviceBase
         end
                
         
-        function d = PullOutputData(obj, stream, duration)
+        function d = PullOutputData(obj, stream, duration) %#ok<INUSL>
             d = obj.Controller.PullOutputData(obj, duration);
         end
         
         
-        function PushInputData(obj, stream, inData)
+        function PushInputData(obj, stream, inData) %#ok<INUSL>
             obj.Controller.PushInputData(obj, inData);
         end
         

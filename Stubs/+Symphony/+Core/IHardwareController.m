@@ -1,6 +1,6 @@
 classdef IHardwareController < handle
     
-    properties (Abstract)
+    properties (Abstract, SetAccess = protected)
         Running
     end
     

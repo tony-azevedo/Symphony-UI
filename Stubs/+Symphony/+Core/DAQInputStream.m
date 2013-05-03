@@ -3,11 +3,14 @@ classdef DAQInputStream < Symphony.Core.IDAQInputStream
     properties
         Configuration
         SampleRate
-        Active
         MeasurementConversionTarget
         Clock
-        Devices
+    end
+    
+    properties (SetAccess = private)
         Name
+        Active
+        Devices
     end
     
     methods
@@ -18,15 +21,15 @@ classdef DAQInputStream < Symphony.Core.IDAQInputStream
         end
         
         
-        function b = get.Active(obj)
-            b = obj.Devices.Count > 0;
+        function a = get.Active(obj)
+            a = obj.Devices.Count > 0;
         end
         
         
         function PushInputData(obj, inData)
             for i = 0:obj.Devices.Count-1
-                dev = obj.Devices.Item(i);
-                dev.PushInputData(obj, inData);
+                device = obj.Devices.Item(i);
+                device.PushInputData(obj, inData);
             end
         end
         

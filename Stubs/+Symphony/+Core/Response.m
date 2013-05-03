@@ -1,6 +1,6 @@
 classdef Response < handle
    
-    properties
+    properties (SetAccess = private)
         Data
         DataSegments
         DataConfigurationSpans
@@ -11,11 +11,11 @@ classdef Response < handle
     
     methods
         
-        function obj = Response()
-            obj = obj@handle();
-            
+        function obj = Response()            
             obj.DataSegments = System.Collections.Generic.List();
             obj.DataConfigurationSpans = System.Collections.Generic.List();
+            
+            % TODO: This should be a getter and should return a DateTimeOffset
             obj.InputTime = now;
         end
         

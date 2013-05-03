@@ -2,12 +2,25 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
    
     properties
         Clock
+    end
+    
+    properties (SetAccess = protected)
         Running
+        ProcessInterval
+    end
+    
+    properties (SetAccess = private)
         Streams
+        ActiveOutputStreams
+        ActiveInputStreams
+        ActiveOutputStreamsWithData
         InputStreams
         OutputStreams
-        ProcessInterval
         StopRequested
+    end
+    
+    events
+        ExceptionalStop
     end
     
     methods
@@ -29,31 +42,29 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         
         function Process(obj, waitForTrigger)
-            c = onCleanup(@obj.Stop);
+            cleanup = onCleanup(@obj.Stop);
             try
                 obj.ProcessLoop(waitForTrigger);
             catch x
-                disp(getReport(x));
                 obj.StopWithException(x);
             end
         end
         
         
-        function ProcessLoop(obj, ~)
+        function ProcessLoop(obj, waitForTrigger) %#ok<INUSD>
             
             iterationStart = now;
             
             while obj.Running && ~obj.ShouldStop()
                 
                 outgoingData = obj.NextOutgoingData();
-                
                 incomingData = obj.ProcessLoopIteration(outgoingData);
                 
                 obj.PushIncomingData(incomingData);
                 
-                obj.SleepForRestOfIteration(iterationStart, obj.ProcessInterval.TotalSeconds);
-                
-                iterationStart = iterationStart + obj.ProcessInterval.TotalSeconds;
+                iterationDuration = obj.ProcessInterval.TotalSeconds;
+                obj.SleepForRestOfIteration(iterationStart, iterationDuration);
+                iterationStart = iterationStart + iterationDuration;
             end
             
         end
@@ -64,21 +75,22 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
             
             activeStreams = obj.ActiveOutputStreams;
             for i = 0:activeStreams.Count-1
-                s = activeStreams.Item(i);
-                outData.Add(s, obj.NextOutputDataForStream(s));
+                stream = activeStreams.Item(i);
+                outData.Add(stream, obj.NextOutputDataForStream(stream));
             end            
         end
              
         
-        function d = NextOutputDataForStream(obj, outStream)
-            d = outStream.PullOutputData(obj.ProcessInterval);
+        function outData = NextOutputDataForStream(obj, outStream)
+            outData = outStream.PullOutputData(obj.ProcessInterval);
         end
         
         
-        function PushIncomingData(obj, incomingData)            
-            for i = 0:incomingData.Keys.Count-1
-                inStream = incomingData.Keys.Item(i);
-                inStream.PushInputData(incomingData.Item(inStream));
+        function PushIncomingData(~, incomingData)
+            dataEnum = incomingData.GetEnumerator();
+            while dataEnum.MoveNext()
+                inStream = dataEnum.Current.Key;
+                inStream.PushInputData(dataEnum.Current.Value);
             end
         end
         
@@ -88,8 +100,8 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         end
         
         
-        function b = ShouldStop(obj)
-            b = obj.ActiveOutputStreamsWithData.Count == 0 || obj.StopRequested;
+        function s = ShouldStop(obj)
+            s = obj.ActiveOutputStreamsWithData.Count == 0 || obj.StopRequested;
         end
         
         
@@ -100,6 +112,15 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         function StopWithException(obj, exception)
             obj.Running = false;
+            obj.OnExceptionalStop(exception);
+                           
+            % Need to to rethrow this exception because MATLAB doesn't appropriately bubble up exceptions on events.
+            rethrow(exception);
+        end
+        
+        
+        function OnExceptionalStop(obj, exception)
+            notify(obj, 'ExceptionalStop', Symphony.Core.TimeStampedExceptionEventArgs(obj.Clock, exception));
         end
                       
         
@@ -109,10 +130,11 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         
         function SetStreamsBackground(~)
+            
         end
         
         
-        function s = ActiveOutputStreams(obj)
+        function s = get.ActiveOutputStreams(obj)
             s = System.Collections.Generic.List();
             
             outStreams = obj.OutputStreams;
@@ -124,7 +146,7 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         end
         
         
-        function s = ActiveInputStreams(obj)
+        function s = get.ActiveInputStreams(obj)
             s = System.Collections.Generic.List();
             
             inStreams = obj.InputStreams;
@@ -136,29 +158,13 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         end
         
         
-        function s = ActiveOutputStreamsWithData(obj)
+        function s = get.ActiveOutputStreamsWithData(obj)
             s = System.Collections.Generic.List();
             
             outStreams = obj.ActiveOutputStreams;
             for i = 0:outStreams.Count-1
                 if outStreams.Item(1).HasMoreData
                     s.Add(outStreams.Item(i));
-                end
-            end
-        end
-        
-        
-        function AddStream(obj, stream)
-            obj.Streams.Add(stream);
-        end
-        
-        
-        function s = GetStream(obj, name)
-            s = [];
-            for i = 0:obj.Streams.Count-1
-                if strcmp(name, obj.Streams.Item(i))
-                    s = obj.Streams.Item(i);
-                    return;
                 end
             end
         end
@@ -179,6 +185,22 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
             for i = 0:obj.Streams.Count-1
                 if isa(obj.Streams.Item(i), 'Symphony.Core.IDAQOutputStream')
                     s.Add(obj.Streams.Item(i))
+                end
+            end
+        end
+        
+        
+        function AddStream(obj, stream)
+            obj.Streams.Add(stream);
+        end
+        
+        
+        function s = GetStream(obj, name)
+            s = [];
+            for i = 0:obj.Streams.Count-1
+                if strcmp(name, obj.Streams.Item(i))
+                    s = obj.Streams.Item(i);
+                    return;
                 end
             end
         end

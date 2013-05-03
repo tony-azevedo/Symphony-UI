@@ -1,10 +1,10 @@
 classdef TimeSpan
     
-    properties
+    properties (SetAccess = private)
         Ticks
     end
     
-    properties (Dependent)
+    properties (Dependent, SetAccess = private)
         TotalSeconds
     end
     

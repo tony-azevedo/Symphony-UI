@@ -1,30 +1,31 @@
 classdef Epoch < handle
    
-    properties
-        ProtocolID
+    properties        
+        StartTime
+        WaitForTrigger
+    end
+    
+    properties (SetAccess = private)
+        ProtocolID 
         ProtocolParameters
         Stimuli
         Responses
-        Identifier
-        StartTime
         Background
         Keywords
-        WaitForTrigger
         Duration
         IsComplete
         IsIndefinite
+        Identifier % TODO: Remove identifier
     end
     
-    properties
+    properties (Access = private)
         StimulusDataEnumerators
     end
     
     methods
         
-        function obj = Epoch(identifier, parameters)
-            obj = obj@handle();
-            
-            obj.ProtocolID = identifier;
+        function obj = Epoch(protocolID, parameters)            
+            obj.ProtocolID = protocolID;
             if nargin == 2
                 obj.ProtocolParameters = parameters;
             else
@@ -40,30 +41,31 @@ classdef Epoch < handle
         end
         
         
-        function d = PullOutputData(obj, device, blockDuration)
+        function outData = PullOutputData(obj, device, blockDuration)
+            
             if obj.Stimuli.ContainsKey(device)
                 if obj.StimulusDataEnumerators.ContainsKey(device)
-                    enum = obj.StimulusDataEnumerators.Item(device);
+                    blockEnum = obj.StimulusDataEnumerators.Item(device);
                 else
-                    enum = obj.Stimuli.Item(device).DataBlocks(blockDuration).GetEnumerator();
-                    obj.StimulusDataEnumerators.Add(device, enum);
+                    blockEnum = obj.Stimuli.Item(device).DataBlocks(blockDuration).GetEnumerator();
+                    obj.StimulusDataEnumerators.Add(device, blockEnum);
                 end
                                 
                 stimData = [];
                 while isempty(stimData) || stimData.Duration < blockDuration
-                    if ~enum.MoveNext();
+                    if ~blockEnum.MoveNext();
                         break;
                     end
                     
                     if isempty(stimData)
-                        stimData = enum.Current;
+                        stimData = blockEnum.Current;
                     else
-                        stimData = stimData.Concat(enum.Current);
+                        stimData = stimData.Concat(blockEnum.Current);
                     end
                 end
                 
                 if isempty(stimData)
-                    d = obj.BackgroundDataForDevice(device, blockDuration);
+                    outData = obj.BackgroundDataForDevice(device, blockDuration);
                     return;
                 end
                 
@@ -72,15 +74,15 @@ classdef Epoch < handle
                     stimData = stimData.Concat(obj.BackgroundDataForDevice(device, remainingDuration));
                 end
                 
-                d = stimData;
+                outData = stimData;
                 return;
             end
             
-            d = obj.BackgroundDataForDevice(device, blockDuration);
+            outData = obj.BackgroundDataForDevice(device, blockDuration);
         end
         
         
-        function d = BackgroundDataForDevice(obj, device, blockDuration)
+        function outData = BackgroundDataForDevice(obj, device, blockDuration)
             
             if ~obj.Background.ContainsKey(device)
                 error(['Epoch does not have a stimulus or background for ' device.Name]);
@@ -90,10 +92,9 @@ classdef Epoch < handle
             value = obj.Background.Item(device).Background;
             
             samples = Symphony.Core.TimeSpanExtensions.Samples(blockDuration, srate);
-            
             data = Symphony.Core.Measurement.FromArray(zeros(1, samples), value.BaseUnit);
             
-            d = Symphony.Core.OutputData(data, srate, false);
+            outData = Symphony.Core.OutputData(data, srate, false);
         end
         
         
@@ -103,35 +104,43 @@ classdef Epoch < handle
         
         
         function d = get.Duration(obj)
-            d = System.TimeSpan.Zero();
+            % TODO: Build out Maybe<TimeSpan> stuff?
+            
+            if obj.IsIndefinite
+                d = Symphony.Core.TimeSpanOption.Indefinite;
+                return;
+            end
+            
+            dur = System.TimeSpan.Zero();
             
             for i = 0:obj.Stimuli.Values.Count-1
-                if obj.Stimuli.Values.Item(i).Duration > d
-                    d = obj.Stimuli.Values.Item(i).Duration;
+                if obj.Stimuli.Values.Item(i).Duration > dur
+                    dur = obj.Stimuli.Values.Item(i).Duration;
                 end
             end
+            
+            d = Symphony.Core.TimeSpanOption(dur);
         end
         
         
-        function b = get.IsComplete(obj)
-            
+        function c = get.IsComplete(obj)
             for i = 0:obj.Responses.Values.Count-1
                 if obj.Responses.Values.Item(i).Duration < obj.Duration
-                    b = false;
+                    c = false;
                     return;
                 end
             end
             
-            b = true;
+            c = true;
         end
         
     end
     
     methods (Static)
         
-        function eb = EpochBackground(background, sampleRate)
-            eb.Background = background;
-            eb.SampleRate = sampleRate;
+        function b = EpochBackground(background, sampleRate)
+            b.Background = background;
+            b.SampleRate = sampleRate;
         end
         
     end

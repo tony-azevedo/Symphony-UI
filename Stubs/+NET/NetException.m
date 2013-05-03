@@ -1,6 +1,6 @@
 classdef NetException < MException
     
-    properties
+    properties (SetAccess = private)
         ExceptionObject
     end
     
@@ -8,7 +8,6 @@ classdef NetException < MException
         
         function obj = NetException(id, msg, netObj)
             obj@MException(id, '%s', msg);
-            
             obj.ExceptionObject = netObj;
         end
         

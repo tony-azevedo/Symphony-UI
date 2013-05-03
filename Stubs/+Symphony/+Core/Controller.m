@@ -3,9 +3,10 @@ classdef Controller < Symphony.Core.ITimelineProducer
     properties
         Clock
         DAQController
-        Devices = {}
-        Configuration
-        HardwareControllers
+    end
+    
+    properties (SetAccess = private)
+        Devices
         CurrentEpoch
         Running
     end
@@ -17,16 +18,25 @@ classdef Controller < Symphony.Core.ITimelineProducer
     
     methods      
         
-        function AddDevice(obj, device)
-            obj.Devices{end + 1} = device;
+        function obj = Controller()
+            obj.Devices = System.Collections.Generic.List();
+        end
+        
+        
+        function controller = AddDevice(obj, device)
+            obj.Devices.Add(device);
+            device.Controller = obj;
+            controller = obj;
         end
         
         
         function d = GetDevice(obj, deviceName)
             d = [];
-            for device = obj.Devices
-                if strcmp(device{1}.Name, deviceName)
-                    d = device{1};
+            for i = 0:obj.Devices.Count-1
+                device = obj.Devices.Item(i);
+                if strcmp(device.Name, deviceName)
+                    d = device;
+                    break;
                 end
             end
         end
@@ -55,17 +65,6 @@ classdef Controller < Symphony.Core.ITimelineProducer
         end
         
         
-        function persistor = BeginEpochGroup(obj, path, label, source)
-            persistor = EpochXMLPersistor(path);
-            
-            keywords = NET.createArray('System.String', 0);
-            properties = NET.createGeneric('System.Collections.Generic.Dictionary', {'System.String', 'System.Object'});
-            identifier = System.Guid.NewGuid();
-            startTime = obj.Clock.Now;
-            persistor.BeginEpochGroup(label, source, keywords, properties, identifier, startTime);
-        end
-        
-        
         function PrepareRun(obj)
             % TODO: Validate
             
@@ -74,26 +73,25 @@ classdef Controller < Symphony.Core.ITimelineProducer
             end
             
             obj.Running = true;
-        end                
+        end                    
+               
+        
+        function FinishRun(obj)
+            obj.Running = false;
+        end
         
         
-        function t = RunEpochAsync(obj, epoch, persistor)
+        function task = RunEpochAsync(obj, epoch, persistor)
             obj.PrepareRun();
             
-            t = System.Threading.Tasks.Task();
-            try
-                obj.CommonRunEpoch(epoch, persistor)
-            catch ME
-                t.IsFaulted = true;
-                t.Exception = System.AggregateException(getReport(ME, 'extended', 'hyperlinks', 'off'));
-            end
+            task = System.Threading.Tasks.Task(@()obj.CommonRunEpoch(epoch, persistor));
+            task.Start();
         end
         
         
         function CommonRunEpoch(obj, epoch, persistor)
             cEpoch = obj.CurrentEpoch;
-            
-            cleaner = onCleanup(@()obj.CleanupCommonRunEpoch(cEpoch));
+            cleanup = onCleanup(@()obj.CleanupCommonRunEpoch(cEpoch));
             
             obj.CurrentEpoch = epoch;
             obj.RunCurrentEpoch(persistor);
@@ -106,23 +104,18 @@ classdef Controller < Symphony.Core.ITimelineProducer
         end
         
         
-        function FinishRun(obj)
-            obj.Running = false;
-            % TODO: OnFinishedRun
-        end
-        
-        
         function RunCurrentEpoch(obj, persistor)
             inputPushed = addlistener(obj, 'PushedInputData', @(src, data)obj.InputPushed(src, data, persistor));
+            exceptionalStop = addlistener(obj.DAQController, 'ExceptionalStop', @(src, data)obj.ExceptionalStop(src, data));
             
-            c = onCleanup(@()delete(inputPushed));
+            cleanup = onCleanup(@()delete([inputPushed exceptionalStop]));
             
             obj.CurrentEpoch.StartTime = now;
             obj.DAQController.Start(obj.CurrentEpoch.WaitForTrigger);            
         end
+                
         
-        
-        function InputPushed(obj, src, data, persistor)
+        function InputPushed(obj, src, data, persistor) %#ok<INUSL>
             epoch = obj.CurrentEpoch;
             
             if epoch.IsComplete
@@ -135,8 +128,27 @@ classdef Controller < Symphony.Core.ITimelineProducer
         end
         
         
+        function ExceptionalStop(obj, src, data) %#ok<INUSD>
+            % MATLAB doesn't appear to appropriately bubble up exceptions on listeners
+            
+            %exception = addCause(MException('', 'DAQ Controller stopped'), data.Exception);
+            %throw(exception);
+        end
+        
+        
         function CancelRun(obj)
             obj.DAQController.RequestStop();
+        end
+        
+        
+        function persistor = BeginEpochGroup(obj, path, label, source)
+            persistor = EpochXMLPersistor(path);
+            
+            keywords = NET.createArray('System.String', 0);
+            properties = NET.createGeneric('System.Collections.Generic.Dictionary', {'System.String', 'System.Object'});
+            identifier = System.Guid.NewGuid();
+            startTime = obj.Clock.Now;
+            persistor.BeginEpochGroup(label, source, keywords, properties, identifier, startTime);
         end
         
         

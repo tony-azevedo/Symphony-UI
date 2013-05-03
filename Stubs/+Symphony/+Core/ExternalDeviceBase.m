@@ -1,12 +1,15 @@
 classdef ExternalDeviceBase < Symphony.Core.IExternalDevice
    
     properties
-        Name
         Controller
         Background
-        Streams
-        Manufacturer
         Clock
+        Name
+        Manufacturer
+    end
+    
+    properties (SetAccess = private)
+        Streams
     end
     
     methods

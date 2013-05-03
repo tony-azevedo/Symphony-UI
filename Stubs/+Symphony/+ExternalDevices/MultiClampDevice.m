@@ -1,8 +1,8 @@
 classdef MultiClampDevice < Symphony.Core.ExternalDeviceBase
     
-    properties
-        backgrounds
-        mode = 'VClamp'
+    properties (Access = private)
+        Backgrounds
+        Mode = 'VClamp'
     end
     
     methods
@@ -10,45 +10,45 @@ classdef MultiClampDevice < Symphony.Core.ExternalDeviceBase
         function obj = MultiClampDevice(serialNumber, channel, clock, controller, modes, backgrounds) %#ok<INUSL>
             obj = obj@Symphony.Core.ExternalDeviceBase('', 'AutoMate', controller, backgrounds(1));
             
-            obj.backgrounds = containers.Map();
+            obj.Backgrounds = containers.Map();
             for i = 1:numel(modes)
-                obj.backgrounds(char(modes(i))) = backgrounds(i);
+                obj.Backgrounds(char(modes(i))) = backgrounds(i);
             end
         end
         
         
-        function d = PullOutputData(obj, stream, duration)
-            d = obj.Controller.PullOutputData(obj, duration); 
+        function outData = PullOutputData(obj, stream, duration) %#ok<INUSL>
+            outData = obj.Controller.PullOutputData(obj, duration); 
         end
         
         
-        function PushInputData(obj, stream, inData)
+        function PushInputData(obj, stream, inData) %#ok<INUSL>
             obj.Controller.PushInputData(obj, inData);
         end
         
         
-        function b = HasDeviceOutputParameters(obj) %#ok<MANU>
-            b = true;
+        function h = HasDeviceOutputParameters(obj) %#ok<MANU>
+            h = true;
         end
         
         
         function params = DeviceParametersForInput(obj, ~)
-            params.Data.OperatingMode = obj.mode;
+            params.Data.OperatingMode = obj.Mode;
         end
         
         
         function params = DeviceParametersForOutput(obj, ~)
-            params.Data.OperatingMode = obj.mode;
+            params.Data.OperatingMode = obj.Mode;
         end
         
         
         function params = CurrentDeviceInputParameters(obj)
-            params.Data.OperatingMode = obj.mode;
+            params.Data.OperatingMode = obj.Mode;
         end
         
         
         function params = CurrentDeviceOutputParameters(obj)
-            params.Data.OperatingMode = obj.mode;
+            params.Data.OperatingMode = obj.Mode;
         end
         
         
@@ -64,12 +64,12 @@ classdef MultiClampDevice < Symphony.Core.ExternalDeviceBase
                     mode = 'IO';
             end
             
-            obj.backgrounds(mode) = background;            
+            obj.Backgrounds(mode) = background;            
         end
         
         
         function b = Background(obj)
-            b = obj.backgrounds(obj.mode);
+            b = obj.Backgrounds(obj.Mode);
         end
         
         

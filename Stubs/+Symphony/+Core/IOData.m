@@ -1,10 +1,13 @@
 classdef IOData < Symphony.Core.IIOData
    
     properties
+        Time
+    end
+    
+    properties (SetAccess = private)
         Data
         SampleRate
         Duration
-        Time
     end
     
     methods

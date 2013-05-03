@@ -2,11 +2,14 @@ classdef IDAQOutputStream < Symphony.Core.IDAQStream
    
     properties (Abstract)
         Device
+    end
+    
+    properties (Abstract, SetAccess = private)
         HasMoreData
-        Background
+        Background        
     end
     
     methods (Abstract)
-        d = PullOutputData(obj, duration)
+        outData = PullOutputData(obj, duration)
     end
 end

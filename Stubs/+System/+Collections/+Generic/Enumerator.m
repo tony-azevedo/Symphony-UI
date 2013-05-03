@@ -1,6 +1,7 @@
+% This class does not exist in the .NET framework (as implemented). It's a convenience to avoid writing
+% IEnumerator implementing classes.
+
 classdef Enumerator < handle
-    % HACK: This class does not accurately represent the one in .NET. It is designed to avoid writing 
-    % a bunch of separate enumerator classes because MATLAB has no concept of nested types.
     
     properties
         Current

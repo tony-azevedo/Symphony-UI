@@ -7,9 +7,7 @@ classdef Exception < handle
     
     methods
         
-        function obj = Exception(message)
-            obj = obj@handle();
-            
+        function obj = Exception(message)           
             obj.Message = message;
         end
         

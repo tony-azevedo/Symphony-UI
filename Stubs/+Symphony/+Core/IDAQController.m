@@ -1,6 +1,6 @@
 classdef IDAQController < Symphony.Core.ITimelineProducer & Symphony.Core.IHardwareController
     
-    properties (Abstract)
+    properties (Abstract, SetAccess = private)
         Streams
         InputStreams
         OutputStreams

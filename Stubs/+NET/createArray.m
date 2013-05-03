@@ -1,3 +1,3 @@
-function obj = createArray(itemType, varargin)
-    obj = NET.Array(itemType, varargin{:});
+function obj = createArray(typeName, varargin)
+    obj = NET.Array(typeName, varargin{:});
 end

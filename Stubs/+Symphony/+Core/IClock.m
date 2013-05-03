@@ -1,6 +1,6 @@
 classdef IClock < handle
     
-    properties (Abstract)
+    properties (Abstract, SetAccess = private)
         Now
     end
     

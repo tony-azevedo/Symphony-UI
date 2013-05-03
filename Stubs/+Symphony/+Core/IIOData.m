@@ -1,6 +1,6 @@
 classdef IIOData < handle
    
-    properties (Abstract)
+    properties (Abstract, SetAccess = private)
         Data                     % List
         SampleRate               % Measurement
         Duration

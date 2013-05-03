@@ -4,9 +4,9 @@ classdef List < handle
         Count
     end
     
-    properties       
-        items
-        itemCount
+    properties (Access = private)     
+        Items
+        ItemCount
     end
     
     methods
@@ -16,63 +16,63 @@ classdef List < handle
                 capacity = 10;
             end
             
-            obj.items = cell(1, capacity);
-            obj.itemCount = 0;
+            obj.Items = cell(1, capacity);
+            obj.ItemCount = 0;
         end
         
         
         function Add(obj, item)
-            obj.itemCount = obj.itemCount + 1;
-            obj.items{obj.itemCount} = item;
+            obj.ItemCount = obj.ItemCount + 1;
+            obj.Items{obj.ItemCount} = item;
         end
         
         
         function AddRange(obj, list)
-            obj.items = [obj.items(1:obj.itemCount) list.items];
-            obj.itemCount = obj.itemCount + list.itemCount;
+            obj.Items = [obj.Items(1:obj.ItemCount) list.Items];
+            obj.ItemCount = obj.ItemCount + list.ItemCount;
         end
         
         
         function i = Item(obj, index, value)
-            if index < 0 || index >= obj.itemCount
+            if index < 0 || index >= obj.ItemCount
                 error('Out of range')
             end
             
             if nargin > 2
-                obj.items{index + 1} = value;
+                obj.Items{index + 1} = value;
             end
             
-            i = obj.items{index + 1};   % index is zero based
+            i = obj.Items{index + 1};   % index is zero based
         end
         
         
         function c = get.Count(obj)
-            c = obj.itemCount;
+            c = obj.ItemCount;
         end
         
         
         function l = Concat(obj, other)
-            l = System.Collections.Generic.List(obj.itemCount + other.itemCount);
-            l.items = [obj.items(1:obj.itemCount) other.items];
-            l.itemCount = obj.itemCount + other.itemCount;
+            l = System.Collections.Generic.List(obj.ItemCount + other.ItemCount);
+            l.Items = [obj.Items(1:obj.ItemCount) other.Items];
+            l.ItemCount = obj.ItemCount + other.ItemCount;
         end
         
         
         function l = Take(obj, itemCount)
             l = System.Collections.Generic.List(itemCount);
-            l.items = obj.items(1:itemCount);
-            l.itemCount = itemCount;
+            l.Items = obj.Items(1:itemCount);
+            l.ItemCount = itemCount;
         end
         
         
         function l = Skip(obj, itemCount)
-            l = System.Collections.Generic.List(obj.itemCount - itemCount);
-            l.items = obj.items(itemCount+1:end);
+            l = System.Collections.Generic.List(obj.ItemCount - itemCount);
+            l.Items = obj.Items(itemCount+1:end);
         end
         
         
         function i = IndexOf(obj, item)
-            i = find(cellfun(@(c)isequal(c, item), obj.items), 1, 'first');
+            i = find(cellfun(@(c)isequal(c, item), obj.Items), 1, 'first');
             
             if isempty(i)
                 i = -1;
@@ -94,12 +94,12 @@ classdef List < handle
             function b = MoveNext()
                 enum.Current = [];
                 
-                if enum.State + 1 > obj.itemCount
+                if enum.State + 1 > obj.ItemCount
                     b = false;
                     return;
                 end
                 
-                enum.Current = obj.items{enum.State + 1};
+                enum.Current = obj.Items{enum.State + 1};
                 enum.State = enum.State + 1;
                 b = true;
             end

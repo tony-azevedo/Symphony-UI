@@ -6,22 +6,23 @@ classdef RepeatingRenderedStimulus < handle
         Parameters
     end
     
+    properties (SetAccess = private)
+        Duration % TimeSpanOption
+    end
+    
     properties (Access = private)
-        data
-        duration % TimeSpanOption
+        Data
     end
         
     methods
         
-        function obj = RepeatingRenderedStimulus(identifier, parameters, data, duration)
-            obj = obj@handle();
-            
-            obj.StimulusID = identifier;
+        function obj = RepeatingRenderedStimulus(stimulusID, parameters, data, duration)            
+            obj.StimulusID = stimulusID;
             obj.Units = Symphony.Core.Measurement.HomogenousBaseUnits(data.Data);
             obj.Parameters = parameters;
             
-            obj.data = data;
-            obj.duration = duration;
+            obj.Data = data;
+            obj.Duration = duration;
         end
         
         
@@ -30,7 +31,7 @@ classdef RepeatingRenderedStimulus < handle
             
             function enum = GetEnumerator()
                 enum = System.Collections.Generic.Enumerator(@MoveNext);
-                enum.State.local = obj.data;
+                enum.State.local = obj.Data;
                 enum.State.index = System.TimeSpan.Zero();
                 
                 function b = MoveNext()
@@ -38,21 +39,21 @@ classdef RepeatingRenderedStimulus < handle
                     local = enum.State.local;
                     index = enum.State.index;
 
-                    isIndefinite = obj.duration == Symphony.Core.TimeSpanOption.Indefinite();
+                    isIndefinite = obj.Duration == Symphony.Core.TimeSpanOption.Indefinite();
 
-                    if index >= obj.duration && ~isIndefinite
+                    if index >= obj.Duration && ~isIndefinite
                         b = false;
                         return;
                     end
 
-                    if blockDuration <= obj.duration - index || isIndefinite
+                    if blockDuration <= obj.Duration - index || isIndefinite
                         dur = blockDuration;
                     else
-                        dur = obj.duration - index;
+                        dur = obj.Duration - index;
                     end
 
                     while (local.Duration < dur)
-                        local = local.Concat(obj.data);
+                        local = local.Concat(obj.Data);
                     end
 
                     [head, rest] = local.SplitData(dur);
@@ -60,17 +61,12 @@ classdef RepeatingRenderedStimulus < handle
 
                     index = index + dur;
 
-                    enum.Current = Symphony.Core.OutputData(head.Data, head.SampleRate, index >= obj.duration && ~isIndefinite);
+                    enum.Current = Symphony.Core.OutputData(head.Data, head.SampleRate, index >= obj.Duration && ~isIndefinite);
                     enum.State.local = local;
                     enum.State.index = index;
                     b = true;
                 end
             end
-        end
-                
-        
-        function d = Duration(obj) % TimeSpanOption
-            d = obj.duration;
         end
         
     end

@@ -1,8 +1,12 @@
-classdef SimulationDAQController < Symphony.Core.DAQControllerBase
+classdef SimulationDAQController < Symphony.Core.DAQControllerBase & Symphony.Core.IClock
    
     properties
         SampleRate
         SimulationRunner
+    end
+    
+    properties (SetAccess = private)
+        Now
     end
     
     methods
@@ -19,8 +23,8 @@ classdef SimulationDAQController < Symphony.Core.DAQControllerBase
         end
         
         
-        function now = Now(obj) %#ok<MANU>
-            now = System.DateTimeOffset.Now;
+        function n = get.Now(obj) %#ok<MANU>
+            n = System.DateTimeOffset.Now;
         end
         
         

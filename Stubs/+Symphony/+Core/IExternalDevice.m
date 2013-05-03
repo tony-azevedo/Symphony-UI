@@ -1,16 +1,19 @@
 classdef IExternalDevice < Symphony.Core.ITimelineProducer
    
     properties (Abstract)
-        Name
         Controller
         Background
-        Streams
+        Name
         Manufacturer
+    end
+    
+    properties (Abstract, SetAccess = private)
+        Streams
     end
     
     methods (Abstract)
         device = BindStream(obj, arg1, arg2);
-        d = PullOutputData(obj, stream, duration);
+        outData = PullOutputData(obj, stream, duration);
         PushInputData(obj, stream, inData);
     end
 end
