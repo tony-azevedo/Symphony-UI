@@ -22,7 +22,10 @@ classdef Measurement < handle
     methods
         
         function obj = Measurement(quantity, arg1, arg2)
-            obj = obj@handle();
+            if nargin == 0
+                % For preallocating arrays.
+                return;
+            end
             
             obj.Quantity = quantity;
 

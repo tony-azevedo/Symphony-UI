@@ -12,8 +12,8 @@ classdef Response < handle
     methods
         
         function obj = Response()            
-            obj.DataSegments = System.Collections.Generic.List();
-            obj.DataConfigurationSpans = System.Collections.Generic.List();
+            obj.DataSegments = System.Collections.ArrayList();
+            obj.DataConfigurationSpans = System.Collections.ArrayList();
             
             % TODO: This should be a getter and should return a DateTimeOffset
             obj.InputTime = now;
@@ -26,7 +26,7 @@ classdef Response < handle
         
         
         function d = get.Data(obj)
-            d = System.Collections.Generic.List();
+            d = NET.createGeneric('System.Collections.Generic.List', {'Symphony.Core.Measurement'});
             
             for i = 0:obj.DataSegments.Count-1
                 d.AddRange(obj.DataSegments.Item(i).Data);

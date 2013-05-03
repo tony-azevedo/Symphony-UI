@@ -16,7 +16,7 @@ classdef DAQInputStream < Symphony.Core.IDAQInputStream
     methods
         
         function obj = DAQInputStream(name)            
-            obj.Devices = System.Collections.Generic.List();
+            obj.Devices = System.Collections.ArrayList();
             obj.Name = name;
         end
         

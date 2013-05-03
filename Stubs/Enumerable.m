@@ -1,5 +1,4 @@
-% This class does not exist in the .NET framework. It's a convenience to avoid writing
-% IEnumerable implementing classes.
+% A substitute for an IEnumerable implementation.
 
 classdef Enumerable < handle
     

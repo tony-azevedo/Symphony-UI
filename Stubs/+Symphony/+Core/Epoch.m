@@ -29,14 +29,24 @@ classdef Epoch < handle
             if nargin == 2
                 obj.ProtocolParameters = parameters;
             else
-                obj.ProtocolParameters = System.Collections.Generic.Dictionary();
+                obj.ProtocolParameters = NET.createGeneric('System.Collections.Generic.Dictionary', ...
+                    {'System.String', 'System.Object'});
             end
-            obj.Stimuli = System.Collections.Generic.Dictionary();
-            obj.Responses = System.Collections.Generic.Dictionary();
-            obj.StimulusDataEnumerators = System.Collections.Generic.Dictionary();
+            obj.Stimuli = NET.createGeneric('System.Collections.Generic.Dictionary', ...
+                {'Symphony.Core.IExternalDevice', 'Symphony.Core.IStimulus'});
+
+            obj.Responses = NET.createGeneric('System.Collections.Generic.Dictionary', ...
+                {'Symphony.Core.IExternalDevice', 'Symphony.Core.IResponse'});
+            
+            obj.StimulusDataEnumerators = NET.createGeneric('System.Collections.Generic.Dictionary', ...
+                {'Symphony.Core.IExternalDevice', 'System.Collections.IEnumerator'});
+            
             obj.Identifier = char(java.util.UUID.randomUUID());
-            obj.Background = System.Collections.Generic.Dictionary();
-            obj.Keywords = System.Collections.Generic.List();
+            
+            obj.Background = NET.createGeneric('System.Collections.Generic.Dictionary', ...
+                {'Symphony.Core.IExternalDevice', 'Symphony.Core.EpochBackground'});
+            
+            obj.Keywords = System.Collections.ArrayList();
             obj.WaitForTrigger = false;
         end
         
@@ -163,13 +173,19 @@ classdef Epoch < handle
         function list = ConstantMeasurementList(blockDuration, srate, value)
             samples = Symphony.Core.TimeSpanExtensions.Samples(blockDuration, srate);
             
-            list = System.Collections.Generic.List(samples);
+            % Why is preallocating slowing this down?
+            %list = NET.createGeneric('System.Collections.Generic.List', {'Symphony.Core.Measurement'}, samples);
+            list = NET.createGeneric('System.Collections.Generic.List', {'Symphony.Core.Measurement'}, 0);
             
-            % MATLAB constructors are extremely slow, so we'll use the same measurement across the list.
-            measurement = Symphony.Core.Measurement(value, value.BaseUnit);
+            % MATLAB constructors are slow, so we'll use the same measurement across the list.
+            % I think this is OK because measurements are immutable.
+            measurement = Symphony.Core.Measurement(value.QuantityInBaseUnit, value.BaseUnit);
+
+            % This is significantly faster than using Add
             for i=1:samples
-                list.Add(measurement);
+                list.Items(i) = measurement;
             end
+            list.ItemCount = samples;
         end
         
     end

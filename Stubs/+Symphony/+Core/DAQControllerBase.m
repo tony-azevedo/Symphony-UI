@@ -27,7 +27,7 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         function obj = DAQControllerBase()
             obj.Running = false;
-            obj.Streams = System.Collections.Generic.List();
+            obj.Streams = System.Collections.ArrayList();
         end
         
         
@@ -71,7 +71,8 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         
         function outData = NextOutgoingData(obj)
-            outData = System.Collections.Generic.Dictionary();
+            outData = NET.createGeneric('System.Collections.Generic.Dictionary', ...
+                {'Symphony.Core.IDAQOutputStream', 'Symphony.Core.IOutputData'});
             
             activeStreams = obj.ActiveOutputStreams;
             for i = 0:activeStreams.Count-1
@@ -135,7 +136,7 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         
         function s = get.ActiveOutputStreams(obj)
-            s = System.Collections.Generic.List();
+            s = System.Collections.ArrayList();
             
             outStreams = obj.OutputStreams;
             for i = 0:outStreams.Count-1
@@ -147,7 +148,7 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         
         function s = get.ActiveInputStreams(obj)
-            s = System.Collections.Generic.List();
+            s = System.Collections.ArrayList();
             
             inStreams = obj.InputStreams;
             for i = 0:inStreams.Count-1
@@ -159,7 +160,7 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         
         function s = get.ActiveOutputStreamsWithData(obj)
-            s = System.Collections.Generic.List();
+            s = System.Collections.ArrayList();
             
             outStreams = obj.ActiveOutputStreams;
             for i = 0:outStreams.Count-1
@@ -171,7 +172,8 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         
         function s = get.InputStreams(obj)
-            s = System.Collections.Generic.List();
+            s = System.Collections.ArrayList();
+            
             for i = 0:obj.Streams.Count-1
                 if isa(obj.Streams.Item(i), 'Symphony.Core.IDAQInputStream')
                     s.Add(obj.Streams.Item(i))
@@ -181,7 +183,8 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         
         function s = get.OutputStreams(obj)
-            s = System.Collections.Generic.List();
+            s = System.Collections.ArrayList();
+            
             for i = 0:obj.Streams.Count-1
                 if isa(obj.Streams.Item(i), 'Symphony.Core.IDAQOutputStream')
                     s.Add(obj.Streams.Item(i))

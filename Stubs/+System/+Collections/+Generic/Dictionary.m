@@ -1,6 +1,9 @@
+% Note that this implementation doesn't actually type check for simplicity's sake.
+
 classdef Dictionary < handle
    
     properties (SetAccess = private)
+        Types
         Keys
         Values
         Count
@@ -8,9 +11,10 @@ classdef Dictionary < handle
     
     methods
         
-        function obj = Dictionary()            
-            obj.Keys = System.Collections.Generic.List();
-            obj.Values = System.Collections.Generic.List();
+        function obj = Dictionary(types)
+            obj.Types = types;            
+            obj.Keys = System.Collections.ArrayList();
+            obj.Values = System.Collections.ArrayList();
         end
         
         
@@ -56,7 +60,7 @@ classdef Dictionary < handle
 
         
         function enum = GetEnumerator(obj)
-            enum = System.Collections.Generic.Enumerator(@MoveNext);
+            enum = Enumerator(@MoveNext);
             enum.State = 0;
             
             function b = MoveNext()

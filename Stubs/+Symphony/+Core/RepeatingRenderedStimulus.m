@@ -27,10 +27,10 @@ classdef RepeatingRenderedStimulus < handle
         
         
         function enumerable = DataBlocks(obj, blockDuration)
-            enumerable = System.Collections.Generic.Enumerable(@GetEnumerator);
+            enumerable = Enumerable(@GetEnumerator);
             
             function enum = GetEnumerator()
-                enum = System.Collections.Generic.Enumerator(@MoveNext);
+                enum = Enumerator(@MoveNext);
                 enum.State.local = obj.Data;
                 enum.State.index = System.TimeSpan.Zero();
                 

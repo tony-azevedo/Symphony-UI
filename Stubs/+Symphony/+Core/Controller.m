@@ -20,7 +20,7 @@ classdef Controller < Symphony.Core.ITimelineProducer
     methods      
         
         function obj = Controller()
-            obj.Devices = System.Collections.Generic.List();
+            obj.Devices = System.Collections.ArrayList();
         end
         
         

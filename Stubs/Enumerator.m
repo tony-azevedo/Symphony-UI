@@ -1,5 +1,4 @@
-% This class does not exist in the .NET framework (as implemented). It's a convenience to avoid writing
-% IEnumerator implementing classes.
+% A substitute for an IEnumerator implementation.
 
 classdef Enumerator < handle
     

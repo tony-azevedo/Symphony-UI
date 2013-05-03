@@ -20,7 +20,8 @@ classdef ExternalDeviceBase < Symphony.Core.IExternalDevice
             obj.Controller = controller;
             obj.Background = background;
             
-            obj.Streams = System.Collections.Generic.Dictionary();
+            obj.Streams = NET.createGeneric('System.Collections.Generic.Dictionary', ...
+                {'System.String', 'Symphony.Core.IDAQStream'});
             
             obj.Controller.AddDevice(obj);
         end

@@ -1,29 +1,45 @@
+% Use ArrayList if performance is not critical (e.g. you're not adding a large number of elements).
+
 classdef List < handle
    
+    properties
+        Items   % Exposing because calling the Add method in a for loop is slow.
+        ItemCount
+    end
+    
     properties (SetAccess = private)
         Count
     end
     
-    properties (Access = private)     
-        Items
-        ItemCount
+    properties (Access = private)
+        Type
     end
     
     methods
         
-        function obj = List(capacity)            
-            if nargin == 0
+        function obj = List(type, capacity)            
+            if nargin < 2
                 capacity = 10;
             end
             
-            obj.Items = cell(1, capacity);
+            % Preallocate
+            type = type{1};
+            constructor = str2func(type);
+            if capacity > 0
+                items(1, capacity) = constructor();
+            else
+                items(1, 1) = constructor();
+            end
+            
+            obj.Type = type;
+            obj.Items = items;
             obj.ItemCount = 0;
         end
         
         
         function Add(obj, item)
             obj.ItemCount = obj.ItemCount + 1;
-            obj.Items{obj.ItemCount} = item;
+            obj.Items(obj.ItemCount) = item;
         end
         
         
@@ -39,10 +55,10 @@ classdef List < handle
             end
             
             if nargin > 2
-                obj.Items{index + 1} = value;
+                obj.Items(index + 1) = value;
             end
             
-            i = obj.Items{index + 1};   % index is zero based
+            i = obj.Items(index + 1);   % index is zero based
         end
         
         
@@ -52,32 +68,34 @@ classdef List < handle
         
         
         function l = Concat(obj, other)
-            l = System.Collections.Generic.List(obj.ItemCount + other.ItemCount);
+            l = NET.createGeneric(class(obj), {obj.Type}, obj.ItemCount + other.ItemCount);
             l.Items = [obj.Items(1:obj.ItemCount) other.Items];
             l.ItemCount = obj.ItemCount + other.ItemCount;
         end
         
         
-        function l = Take(obj, itemCount)
-            l = System.Collections.Generic.List(itemCount);
-            l.Items = obj.Items(1:itemCount);
-            l.ItemCount = itemCount;
+        function l = Take(obj, count)
+            l = NET.createGeneric(class(obj), {obj.Type}, count);
+            l.Items = obj.Items(1:count);
+            l.ItemCount = count;
         end
         
         
-        function l = Skip(obj, itemCount)
-            l = System.Collections.Generic.List(obj.ItemCount - itemCount);
-            l.Items = obj.Items(itemCount+1:end);
+        function l = Skip(obj, count)
+            l = NET.createGeneric(class(obj), {obj.Type}, obj.ItemCount - count);
+            l.Items = obj.Items(count+1:end);
+            l.ItemCount = obj.ItemCount - count;
         end
         
         
         function i = IndexOf(obj, item)
-            i = find(cellfun(@(c)isequal(c, item), obj.Items), 1, 'first');
+            i = -1;
             
-            if isempty(i)
-                i = -1;
-            else
-                i = i - 1;  % index is zero based
+            for index = 1:obj.ItemCount
+                if isequal(obj.Items(index), item)
+                    i = index - 1; % index is zero based
+                    break;
+                end
             end
         end
         
@@ -88,7 +106,7 @@ classdef List < handle
         
         
         function enum = GetEnumerator(obj)
-            enum = System.Collections.Generic.Enumerator(@MoveNext);
+            enum = Enumerator(@MoveNext);
             enum.State = 0;
             
             function b = MoveNext()
@@ -99,7 +117,7 @@ classdef List < handle
                     return;
                 end
                 
-                enum.Current = obj.Items{enum.State + 1};
+                enum.Current = obj.Items(enum.State + 1);
                 enum.State = enum.State + 1;
                 b = true;
             end
