@@ -91,8 +91,7 @@ classdef Epoch < handle
             srate = obj.Background.Item(device).SampleRate;
             value = obj.Background.Item(device).Background;
             
-            samples = Symphony.Core.TimeSpanExtensions.Samples(blockDuration, srate);
-            data = Symphony.Core.Measurement.FromArray(zeros(1, samples), value.BaseUnit);
+            data = obj.ConstantMeasurementList(blockDuration, srate, value);
             
             outData = Symphony.Core.OutputData(data, srate, false);
         end
@@ -158,6 +157,19 @@ classdef Epoch < handle
         function b = EpochBackground(background, sampleRate)
             b.Background = background;
             b.SampleRate = sampleRate;
+        end
+        
+        
+        function list = ConstantMeasurementList(blockDuration, srate, value)
+            samples = Symphony.Core.TimeSpanExtensions.Samples(blockDuration, srate);
+            
+            list = System.Collections.Generic.List(samples);
+            
+            % MATLAB constructors are extremely slow, so we'll use the same measurement across the list.
+            measurement = Symphony.Core.Measurement(value, value.BaseUnit);
+            for i=1:samples
+                list.Add(measurement);
+            end
         end
         
     end
