@@ -105,8 +105,9 @@ classdef EpochXMLPersistor < Symphony.Core.EpochPersistor
                 obj.addMeasurementNode(sampleRateNode, response.SampleRate, 'measurement');
                 dataNode = obj.DocNode.createElement('data');
                 responseNode.appendChild(dataNode);
-                for i = 1:response.Data.Count
-                    obj.addMeasurementNode(dataNode, response.Data.Item(i - 1), 'measurement');
+                responseData = response.Data;
+                for i = 1:responseData.Count
+                    obj.addMeasurementNode(dataNode, responseData.Item(i - 1), 'measurement');
                 end
                 % TODO: serialize data configurations
             end
