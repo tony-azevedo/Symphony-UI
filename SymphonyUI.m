@@ -7,6 +7,8 @@ classdef SymphonyUI < handle
         rigConfigClassNames
         rigConfigDisplayNames
         rigConfig
+        rigConfigProtocolCompatiblity
+        rigConfigCompatiblityMsg
         
         protocolDirPopupNames       % directory names (to look for protocols)
         protocolsDir                % path to directory containing currently listed protocols
@@ -17,7 +19,6 @@ classdef SymphonyUI < handle
         figureHandlersDir           % path to directory containing additional figure handlers not built-in
         figureHandlerClasses        % The list of available figure handlers.
         
-        missingDeviceName
         sourcesFile
         sources                     % The hierarchy of sources.
         controls                    % A structure containing the handles for most of the controls in the UI.
@@ -33,10 +34,21 @@ classdef SymphonyUI < handle
         notesNode
     end
     
+    %% Singleton Methods
+    methods (Static)
+         function singleObj = getInstance
+            persistent localObj
+            if isempty(localObj) || ~isvalid(localObj)
+                localObj = SymphonyUI;
+            else
+                localObj.showMainWindow();
+            end
+            singleObj = localObj;
+        end       
+    end
     
-    methods
-        
-        function obj = SymphonyUI(rigConfigsDir, protocolsDir, figureHandlersDir, sourcesFile)
+    methods (Access = private)
+        function obj = SymphonyUI
             import Symphony.Core.*;
                         
             obj = obj@handle();
@@ -48,24 +60,7 @@ classdef SymphonyUI < handle
             end
             Logging.ConfigureLogging(fullfile(symphonyDir, 'debug_log.xml'), [symphonyParentDir '/debug_logs']);
             
-            % Verify the given parameters.
-            if ~exist(rigConfigsDir, 'dir')
-                error(['rigConfigsDir does not exist: ' rigConfigsDir]);
-            end
-            if ~exist(protocolsDir, 'dir')
-                error(['protocolsDir does not exist: ' protocolsDir]);
-            end
-            if ~isempty(figureHandlersDir) && ~exist(figureHandlersDir, 'dir')
-                error(['figureHandlersDir does not exist: ' figureHandlersDir]); 
-            end
-            if ~exist(sourcesFile, 'file')
-                error(['sourcesFile does not exist: ' sourcesFile]);
-            end
-            
-            obj.rigConfigsDir = rigConfigsDir;
-            obj.protocolsDir = protocolsDir;
-            obj.figureHandlersDir = figureHandlersDir;
-            obj.sourcesFile = sourcesFile;
+            obj.loadSymphonyConfiguration(symphonyDir);
             
             % See what rig configurations, protocols, figure handlers and sources are available.
             obj.discoverRigConfigurations();
@@ -77,8 +72,54 @@ classdef SymphonyUI < handle
             obj.showMainWindow();
             
             obj.updateUIState();
+        end    
+    end
+    
+    methods
+        % @param symphonyDir: The Symphony Directory
+        %
+        % This is a function to load the user preferences from the symconfig.m file
+        function loadSymphonyConfiguration(obj, symphonyDir)
+            
+            userDir = regexprep(userpath, ';', ''); 
+            userSymConfig = fullfile(userDir, 'symconfig');
+            defaultSymConfig = fullfile(symphonyDir, 'symconfig');
+            
+            if exist(userSymConfig, 'file')
+                run(userSymConfig);
+            elseif exist(defaultSymConfig, 'file')
+                run(defaultSymConfig);
+            else
+                error('The symconfig file does not exist');
+            end
+            
+            try
+                obj.checkSymphonyConfiguration(rigConfigsDir, 'dir'); %#ok<CPROP>
+                obj.checkSymphonyConfiguration(protocolsDir, 'dir'); %#ok<CPROP>
+                obj.checkSymphonyConfiguration(sourcesFile, 'file'); %#ok<CPROP>
+                obj.checkSymphonyConfiguration(figureHandlersDir, 'dir'); %#ok<CPROP>
+            catch exception
+                throw(exception);
+            end
+            
+            clear userDir userSymConfig defaultSymConfig rigConfigsDir protocolsDir sourcesFile figureHandlersDir
         end
         
+        % @param var: Var The variable to check
+        % @param typ: They type of check to perform, eg. 'dir', 'file',...
+        %
+        % This is a function to check if the user preferences are valid       
+        function checkSymphonyConfiguration( obj , var , type )
+            varName = inputname(2);
+            
+            if ( ~exist( var , type ) ) && ( ~strcmp(varName,'figureHandlersDir') || strcmp(varName,'figureHandlersDir') &&  ~isempty(var) )   
+                exception = MException('VerifySymconfigFile:VariableError', ...
+                    [ The ' ' varName ' does not exist' ]);
+                throwAsCaller(exception);
+            else
+                obj.( varName ) = var;
+            end
+        end
         
         %% Rig Configurations
         
@@ -155,34 +196,20 @@ classdef SymphonyUI < handle
             obj.checkRigConfigAndProtocol();
         end
         
+        function checkRigConfigAndProtocol(obj)
+            if ~isempty(obj.protocol) 
+                [ obj.rigConfigProtocolCompatiblity , obj.rigConfigCompatiblityMsg ] = obj.protocol.isCompatibleWithRigConfig(obj.rigConfig);
+            else
+                obj.rigConfigProtocolCompatiblity = false;
+                obj.rigConfigCompatiblityMsg = 'There is currently no protocol selected';
+            end
+            obj.updateUIState();
+        end
         
         function showRigConfigurationDescription(obj, ~, ~)
             desc = obj.rigConfig.describeDevices();
             waitfor(msgbox([obj.rigConfig.displayName ':' char(10) char(10) desc], 'Rig Configuration', 'modal'));
         end
-        
-        
-        function checkRigConfigAndProtocol(obj)
-            % Check the compatibility of the current rig configuration with the current protocol.
-            
-            % Clear properties from last check.
-            obj.missingDeviceName = '';
-            
-            if ~isempty(obj.rigConfig) && ~isempty(obj.protocol)
-                % Does the current rig configuration contain all the devices required by the current protocol?
-                deviceNames = obj.protocol.requiredDeviceNames();
-                for i = 1:length(deviceNames)
-                    device = obj.rigConfig.deviceWithName(deviceNames{i});
-                    if isempty(device)
-                        obj.missingDeviceName = deviceNames{i};
-                        break;
-                    end
-                end
-            end
-            
-            obj.updateUIState();
-        end
-        
         
         %% Protocols
         
@@ -876,7 +903,7 @@ classdef SymphonyUI < handle
             obj.checkRigConfigAndProtocol();
 
             % Don't show the parameters window if the protocol can't be run (or it's requested not to).
-            if shouldShowParams && ~isempty(obj.protocol) && isempty(obj.missingDeviceName)
+            if shouldShowParams && ~isempty(obj.protocol) && obj.rigConfigProtocolCompatiblity
                 if editParameters(obj.protocol)
                     setpref('Symphony', 'LastChosenProtocol', protocolClassName);
 
@@ -994,15 +1021,14 @@ classdef SymphonyUI < handle
             if isempty(obj.protocol) || strcmp(obj.protocol.state, 'stopped')
                 set(obj.controls.rigConfigPopup, 'Enable', 'on');
                 set(obj.controls.startButton, 'String', 'Start');
-                if ~isempty(obj.protocol) && isempty(obj.missingDeviceName)
+                if ~isempty(obj.protocol) && obj.rigConfigProtocolCompatiblity
                     set(obj.controls.startButton, 'Enable', 'on');
                     set(obj.controls.editParametersButton, 'Enable', 'on');
                 else
                     set(obj.controls.startButton, 'Enable', 'off');
                     set(obj.controls.editParametersButton, 'Enable', 'off');
-                    if ~isempty(obj.missingDeviceName)
-                        set(obj.controls.statusLabel, 'String', ...
-                            ['The protocol cannot be run because there is no ''' obj.missingDeviceName ''' device.']); 
+                    if ~obj.rigConfigProtocolCompatiblity
+                        set(obj.controls.statusLabel, 'String', obj.rigConfigCompatiblityMsg); 
                     end
                 end
                 set(obj.controls.pauseButton, 'Enable', 'off');
@@ -1106,33 +1132,36 @@ classdef SymphonyUI < handle
         end
         
         
-        function closeRequestFcn(obj, ~, ~)
+        function closeRequestFcn( ~, ~, ~)
             % TODO: need to stop the protocol?
             
-            if ~isempty(obj.protocol)
-                obj.protocol.closeFigures();
-            end
+            % Deleting objects with respect to the symphony instance as
+            % opposed to the obj variable
+            symphonyInstance = SymphonyUI.getInstance;
             
-            if ~isempty(obj.epochGroup)
-                while ~isempty(obj.persistor)
-                    obj.closeEpochGroup();
+            if ~isempty(symphonyInstance.protocol)
+                symphonyInstance.protocol.closeFigures();
+            end
+
+            if ~isempty(symphonyInstance.epochGroup)
+                while ~isempty(symphonyInstance.persistor)
+                    symphonyInstance.closeEpochGroup();
                 end
             end
-            
+
             % Break the reference loop on the source hierarchy so it gets deleted.
-            delete(obj.sources);
-            
+            delete(symphonyInstance.sources);
+
             % Release any hold we have on hardware.
-            if ~isempty(obj.rigConfig)
-                obj.rigConfig.close();
+            if ~isempty(symphonyInstance.rigConfig)
+                symphonyInstance.rigConfig.close();
             end
-            
+
             % Remember the window position.
-            setpref('Symphony', 'MainWindow_Position', get(obj.mainWindow, 'Position'));
-            delete(obj.mainWindow);
-            
-            clear global symphonyInstance
-            delete(obj);
+            setpref('Symphony', 'MainWindow_Position', get(symphonyInstance.mainWindow, 'Position'));
+            delete(symphonyInstance.mainWindow);
+                
+            delete(symphonyInstance);     
         end
         
         
