@@ -1,9 +1,8 @@
-function obj = createGeneric(itemType, varargin)
-    if strcmp(itemType, 'System.Collections.Generic.Dictionary')
-        obj = GenericDictionary();
-    elseif strcmp(itemType, 'System.Collections.Generic.List')
-        obj = GenericList(varargin{:});
-    else
-        error('Unknown generic type ''%s''', itemType);
+function obj = createGeneric(className, paramTypes, varargin)
+    if ~iscell(paramTypes)
+        error('Parameters must be cell vector');
     end
+
+    constructor = str2func(className);
+    obj = constructor(paramTypes, varargin{:});
 end

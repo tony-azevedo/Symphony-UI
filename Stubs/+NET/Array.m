@@ -2,38 +2,42 @@
 
 classdef Array < handle
     
-    properties
-        items
-        itemType
+    properties (Access = private)
+        Items
+        ItemType
     end
     
     methods
+        
         function obj = Array(itemType, varargin)
             obj = obj@handle();
             
             if numel(varargin) == 1
-                obj.items = cell(1, varargin{1});
+                obj.Items = cell(1, varargin{1});
             else
-                obj.items = cell(varargin{:});
+                obj.Items = cell(varargin{:});
             end
-            obj.itemType = itemType;
+            obj.ItemType = itemType;
         end
+        
         
         function s = size(obj)
-            s = size(obj.items);
+            s = size(obj.Items);
         end
+        
         
         function n = numel(obj)
-            n = numel(obj.items);
+            n = numel(obj.Items);
         end
         
+        
         function obj = subsasgn(obj, s, val)
-            % TODO: make sure val is compatible with obj.itemType?
+            % TODO: make sure val is compatible with obj.ItemType?
             
             if isempty(s) && strcmp(class(val),'Array')
                 % When would this ever happen? copy constructor? untested...
                 obj = NETArray(val.itemType, 0);
-                obj.items = val.items;
+                obj.Items = val.items;
             end
             
             switch s(1).type
@@ -45,7 +49,7 @@ classdef Array < handle
                         if strcmp(class(val), 'Array')
                             error('NETArray:subsasgn', 'Object must be scalar')
                         else
-                          snew = substruct('.', 'items', '{}', s(1).subs(:));
+                          snew = substruct('.', 'Items', '{}', s(1).subs(:));
                           obj = subsasgn(obj, snew, val);
                         end
                     end
@@ -54,6 +58,7 @@ classdef Array < handle
             end     
         end
     
+        
         function sref = subsref(obj,s)
             switch s(1).type
                 % Use the built-in subsref for dot notation
@@ -61,7 +66,7 @@ classdef Array < handle
                     sref = builtin('subsref', obj, s);
                 case '()'
                     if length(s) < 2
-                        sref = builtin('subsref', obj.items, s);
+                        sref = builtin('subsref', obj.Items, s);
                         if iscell(sref)
                             sref = sref{1};
                         end
@@ -72,5 +77,6 @@ classdef Array < handle
                     error('NETArray:subsref', 'Not a supported subscripted reference')
             end 
         end
+        
     end
 end

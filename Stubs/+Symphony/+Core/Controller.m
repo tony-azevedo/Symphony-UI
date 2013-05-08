@@ -1,32 +1,151 @@
 classdef Controller < Symphony.Core.ITimelineProducer
    
     properties
+        Clock
         DAQController
-        Devices = {}
-        Configuration
-        HardwareControllers
-        CurrentEpoch
     end
     
-    methods
+    properties (SetAccess = private)
+        Devices
+        CurrentEpoch
+        Running
+    end
+    
+    events
+        ReceivedInputData
+        NextEpochRequested
+        PushedInputData
+    end
+    
+    methods      
         
         function obj = Controller()
-            obj = obj@Symphony.Core.ITimelineProducer();
+            obj.Devices = System.Collections.ArrayList();
         end
         
         
-        function AddDevice(obj, device)
-            obj.Devices{end + 1} = device;
+        function controller = AddDevice(obj, device)
+            obj.Devices.Add(device);
+            device.Controller = obj;
+            controller = obj;
         end
         
         
         function d = GetDevice(obj, deviceName)
             d = [];
-            for device = obj.Devices
-                if strcmp(device{1}.Name, deviceName)
-                    d = device{1};
+            for i = 0:obj.Devices.Count-1
+                device = obj.Devices.Item(i);
+                if strcmp(device.Name, deviceName)
+                    d = device;
+                    break;
                 end
             end
+        end
+        
+        
+        function d = PullOutputData(obj, device, duration)
+            d = obj.CurrentEpoch.PullOutputData(device, duration);
+        end
+        
+        
+        function PushInputData(obj, device, inData)
+            
+            obj.OnReceivedInputData(device, inData);
+            
+            if ~isempty(obj.CurrentEpoch) && obj.CurrentEpoch.Responses.ContainsKey(device)
+                response = obj.CurrentEpoch.Responses.Item(device);
+                
+                [head, ~] = inData.SplitData(obj.CurrentEpoch.Duration - response.Duration);
+                response.AppendData(head);
+            end
+            
+            obj.OnPushedInputData(obj.CurrentEpoch);
+        end
+        
+        
+        function OnReceivedInputData(obj, device, inData)
+            notify(obj, 'ReceivedInputData', Symphony.Core.TimeStampedDeviceDataEventArgs(obj.Clock, device, inData));
+        end
+        
+        
+        function OnPushedInputData(obj, epoch)
+            notify(obj, 'PushedInputData', Symphony.Core.TimeStampedEpochEventArgs(obj.Clock, epoch));
+        end
+        
+        
+        function PrepareRun(obj)
+            % TODO: Validate
+            
+            if obj.Running
+                error('Controller is running');
+            end
+            
+            obj.Running = true;
+        end                    
+               
+        
+        function FinishRun(obj)
+            obj.Running = false;
+        end
+        
+        
+        function task = RunEpochAsync(obj, epoch, persistor)
+            obj.PrepareRun();
+            
+            task = System.Threading.Tasks.Task(@()obj.CommonRunEpoch(epoch, persistor));
+            task.Start();
+        end
+        
+        
+        function CommonRunEpoch(obj, epoch, persistor)
+            cEpoch = obj.CurrentEpoch;
+            cleanup = onCleanup(@()obj.CleanupCommonRunEpoch(cEpoch));
+            
+            obj.CurrentEpoch = epoch;
+            obj.RunCurrentEpoch(persistor);
+        end
+        
+        
+        function CleanupCommonRunEpoch(obj, epoch)
+            obj.CurrentEpoch = epoch;
+            obj.FinishRun();
+        end
+        
+        
+        function RunCurrentEpoch(obj, persistor)
+            inputPushed = addlistener(obj, 'PushedInputData', @(src, data)obj.InputPushed(src, data, persistor));
+            exceptionalStop = addlistener(obj.DAQController, 'ExceptionalStop', @(src, data)obj.ExceptionalStop(src, data));
+            
+            cleanup = onCleanup(@()delete([inputPushed exceptionalStop]));
+            
+            obj.CurrentEpoch.StartTime = now;
+            obj.DAQController.Start(obj.CurrentEpoch.WaitForTrigger);            
+        end
+                
+        
+        function InputPushed(obj, src, data, persistor) %#ok<INUSL>
+            epoch = obj.CurrentEpoch;
+            
+            if epoch.IsComplete
+                obj.DAQController.RequestStop();
+                
+                if ~isempty(persistor)
+                    persistor.Serialize(epoch);
+                end
+            end
+        end
+        
+        
+        function ExceptionalStop(obj, src, data) %#ok<INUSD>
+            % MATLAB doesn't appear to appropriately bubble up exceptions on listeners
+            
+            %exception = addCause(MException('', 'DAQ Controller stopped'), data.Exception);
+            %throw(exception);
+        end
+        
+        
+        function CancelRun(obj)
+            obj.DAQController.RequestStop();
         end
         
         
@@ -40,53 +159,6 @@ classdef Controller < Symphony.Core.ITimelineProducer
             persistor.BeginEpochGroup(label, source, keywords, properties, identifier, startTime);
         end
         
-        
-        function RunEpoch(obj, epoch, persistor)
-            import Symphony.Core.*;
-            
-            tic;
-            
-            obj.CurrentEpoch = epoch;
-            epoch.StartTime = now;
-            
-            % Figure out how long the epoch should run.
-            epochDuration = 0;
-            for i = 1:epoch.Stimuli.Count()
-                stimulus = epoch.Stimuli.Values{i};
-                epochDuration = max([epochDuration stimulus.Duration()]);
-            end
-            
-            % Create dummy responses.
-            for i = 1:epoch.Responses.Count
-                device = epoch.Responses.Keys{i};
-                
-                if epoch.Stimuli.ContainsKey(device)
-                    % Copy the stimulii to the responses.
-                    stimulus = epoch.Stimuli.Item(device);
-                    epoch.Responses.Values{i} = InputData(stimulus.Data.Data, stimulus.Data.SampleRate, now);
-                else
-                    % Generate random noise for the response.
-                    response = epoch.Responses.Values{i};
-                    samples = epochDuration * response.SampleRate.Quantity;
-                    data = GenericList();
-                    for j = 1:samples
-                        data.Add(Measurement((rand(1, 1) * 1000 - 500) / 1000000, 'A'));
-                    end
-                    response.Data = data;
-                    respones.InputTime = now;
-                end
-            end
-            
-            elapsedTime = toc;
-            
-            pause(epochDuration - elapsedTime);
-            
-            if ~isempty(persistor)
-                persistor.Serialize(epoch);
-            end
-            
-            obj.CurrentEpoch = [];
-        end
         
         function EndEpochGroup(~, persistor)
             persistor.EndEpochGroup();

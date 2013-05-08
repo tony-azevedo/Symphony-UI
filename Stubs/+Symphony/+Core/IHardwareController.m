@@ -1,28 +1,12 @@
 classdef IHardwareController < handle
     
-    properties
+    properties (Abstract, SetAccess = protected)
         Running
-        Configuration
     end
     
-    methods
-        
-        function obj = IHardwareController()
-            obj.Running = false;
-            obj.Configuration = GenericDictionary();
-        end
-        
-        function Start(obj, ~)
-            obj.Running = true;
-        end
-        
-        function Stop(~)
-            obj.Running = false;
-        end
-        
-        function BeginSetup(~)
-        end
-        
+    methods (Abstract)
+        Start(obj, waitForTrigger)
+        Stop(obj);
     end
     
 end

@@ -478,7 +478,7 @@ end
 
 function saveParameters(~, ~, handles)
     paramsDir = findSavedParametersDir(handles);    
-    [filename, pathname] = uiputfile([paramsDir '\*.mat'], 'Save Parameters');
+    [filename, pathname] = uiputfile([paramsDir '/*.mat'], 'Save Parameters');
     if isequal(filename, 0)
         % User selected cancel.
         return;
@@ -491,7 +491,7 @@ end
 
 function loadParameters(~, ~, handles)
     paramsDir = findSavedParametersDir(handles);
-    [filename, pathname] = uigetfile([paramsDir '\*.mat'], 'Load Parameters');
+    [filename, pathname] = uigetfile([paramsDir '/*.mat'], 'Load Parameters');
     if isequal(filename, 0)
         % User selected cancel.
         return;
@@ -542,7 +542,7 @@ end
 function dir = findSavedParametersDir(handles)
     protocolPath = which(class(handles.protocol));
     protocolDir = fileparts(protocolPath);
-    dir = [protocolDir '\saved_parameters'];
+    dir = [protocolDir '/saved_parameters'];
     if exist(dir, 'file') ~= 7
         mkdir(dir);
     end

@@ -1,14 +1,10 @@
 function s = dictionaryToStruct(d)
     s = {};
     
-    if isa(d, 'GenericDictionary')
-        keys = d.Keys;
-    else
-        keys = {};
-        dictKeys = d.Keys.GetEnumerator();
-        while dictKeys.MoveNext()
-            keys{end + 1} = char(dictKeys.Current()); %#ok<AGROW>
-        end
+    keys = {};
+    dictKeys = d.Keys.GetEnumerator();
+    while dictKeys.MoveNext()
+        keys{end + 1} = char(dictKeys.Current()); %#ok<AGROW>
     end
     
     for key = keys

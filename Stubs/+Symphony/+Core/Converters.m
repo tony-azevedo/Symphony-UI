@@ -12,6 +12,7 @@ classdef Converters < handle
             end
         end
         
+        
         function t = Test(fromUnit, toUnit)
             global unitConversions;
             
@@ -23,6 +24,7 @@ classdef Converters < handle
                 end
             end
         end
+        
         
         function Clear()
             global unitConversions;

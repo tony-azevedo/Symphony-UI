@@ -1,7 +1,7 @@
 classdef IClock < handle
-    methods
-        function n = Now(obj) %#ok<MANU>
-            n = now;
-        end
+    
+    properties (Abstract, SetAccess = private)
+        Now
     end
+    
 end
