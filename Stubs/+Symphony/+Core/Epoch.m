@@ -182,9 +182,7 @@ classdef Epoch < handle
             measurement = Symphony.Core.Measurement(value.QuantityInBaseUnit, value.BaseUnit);
 
             % This is significantly faster than using Add
-            for i=1:samples
-                list.Items(i) = measurement;
-            end
+            list.Items(1:samples) = measurement;
             list.ItemCount = samples;
         end
         
