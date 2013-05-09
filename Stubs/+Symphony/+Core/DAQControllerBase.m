@@ -53,17 +53,17 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         function ProcessLoop(obj, waitForTrigger) %#ok<INUSD>
             
-            iterationStart = now;
+            iterationStart = clock;
             
             while obj.Running && ~obj.ShouldStop()
                 outgoingData = obj.NextOutgoingData();
                 incomingData = obj.ProcessLoopIteration(outgoingData);
-                
-                obj.PushIncomingData(incomingData);
 
-                iterationDuration = obj.ProcessInterval.TotalSeconds;
+                obj.PushIncomingData(incomingData);
+                
+                iterationDuration = [0 0 0 0 0 obj.ProcessInterval.TotalSeconds]; % date vector
                 obj.SleepForRestOfIteration(iterationStart, iterationDuration);
-                iterationStart = iterationStart + iterationDuration;
+                iterationStart = datevec(datenum(iterationStart + iterationDuration));
                 
                 % Need a small pause to allow MATLAB to catch up on events.
                 pause(0.001);
@@ -99,7 +99,8 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         
         function SleepForRestOfIteration(~, iterationStart, iterationDuration)
-            pause(now - iterationStart + iterationDuration);
+            sleepEnd = datevec(datenum(iterationStart + iterationDuration));
+            pause(etime(sleepEnd, clock));
         end
         
         

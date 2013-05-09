@@ -75,14 +75,18 @@ classdef List < handle
         
         
         function l = Take(obj, count)
-            l = NET.createGeneric(class(obj), {obj.Type}, count);
+            % Preallocating appears to slow things down.
+            %l = NET.createGeneric(class(obj), {obj.Type}, count);
+            l = NET.createGeneric(class(obj), {obj.Type});
             l.Items = obj.Items(1:count);
             l.ItemCount = count;
         end
         
         
         function l = Skip(obj, count)
-            l = NET.createGeneric(class(obj), {obj.Type}, obj.ItemCount - count);
+            % Preallocating appears to slow things down.
+            %l = NET.createGeneric(class(obj), {obj.Type}, obj.ItemCount - count);            
+            l = NET.createGeneric(class(obj), {obj.Type});
             l.Items = obj.Items(count+1:end);
             l.ItemCount = obj.ItemCount - count;
         end
