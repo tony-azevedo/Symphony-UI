@@ -68,7 +68,7 @@ classdef EpochGroup < handle
         end
         
         
-        function endPersistence(obj, persistor) %#ok<MANU>
+        function endPersistence(obj, persistor) %#ok<INUSL>
             persistor.EndEpochGroup();
         end
         

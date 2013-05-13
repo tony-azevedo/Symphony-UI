@@ -1,13 +1,5 @@
-function StartSymphony( varargin )
-narginchk(0,1);
-    
-    if nargin == 1 && islogical(varargin{1}) && varargin{1}
-        close all
-        clear all classes *
-        clearvars -global
-        clc
-    end
-    
+function StartSymphony()
+
     if verLessThan('matlab', '7.12')
         error('Symphony requires MATLAB 7.12.0 (R2011a) or later');
     end
@@ -15,12 +7,34 @@ narginchk(0,1);
     % Add base directories to the path.
     symphonyPath = mfilename('fullpath');
     parentDir = fileparts(symphonyPath);
-    addpath(fullfile(parentDir, 'Utility'));
+    addpath(fullfile(parentDir, 'Dependencies'));
+    addpath(fullfile(parentDir, 'Simulations'));
+    addpath(fullfile(parentDir, 'Utilities'));
     addpath(fullfile(parentDir, 'StimGL'));
-    clear symphonyPath parentDir
 
-    % Load the Symphony .NET framework
+    % Load the Symphony .NET framework.
     addSymphonyFramework();
-    
-    SymphonyUI.getInstance;
+
+    % Declare or retrieve the current Symphony instance.
+    persistent symphonyInstance;
+
+    if isempty(symphonyInstance) || ~isvalid(symphonyInstance)
+        config = SymphonyConfiguration();
+        
+        % Run the built-in configuration function.
+        config = symphonyrc(config);
+
+        % Run the user-specific configuration function.
+        up = userpath;
+        up = regexprep(up, '[;:]', '');
+        if exist(fullfile(up, 'symphonyrc.m'), 'file')
+            rc = funcAtPath('symphonyrc', up);
+            config = rc(config);
+        end
+
+        % Create the Symphony instance
+        symphonyInstance = SymphonyUI(config);
+    else
+        symphonyInstance.showMainWindow();
+    end
 end
