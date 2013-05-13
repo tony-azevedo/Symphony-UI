@@ -33,9 +33,9 @@ classdef ExampleChartRecorder < SymphonyProtocol
         end     
         
         
-        function prepareProtocol(obj)
+        function init(obj, rigConfig)
             % Call the base method.
-            prepareProtocol@SymphonyProtocol(obj);
+            init@SymphonyProtocol(obj, rigConfig);
             
             % Epochs of indefinite duration, like those produced by this protocol, cannot be saved. 
             obj.allowSavingEpochs = false;

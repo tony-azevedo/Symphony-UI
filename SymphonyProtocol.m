@@ -50,12 +50,13 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
     methods
         
-        function obj = SymphonyProtocol()
-            obj = obj@handle();
-                        
+        function obj = init(obj, rigConfig)
+            % This method is essentially a constructor. If you need to override the constructor, override this instead.
+            
             obj.setState('stopped');
             obj.responses = containers.Map();
-        end 
+            obj.rigConfig = rigConfig;
+        end
         
         
         function setState(obj, state)
@@ -83,13 +84,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     break;
                 end                
             end
-        end
-        
-        
-        function prepareProtocol(obj) %#ok<MANU>
-            % Override this method to perform any actions required to prepare this protocol after it is instantiated.
-            % This method is like the constructor but is called after a rig config has been assigned to the protocol.
-            
         end
         
         
