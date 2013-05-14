@@ -112,6 +112,7 @@ classdef SymphonyUI < handle
                 obj.rigConfig.close();
             end
             
+            oldRigConfig = obj.rigConfig;
             try
                 constructor = str2func(configClassName);
                 obj.rigConfig = constructor();
@@ -119,13 +120,13 @@ classdef SymphonyUI < handle
             
                 setpref('Symphony', 'LastChosenRigConfig', configClassName);
             catch ME                
-                configValue = find(strcmp(obj.rigConfigClassNames, class(obj.rigConfig)));
+                configValue = find(strcmp(obj.rigConfigClassNames, class(oldRigConfig)));
                 set(obj.controls.rigConfigPopup, 'Value', configValue);
                 
                 waitfor(errordlg(['Could not create the device:' char(10) char(10) ME.message], 'Symphony'));
                 
                 % Reconstruct the current rig config to re-init hardware
-                constructor = str2func(class(obj.rigConfig));
+                constructor = str2func(class(oldRigConfig));
                 obj.rigConfig = constructor();
                 obj.rigConfig.init(obj.daqControllerFactory);
             end
