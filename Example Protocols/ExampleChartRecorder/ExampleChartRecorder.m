@@ -74,7 +74,7 @@ classdef ExampleChartRecorder < SymphonyProtocol
             chunkLength = length(chunk);
             response.data = [response.data([chunkLength + 1:end]) chunk];
             
-            % Store our new response data and plot replot it in our figure handler.
+            % Store our new response data and replot it in our figure handler.
             obj.responses(fromDevice) = response;
             obj.updateFigures();
         end

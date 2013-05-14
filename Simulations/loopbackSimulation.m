@@ -1,3 +1,6 @@
+% A simple loopback simulation for the SimulationDAQController. Returns all stimuli as responses (a loopback) or 
+% simulates noise if no stimuli is defined for a particular channel.
+
 function input = loopbackSimulation(daqController, output, timeStep)
     import Symphony.Core.*;
 
