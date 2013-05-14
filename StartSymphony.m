@@ -26,7 +26,7 @@ function StartSymphony()
 
         % Run the user-specific configuration function.
         up = userpath;
-        up = regexprep(up, '[;:]', '');
+        up = regexprep(up, '[;:]$', ''); % Remove semicolon/colon at end of user path
         if exist(fullfile(up, 'symphonyrc.m'), 'file')
             rc = funcAtPath('symphonyrc', up);
             config = rc(config);
