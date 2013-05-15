@@ -1,14 +1,13 @@
 classdef SimulationDAQControllerFactory < DAQControllerFactory
     
     properties
-        SimulationRunner
+        simulation
     end
-    
     
     methods
         
-        function obj = SimulationDAQControllerFactory(simulationRunner)
-            obj.SimulationRunner = simulationRunner;
+        function obj = SimulationDAQControllerFactory(simulation)
+            obj.simulation = simulation;
         end
         
         
@@ -19,7 +18,12 @@ classdef SimulationDAQControllerFactory < DAQControllerFactory
             Converters.Register(Measurement.UNITLESS, 'V', @(m) m);
             
             daq = SimulationDAQController();
-            daq.SimulationRunner = obj.SimulationRunner;
+            
+            constructor = str2func(obj.simulation);
+            sim = constructor();
+            sim.daqController = daq;
+            
+            daq.SimulationRunner = @(input,timeStep)sim.runner(input, timeStep);
         end
             
     end

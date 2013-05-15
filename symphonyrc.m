@@ -25,7 +25,7 @@ function config = symphonyrc(config)
         config.daqControllerFactory = HekaDAQControllerFactory();
         config.epochPersistorFactory = EpochHDF5PersistorFactory();
     else
-        config.daqControllerFactory = SimulationDAQControllerFactory(@loopbackSimulation);
+        config.daqControllerFactory = SimulationDAQControllerFactory('LoopbackSimulation');
         config.epochPersistorFactory = EpochXMLPersistorFactory();
     end
 end
