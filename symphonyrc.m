@@ -17,7 +17,6 @@ function config = symphonyrc(config)
     
     % Text file specifying the source hierarchy.
     config.sourcesFile = fullfile(fileparts(mfilename('fullpath')), 'ExampleSourceHierarchy.txt');
-        
     
     % Factories to define which DAQ controller and epoch persistor Symphony should use.
     % HekaDAQControllerFactory and EpochHDF5PersistorFactory are only supported on Windows.
