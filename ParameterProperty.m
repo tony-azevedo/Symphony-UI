@@ -9,8 +9,13 @@ classdef ParameterProperty < handle
     end
     
     properties
+        % Overrides any default value defined in the properties block of the protocol.
         defaultValue
+        
+        % Displays as a tooltip when hovering over the parameter in the edit parameters window.
         description = ''
+        
+        % Displays alongside the parameter in the edit parameters window.
         units = ''
     end
     
