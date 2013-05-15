@@ -1,12 +1,16 @@
 % A simple loopback simulation for the SimulationDAQController. Returns all stimuli as responses (a loopback) or 
 % simulates noise if no stimuli is defined for a particular channel.
 
-function input = loopbackSimulation(daqController, output, timeStep)
+function input = loopbackSimulation(daq, output, timeStep)
     import Symphony.Core.*;
 
-    input = NET.createGeneric('System.Collections.Generic.Dictionary', {'IDAQInputStream', 'IInputData'});
+    input = NET.createGeneric('System.Collections.Generic.Dictionary', ...
+        {'Symphony.Core.IDAQInputStream', 'Symphony.Core.IInputData'});
 
-    inStreamEnum = daqController.ActiveInputStreams.GetEnumerator();
+    inputStreams = NET.invokeGenericMethod('System.Linq.Enumerable', 'ToList', ...
+        {'Symphony.Core.IDAQInputStream'}, daq.InputStreams);
+    
+    inStreamEnum = inputStreams.GetEnumerator();
 
     while inStreamEnum.MoveNext()
         inStream = inStreamEnum.Current;
@@ -18,9 +22,9 @@ function input = loopbackSimulation(daqController, output, timeStep)
         while outStreamEnum.MoveNext()
             outStream = outStreamEnum.Current;
 
-            if strcmp(outStream.Name, strrep(inStream.Name, '_IN.', '_OUT.'))
+            if strcmp(char(outStream.Name), strrep(char(inStream.Name), '_IN.', '_OUT.'))
                 outData = output.Item(outStream);
-                inData = InputData(outData.Data, outData.SampleRate, daqController.Clock.Now);
+                inData = InputData(outData.Data, outData.SampleRate, daq.Clock.Now);
                 break;
             end
         end
@@ -29,7 +33,7 @@ function input = loopbackSimulation(daqController, output, timeStep)
         if isempty(inData)
             samples = Symphony.Core.TimeSpanExtensions.Samples(timeStep, inStream.SampleRate);
             noise = Measurement.FromArray(rand(1, samples), 'V');
-            inData = InputData(noise, inStream.SampleRate, daqController.Clock.Now);
+            inData = InputData(noise, inStream.SampleRate, daq.Clock.Now);
         end
 
         input.Add(inStream, inData);
