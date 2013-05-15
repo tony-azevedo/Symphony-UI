@@ -42,7 +42,14 @@ classdef SymphonyUI < handle
     
         function obj = SymphonyUI(configuration)
             import Symphony.Core.*;
-                        
+                      
+            symphonyDir = fileparts(mfilename('fullpath'));
+            symphonyParentDir = fileparts(symphonyDir);
+            if ~exist([symphonyParentDir '/debug_logs'],'dir')
+                mkdir(symphonyParentDir,'debug_logs');
+            end
+            Logging.ConfigureLogging(fullfile(symphonyDir, 'debug_log.xml'), [symphonyParentDir '/debug_logs']);
+            
             obj.daqControllerFactory = configuration.daqControllerFactory;
             obj.epochPersistorFactory = configuration.epochPersistorFactory;
             
