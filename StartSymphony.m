@@ -1,3 +1,5 @@
+% Starts the Symphony application.
+
 function StartSymphony()
 
     if verLessThan('matlab', '7.12')

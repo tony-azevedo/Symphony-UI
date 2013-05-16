@@ -1,5 +1,5 @@
 % Place a copy of this file in your MATLAB user path. Edit the copied file to change your personal Symphony configuration.
-% Run the userpath command at the MATLAB command line to determine your user path directory.
+% Run the userpath command at the MATLAB command line to determine your current user path directory.
 
 function config = symphonyrc(config)
     
