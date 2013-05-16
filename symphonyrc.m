@@ -1,5 +1,16 @@
-% Place a copy of this file in your MATLAB user path. Edit the copied file to change your personal Symphony configuration.
-% Run the userpath command at the MATLAB command line to determine your current user path directory.
+% These are the default configuration settings for Symphony. Do not modify this file directly.
+%
+% If you want to override some of the settings, create a symphonyrc function with the following format:
+%
+% function config = symphonyrc(config)
+%
+%     % Place all custom settings here...
+%     % Follow the default symphonyrc file as a guide.
+%
+% end
+%
+% Save the function as symphonyrc.m in your MATLAB user path. You can find and set the location of your MATLAB user path 
+% by using the userpath command in the MATLAB command window.
 
 function config = symphonyrc(config)
     
