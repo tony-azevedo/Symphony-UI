@@ -43,6 +43,7 @@ classdef SymphonyUI < handle
         function obj = SymphonyUI(configuration)
             import Symphony.Core.*;
                 
+            % Validate configuration.
             [valid, errorMsgs] = configuration.validate();
             if ~valid
                 msg = 'Error configuring Symphony:';
@@ -52,6 +53,7 @@ classdef SymphonyUI < handle
                 error('SymphonyUI:FailedConfiguration', msg);
             end
             
+            % Configure logging.
             symphonyDir = fileparts(mfilename('fullpath'));
             symphonyParentDir = fileparts(symphonyDir);
             if ~exist([symphonyParentDir '/debug_logs'],'dir')
@@ -59,6 +61,7 @@ classdef SymphonyUI < handle
             end
             Logging.ConfigureLogging(fullfile(symphonyDir, 'debug_log.xml'), [symphonyParentDir '/debug_logs']);
             
+            % Configure Symphony UI.
             obj.daqControllerFactory = configuration.daqControllerFactory;
             obj.epochPersistorFactory = configuration.epochPersistorFactory;
             
