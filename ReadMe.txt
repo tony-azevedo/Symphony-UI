@@ -1,4 +1,4 @@
-See Overview.txt in the Documentation folder to get started with Symphony.
+See the [project wiki](https://github.com/Symphony-DAS/Symphony/wiki) to get started with Symphony.
 
 ****************************************************************************
 
