@@ -42,7 +42,16 @@ classdef SymphonyUI < handle
     
         function obj = SymphonyUI(configuration)
             import Symphony.Core.*;
-                      
+                
+            [valid, errorMsgs] = configuration.validate();
+            if ~valid
+                msg = 'Error configuring Symphony:';
+                for m = errorMsgs
+                    msg = [msg '\n  - ' m{1} '\n']; %#ok<AGROW>
+                end
+                error('SymphonyUI:FailedConfiguration', msg);
+            end
+            
             symphonyDir = fileparts(mfilename('fullpath'));
             symphonyParentDir = fileparts(symphonyDir);
             if ~exist([symphonyParentDir '/debug_logs'],'dir')
