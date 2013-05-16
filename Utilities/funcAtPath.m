@@ -7,9 +7,18 @@ function handle = funcAtPath(functionName, path)
         error([file ' does not exist']);
     end
 
+    % Store breakpoints.
+    tmp = dbstatus;
+    tmpFile = tempname;
+    save(tmpFile, 'tmp');
+    
     currentDir = pwd;
     cd(path);
     handle = str2func(functionName);
     cd(currentDir);
+    
+    % Reload breakpoints.
+    load(tmpFile);
+    dbstop(tmp);
 end
 
