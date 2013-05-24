@@ -22,6 +22,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
     
     properties (Hidden)
+        symphonyConfig              % The Symphony configuration prepared by symphonyrc
         state                       % The state the protocol is in: 'stopped', 'running', 'paused', etc.
         rigConfig                   % A RigConfiguration instance.
         rigPrepared = false         % A flag indicating whether the rig is ready to run this protocol.
@@ -50,11 +51,12 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
     methods
         
-        function obj = init(obj, rigConfig)
+        function obj = init(obj, symphonyConfig, rigConfig)
             % This method is essentially a constructor. If you need to override the constructor, override this instead.
             
             obj.setState('stopped');
             obj.responses = containers.Map();
+            obj.symphonyConfig = symphonyConfig;
             obj.rigConfig = rigConfig;
         end
         

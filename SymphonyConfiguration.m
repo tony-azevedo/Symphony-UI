@@ -1,6 +1,6 @@
 % This class can be configured in your symphonyrc function. Do not modify this file directly.
 
-classdef SymphonyConfiguration < handle
+classdef SymphonyConfiguration < dynamicprops
     
     properties
         % Directory containing rig configurations.

@@ -2,6 +2,7 @@ classdef SymphonyUI < handle
     
     properties
         mainWindow                  % Figure handle of the main window
+        symphonyConfig              % The Symphony configuration prepared by symphonyrc
         
         rigConfigsDir
         rigConfigClassNames
@@ -40,11 +41,11 @@ classdef SymphonyUI < handle
     
     methods
     
-        function obj = SymphonyUI(configuration)
+        function obj = SymphonyUI(symphonyConfig)
             import Symphony.Core.*;
                 
             % Validate configuration.
-            [valid, errorMsgs] = configuration.validate();
+            [valid, errorMsgs] = symphonyConfig.validate();
             if ~valid
                 msg = 'Your configuration settings are not valid (check your symphonyrc):\n';
                 for m = errorMsgs
@@ -52,6 +53,7 @@ classdef SymphonyUI < handle
                 end
                 error('SymphonyUI:FailedConfiguration', msg);
             end
+            obj.symphonyConfig = symphonyConfig;
             
             % Configure logging.
             symphonyDir = fileparts(mfilename('fullpath'));
@@ -62,13 +64,13 @@ classdef SymphonyUI < handle
             Logging.ConfigureLogging(fullfile(symphonyDir, 'debug_log.xml'), [symphonyParentDir '/debug_logs']);
             
             % Configure Symphony UI.
-            obj.daqControllerFactory = configuration.daqControllerFactory;
-            obj.epochPersistorFactory = configuration.epochPersistorFactory;
+            obj.daqControllerFactory = symphonyConfig.daqControllerFactory;
+            obj.epochPersistorFactory = symphonyConfig.epochPersistorFactory;
             
-            obj.rigConfigsDir = configuration.rigConfigsDir;
-            obj.protocolsDir = configuration.protocolsDir;
-            obj.figureHandlersDir = configuration.figureHandlersDir;
-            obj.sourcesFile = configuration.sourcesFile;
+            obj.rigConfigsDir = symphonyConfig.rigConfigsDir;
+            obj.protocolsDir = symphonyConfig.protocolsDir;
+            obj.figureHandlersDir = symphonyConfig.figureHandlersDir;
+            obj.sourcesFile = symphonyConfig.sourcesFile;
             
             % See what rig configurations, protocols, figure handlers and sources are available.
             obj.discoverRigConfigurations();
@@ -135,7 +137,7 @@ classdef SymphonyUI < handle
             try
                 constructor = str2func(configClassName);
                 obj.rigConfig = constructor();
-                obj.rigConfig.init(obj.daqControllerFactory);
+                obj.rigConfig.init(obj.symphonyConfig);
             
                 setpref('Symphony', 'LastChosenRigConfig', configClassName);
             catch ME                
@@ -147,7 +149,7 @@ classdef SymphonyUI < handle
                 % Reconstruct the current rig config to re-init hardware
                 constructor = str2func(class(oldRigConfig));
                 obj.rigConfig = constructor();
-                obj.rigConfig.init(obj.daqControllerFactory);
+                obj.rigConfig.init(obj.symphonyConfig);
             end
             
             % Recreate the current protocol with the new rig configuration.
@@ -262,7 +264,7 @@ classdef SymphonyUI < handle
             % Create an instance of the protocol class.
             constructor = str2func(className);
             newProtocol = constructor();
-            newProtocol.init(obj.rigConfig);
+            newProtocol.init(obj.symphonyConfig, obj.rigConfig);
             newProtocol.figureHandlerClasses = obj.figureHandlerClasses;
             
             % Set default or saved values for each parameter.
@@ -406,7 +408,7 @@ classdef SymphonyUI < handle
                 constructor = str2func(lastChosenRigConfig);
                 try
                     obj.rigConfig = constructor();
-                    obj.rigConfig.init(obj.daqControllerFactory);
+                    obj.rigConfig.init(obj.symphonyConfig);
                 catch ME
                     % Cannot create a rig config the same as the last one chosen by the user.
                     % Try to make a default one instead.
@@ -417,7 +419,7 @@ classdef SymphonyUI < handle
                             constructor = str2func(obj.rigConfigClassNames{i});
                             try
                                 obj.rigConfig = constructor();
-                                obj.rigConfig.init(obj.daqControllerFactory);
+                                obj.rigConfig.init(obj.symphonyConfig);
                                 break;
                             catch ME
                                 disp(['Could not create a ' obj.rigConfigClassNames{i} '. Error: ' ME.message]);

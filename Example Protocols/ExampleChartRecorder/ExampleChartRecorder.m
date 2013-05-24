@@ -33,9 +33,9 @@ classdef ExampleChartRecorder < SymphonyProtocol
         end     
         
         
-        function init(obj, rigConfig)
+        function init(obj, symphonyConfig, rigConfig)
             % Call the base method.
-            init@SymphonyProtocol(obj, rigConfig);
+            init@SymphonyProtocol(obj, symphonyConfig, rigConfig);
             
             % Epochs of indefinite duration, like those produced by this protocol, cannot be saved. 
             obj.allowSavingEpochs = false;
@@ -122,7 +122,7 @@ classdef ExampleChartRecorder < SymphonyProtocol
         end
         
         
-        function recordResponse(obj, ~) %#ok<MANU>
+        function recordResponse(obj, ~)  %#ok<INUSD>
             % Responses cannot be recorded for indefinite epochs so we must override this method with an empty implementation.
         end
         
