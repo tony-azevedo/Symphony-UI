@@ -46,14 +46,8 @@ classdef SymphonyConfiguration < handle
             if ~isa(obj.daqControllerFactory, 'DAQControllerFactory')
                 msgs{end + 1} = 'daqControllerFactory must be a sub-class of DAQControllerFactory';
             end
-            if isa(obj.daqControllerFactory, 'HekaDAQControllerFactory') && ~ispc
-                msgs{end + 1} = 'HekaDAQControllerFactory is only supported on Windows';
-            end
             if ~isa(obj.epochPersistorFactory, 'EpochPersistorFactory')
                 msgs{end + 1} = 'epochPersistorFactory must be a sub-class of EpochPersistorFactory';
-            end
-            if isa(obj.epochPersistorFactory', 'EpochHDF5PersistorFactory') && ~ispc
-                msgs{end + 1} = 'EpochHDF5PersistorFactory is only supported on Windows';
             end
             
             valid = isempty(msgs);
