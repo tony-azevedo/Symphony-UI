@@ -30,17 +30,15 @@ classdef RigConfiguration < handle
     
     methods
         
-        function obj = init(obj, symphonyConfig)
+        function obj = init(obj, symphonyConfig, daqControllerFactory)
             % This method is essentially a constructor. If you need to override the constructor, override this instead.
             
             import Symphony.Core.*;
             
             obj.symphonyConfig = symphonyConfig;
-            
-            daqFactory = symphonyConfig.daqControllerFactory;
-            
+                        
             obj.controller = Controller();
-            obj.controller.DAQController = daqFactory.createDAQ();
+            obj.controller.DAQController = daqControllerFactory.createDAQ();
             obj.controller.Clock = obj.controller.DAQController;
             
             obj.sampleRate = 10000;

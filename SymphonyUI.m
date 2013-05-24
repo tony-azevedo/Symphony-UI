@@ -137,7 +137,7 @@ classdef SymphonyUI < handle
             try
                 constructor = str2func(configClassName);
                 obj.rigConfig = constructor();
-                obj.rigConfig.init(obj.symphonyConfig);
+                obj.rigConfig.init(obj.symphonyConfig, obj.daqControllerFactory);
             
                 setpref('Symphony', 'LastChosenRigConfig', configClassName);
             catch ME                
@@ -149,7 +149,7 @@ classdef SymphonyUI < handle
                 % Reconstruct the current rig config to re-init hardware
                 constructor = str2func(class(oldRigConfig));
                 obj.rigConfig = constructor();
-                obj.rigConfig.init(obj.symphonyConfig);
+                obj.rigConfig.init(obj.symphonyConfig, obj.daqControllerFactory);
             end
             
             % Recreate the current protocol with the new rig configuration.
@@ -408,7 +408,7 @@ classdef SymphonyUI < handle
                 constructor = str2func(lastChosenRigConfig);
                 try
                     obj.rigConfig = constructor();
-                    obj.rigConfig.init(obj.symphonyConfig);
+                    obj.rigConfig.init(obj.symphonyConfig, obj.daqControllerFactory);
                 catch ME
                     % Cannot create a rig config the same as the last one chosen by the user.
                     % Try to make a default one instead.
@@ -419,7 +419,7 @@ classdef SymphonyUI < handle
                             constructor = str2func(obj.rigConfigClassNames{i});
                             try
                                 obj.rigConfig = constructor();
-                                obj.rigConfig.init(obj.symphonyConfig);
+                                obj.rigConfig.init(obj.symphonyConfig, obj.daqControllerFactory);
                                 break;
                             catch ME
                                 disp(['Could not create a ' obj.rigConfigClassNames{i} '. Error: ' ME.message]);
