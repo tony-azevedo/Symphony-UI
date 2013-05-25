@@ -47,9 +47,9 @@ classdef SymphonyUI < handle
             % Validate configuration.
             [valid, errorMsgs] = symphonyConfig.validate();
             if ~valid
-                msg = 'Your configuration settings are not valid (check your symphonyrc):\n';
+                msg = 'Your configuration settings are not valid (check your symphonyrc):';
                 for m = errorMsgs
-                    msg = [msg '\n  - ' m{1} '\n']; %#ok<AGROW>
+                    msg = [msg '\n\n  - ' strrep(m{1},'\','\\')]; %#ok<AGROW>
                 end
                 error('SymphonyUI:FailedConfiguration', msg);
             end
