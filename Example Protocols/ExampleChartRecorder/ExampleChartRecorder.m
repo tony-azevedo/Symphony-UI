@@ -1,7 +1,7 @@
 classdef ExampleChartRecorder < SymphonyProtocol
 
     properties (Constant)
-        identifier = 'Symphony.ExampleChartRecorder'
+        identifier = 'io.github.symphony-das.ExampleChartRecorder'
         version = 1
         displayName = 'Example Chart Recorder'
     end

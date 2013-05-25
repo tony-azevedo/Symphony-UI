@@ -15,14 +15,14 @@
 classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
     properties (Constant, Abstract)
-        identifier
+        identifier                  % It is recommended to use reverse domain name notation.
         version
         displayName
     end
     
     
     properties (Hidden)
-        symphonyConfig              % The Symphony configuration prepared by symphonyrc
+        symphonyConfig              % The Symphony configuration prepared by symphonyrc.
         state                       % The state the protocol is in: 'stopped', 'running', 'paused', etc.
         rigConfig                   % A RigConfiguration instance.
         rigPrepared = false         % A flag indicating whether the rig is ready to run this protocol.

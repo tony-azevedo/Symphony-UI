@@ -1,7 +1,7 @@
 classdef ExampleSealAndLeak < SymphonyProtocol
 
     properties (Constant)
-        identifier = 'Symphony.ExampleSealAndLeak'
+        identifier = 'io.github.symphony-das.ExampleSealAndLeak'
         version = 1
         displayName = 'Example Seal and Leak'
     end
