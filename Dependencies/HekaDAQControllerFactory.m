@@ -3,6 +3,20 @@ classdef HekaDAQControllerFactory < DAQControllerFactory
     methods
         
         function daq = createDAQ(obj) %#ok<MANU>
+
+            % Add required .NET assembly
+            % TODO: Getting the Symphony framework path should be extracted somehow, maybe into a function.
+            if isWin64bit
+                symphonyPath = fullfile(getenv('PROGRAMFILES(x86)'), 'Physion\Symphony\bin');
+            else
+                symphonyPath = fullfile(getenv('PROGRAMFILES'), 'Physion\Symphony\bin');
+            end
+            try
+                NET.addAssembly(fullfile(symphonyPath, 'HekaDAQInterface.dll'));
+            catch %#ok<CTCH>
+                error('Unable to load the Heka DAQ Interface. You probably need to install the Heka ITC drivers.');
+            end
+            
             import Symphony.Core.*;
             import Heka.*;
                 

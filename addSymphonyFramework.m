@@ -4,19 +4,16 @@ function addSymphonyFramework()
         symphonyPath = mfilename('fullpath');
         parentDir = fileparts(symphonyPath);
         addpath(fullfile(parentDir, filesep, 'Stubs'));
-    else
-        isWin64bit = strcmpi(getenv('PROCESSOR_ARCHITEW6432'), 'amd64') || strcmpi(getenv('PROCESSOR_ARCHITECTURE'), 'amd64');
-        
-        if isWin64bit
-            symphonyPath = 'C:\Program Files (x86)\Physion\Symphony\bin';
+    else        
+        if isWin64bit()
+            symphonyPath = fullfile(getenv('PROGRAMFILES(x86)'), 'Physion\Symphony\bin');
         else
-            symphonyPath = 'C:\Program Files\Physion\Symphony\bin';
+            symphonyPath = fullfile(getenv('PROGRAMFILES'), 'Physion\Symphony\bin');
         end
         
         % Add Symphony.Core assemblies
         NET.addAssembly(fullfile(symphonyPath, 'Symphony.Core.dll'));
         NET.addAssembly(fullfile(symphonyPath, 'Symphony.ExternalDevices.dll'));
-        NET.addAssembly(fullfile(symphonyPath, 'HekaDAQInterface.dll'));
         NET.addAssembly(fullfile(symphonyPath, 'Symphony.SimulationDAQController.dll'));
         
         NET.addAssembly('System.Windows.Forms');
