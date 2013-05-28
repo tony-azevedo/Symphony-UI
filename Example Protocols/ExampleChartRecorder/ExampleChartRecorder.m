@@ -1,3 +1,7 @@
+% This protocol will build up a delay in displaying response data over time. It is NOT intended to be a accurate chart
+% recorder. It is intended as a simple demonstation of working with epoch response data as it is recorded (as opposed to 
+% after it is recorded like a standard protocol).
+
 classdef ExampleChartRecorder < SymphonyProtocol
 
     properties (Constant)
