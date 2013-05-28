@@ -15,13 +15,14 @@
 classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
     properties (Constant, Abstract)
-        identifier
+        identifier                  % It is recommended to use reverse domain name notation.
         version
         displayName
     end
     
     
     properties (Hidden)
+        symphonyConfig              % The Symphony configuration prepared by symphonyrc.
         state                       % The state the protocol is in: 'stopped', 'running', 'paused', etc.
         rigConfig                   % A RigConfiguration instance.
         rigPrepared = false         % A flag indicating whether the rig is ready to run this protocol.
@@ -50,31 +51,29 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
     methods
         
-        function obj = SymphonyProtocol()
-            obj = obj@handle();
-                        
+        function obj = init(obj, symphonyConfig, rigConfig)
+            % This method is essentially a constructor. If you need to override the constructor, override this instead.
+            
             obj.setState('stopped');
             obj.responses = containers.Map();
-        end 
+            obj.symphonyConfig = symphonyConfig;
+            obj.rigConfig = rigConfig;
+        end
         
         
         function setState(obj, state)
             obj.state = state;
             notify(obj, 'StateChanged');
         end
-                
+            
+        
         function dn = requiredDeviceNames(obj) %#ok<MANU>
             % Override this method to indicate the names of devices that are required for this protocol.
             dn = {};
         end
         
-        % @param rigConfig: The Rig Configuration that will be tested against the protocol
-        %
-        % @output c: A Boolean that returns true if the Rig and Protocol are compatible
-        % @output msg: Returns an Error msg if the Rig and Protocol are not compatible. This is the error message that will be displayed in the GUI.
-        %
-        % Note: Override this method if you would like to alter the compatability check between the Rig and the Protocol
-        function [ c , msg ] = isCompatibleWithRigConfig(obj, rigConfig)
+        
+        function [c , msg] = isCompatibleWithRigConfig(obj, rigConfig)            
             c = true;
             msg = '';
             
@@ -83,16 +82,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 device = rigConfig.deviceWithName(deviceNames{i});
                 if isempty(device)
                     c = false;
-                    msg = [ 'The protocol cannot be run because there is no ''' deviceNames{i} ''' device.' ];
+                    msg = ['The protocol cannot be run because there is no ''' deviceNames{i} ''' device.'];
                     break;
                 end                
             end
-        end
-        
-        function prepareProtocol(obj)
-            % Override this method to perform any actions required to prepare this protocol after it is instantiated, e.g. add event listeners, etc.
-            % This method is like the constructor but is called after a rig config has been assigned to the protocol.
-            
         end
         
         

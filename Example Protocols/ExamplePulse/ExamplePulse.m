@@ -1,7 +1,7 @@
 classdef ExamplePulse < SymphonyProtocol
 
     properties (Constant)
-        identifier = 'Symphony.ExamplePulse'
+        identifier = 'io.github.symphony-das.ExamplePulse'
         version = 1
         displayName = 'Example Pulse'
     end

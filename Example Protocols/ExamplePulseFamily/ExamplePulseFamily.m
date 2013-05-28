@@ -1,7 +1,7 @@
 classdef ExamplePulseFamily < SymphonyProtocol
 
     properties (Constant)
-        identifier = 'Symphony.ExamplePulseFamily'
+        identifier = 'io.github.symphony-das.ExamplePulseFamily'
         version = 1
         displayName = 'Example Pulse Family'
     end

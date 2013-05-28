@@ -1,7 +1,7 @@
 classdef ExampleSealAndLeak < SymphonyProtocol
 
     properties (Constant)
-        identifier = 'Symphony.ExampleSealAndLeak'
+        identifier = 'io.github.symphony-das.ExampleSealAndLeak'
         version = 1
         displayName = 'Example Seal and Leak'
     end
@@ -52,9 +52,9 @@ classdef ExampleSealAndLeak < SymphonyProtocol
         end
         
         
-        function prepareProtocol(obj)
+        function init(obj, symphonyConfig, rigConfig)
             % Call the base method.
-            prepareProtocol@SymphonyProtocol(obj);
+            init@SymphonyProtocol(obj, symphonyConfig, rigConfig);
             
             % Epochs of indefinite duration, like those produced by this protocol, cannot be saved. 
             obj.allowSavingEpochs = false;

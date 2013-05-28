@@ -2,13 +2,12 @@ classdef SymphonyUI < handle
     
     properties
         mainWindow                  % Figure handle of the main window
+        symphonyConfig              % The Symphony configuration prepared by symphonyrc
         
         rigConfigsDir
         rigConfigClassNames
         rigConfigDisplayNames
         rigConfig
-        rigConfigProtocolCompatiblity
-        rigConfigCompatiblityMsg
         
         protocolDirPopupNames       % directory names (to look for protocols)
         protocolsDir                % path to directory containing currently listed protocols
@@ -18,6 +17,9 @@ classdef SymphonyUI < handle
         
         figureHandlersDir           % path to directory containing additional figure handlers not built-in
         figureHandlerClasses        % The list of available figure handlers.
+        
+        isCompatible                % Indicates if the currently selected rig config and protocol are compatible.
+        compatibilityMessage        % The messsage displayed if isCompatible is false.
         
         sourcesFile
         sources                     % The hierarchy of sources.
@@ -32,27 +34,28 @@ classdef SymphonyUI < handle
         metadataDoc
         metadataNode
         notesNode
+        daqControllerFactory
+        epochPersistorFactory
     end
     
-    %% Singleton Methods
-    methods (Static)
-         function singleObj = getInstance
-            persistent localObj
-            if isempty(localObj) || ~isvalid(localObj)
-                localObj = SymphonyUI;
-            else
-                localObj.showMainWindow();
-            end
-            singleObj = localObj;
-        end       
-    end
     
-    methods (Access = private)
-        function obj = SymphonyUI
+    methods
+    
+        function obj = SymphonyUI(symphonyConfig)
             import Symphony.Core.*;
-                        
-            obj = obj@handle();
+                
+            % Validate configuration.
+            [valid, errorMsgs] = symphonyConfig.validate();
+            if ~valid
+                msg = 'Your configuration settings are not valid (check your symphonyrc):';
+                for m = errorMsgs
+                    msg = [msg '\n\n  - ' strrep(m{1},'\','\\')]; %#ok<AGROW>
+                end
+                error('SymphonyUI:FailedConfiguration', msg);
+            end
+            obj.symphonyConfig = symphonyConfig;
             
+            % Configure logging.
             symphonyDir = fileparts(mfilename('fullpath'));
             symphonyParentDir = fileparts(symphonyDir);
             if ~exist([symphonyParentDir '/debug_logs'],'dir')
@@ -60,7 +63,14 @@ classdef SymphonyUI < handle
             end
             Logging.ConfigureLogging(fullfile(symphonyDir, 'debug_log.xml'), [symphonyParentDir '/debug_logs']);
             
-            obj.loadSymphonyConfiguration(symphonyDir);
+            % Configure Symphony UI.
+            obj.daqControllerFactory = symphonyConfig.daqControllerFactory;
+            obj.epochPersistorFactory = symphonyConfig.epochPersistorFactory;
+            
+            obj.rigConfigsDir = symphonyConfig.rigConfigsDir;
+            obj.protocolsDir = symphonyConfig.protocolsDir;
+            obj.figureHandlersDir = symphonyConfig.figureHandlersDir;
+            obj.sourcesFile = symphonyConfig.sourcesFile;
             
             % See what rig configurations, protocols, figure handlers and sources are available.
             obj.discoverRigConfigurations();
@@ -72,54 +82,8 @@ classdef SymphonyUI < handle
             obj.showMainWindow();
             
             obj.updateUIState();
-        end    
-    end
-    
-    methods
-        % @param symphonyDir: The Symphony Directory
-        %
-        % This is a function to load the user preferences from the symconfig.m file
-        function loadSymphonyConfiguration(obj, symphonyDir)
-            
-            userDir = regexprep(userpath, ';', ''); 
-            userSymConfig = fullfile(userDir, 'symconfig');
-            defaultSymConfig = fullfile(symphonyDir, 'symconfig');
-            
-            if exist(userSymConfig, 'file')
-                run(userSymConfig);
-            elseif exist(defaultSymConfig, 'file')
-                run(defaultSymConfig);
-            else
-                error('The symconfig file does not exist');
-            end
-            
-            try
-                obj.checkSymphonyConfiguration(rigConfigsDir, 'dir'); %#ok<CPROP>
-                obj.checkSymphonyConfiguration(protocolsDir, 'dir'); %#ok<CPROP>
-                obj.checkSymphonyConfiguration(sourcesFile, 'file'); %#ok<CPROP>
-                obj.checkSymphonyConfiguration(figureHandlersDir, 'dir'); %#ok<CPROP>
-            catch exception
-                throw(exception);
-            end
-            
-            clear userDir userSymConfig defaultSymConfig rigConfigsDir protocolsDir sourcesFile figureHandlersDir
         end
         
-        % @param var: Var The variable to check
-        % @param typ: They type of check to perform, eg. 'dir', 'file',...
-        %
-        % This is a function to check if the user preferences are valid       
-        function checkSymphonyConfiguration( obj , var , type )
-            varName = inputname(2);
-            
-            if ( ~exist( var , type ) ) && ( ~strcmp(varName,'figureHandlersDir') || strcmp(varName,'figureHandlersDir') &&  ~isempty(var) )   
-                exception = MException('VerifySymconfigFile:VariableError', ...
-                    [ The ' ' varName ' does not exist' ]);
-                throwAsCaller(exception);
-            else
-                obj.( varName ) = var;
-            end
-        end
         
         %% Rig Configurations
         
@@ -149,7 +113,7 @@ classdef SymphonyUI < handle
                                  
             % Don't allow an empty list of rig configurations.
             if isempty(obj.rigConfigClassNames)
-                error(['Could not find any rig configurations in the rigConfigsDir: ' obj.rigConfigsDir]);
+                error(['Could not find any rig configurations in the directory: ' obj.rigConfigsDir]);
             end
         end
         
@@ -169,20 +133,23 @@ classdef SymphonyUI < handle
                 obj.rigConfig.close();
             end
             
+            oldRigConfig = obj.rigConfig;
             try
                 constructor = str2func(configClassName);
                 obj.rigConfig = constructor();
+                obj.rigConfig.init(obj.symphonyConfig, obj.daqControllerFactory);
             
                 setpref('Symphony', 'LastChosenRigConfig', configClassName);
             catch ME                
-                configValue = find(strcmp(obj.rigConfigClassNames, class(obj.rigConfig)));
+                configValue = find(strcmp(obj.rigConfigClassNames, class(oldRigConfig)));
                 set(obj.controls.rigConfigPopup, 'Value', configValue);
                 
                 waitfor(errordlg(['Could not create the device:' char(10) char(10) ME.message], 'Symphony'));
                 
                 % Reconstruct the current rig config to re-init hardware
-                constructor = str2func(class(obj.rigConfig));
+                constructor = str2func(class(oldRigConfig));
                 obj.rigConfig = constructor();
+                obj.rigConfig.init(obj.symphonyConfig, obj.daqControllerFactory);
             end
             
             % Recreate the current protocol with the new rig configuration.
@@ -196,23 +163,29 @@ classdef SymphonyUI < handle
             obj.checkRigConfigAndProtocol();
         end
         
+        
         function checkRigConfigAndProtocol(obj)
-            if ~isempty(obj.protocol) 
-                [ obj.rigConfigProtocolCompatiblity , obj.rigConfigCompatiblityMsg ] = obj.protocol.isCompatibleWithRigConfig(obj.rigConfig);
-            else
-                obj.rigConfigProtocolCompatiblity = false;
-                obj.rigConfigCompatiblityMsg = 'There is currently no protocol selected';
+            % Check the compatibility of the current rig configuration with the current protocol.
+            
+            if isempty(obj.protocol)
+                obj.isCompatible = false;
+                obj.compatibilityMessage = 'No protocol selected.';
+                obj.updateUIState();
+                return;
             end
+            
+            [obj.isCompatible, obj.compatibilityMessage] = obj.protocol.isCompatibleWithRigConfig(obj.rigConfig);
             obj.updateUIState();
         end
+        
         
         function showRigConfigurationDescription(obj, ~, ~)
             desc = obj.rigConfig.describeDevices();
             waitfor(msgbox([obj.rigConfig.displayName ':' char(10) char(10) desc], 'Rig Configuration', 'modal'));
         end
         
-        %% Protocols
         
+        %% Protocols
         
         function discoverProtocols(obj)
             % Populate the list of protocols from the current protocols directory.
@@ -291,9 +264,8 @@ classdef SymphonyUI < handle
             % Create an instance of the protocol class.
             constructor = str2func(className);
             newProtocol = constructor();
-            newProtocol.rigConfig = obj.rigConfig;
+            newProtocol.init(obj.symphonyConfig, obj.rigConfig);
             newProtocol.figureHandlerClasses = obj.figureHandlerClasses;
-            newProtocol.prepareProtocol();
             
             % Set default or saved values for each parameter.
             savedParams = getpref('Symphony', [className '_Defaults'], struct);
@@ -436,6 +408,7 @@ classdef SymphonyUI < handle
                 constructor = str2func(lastChosenRigConfig);
                 try
                     obj.rigConfig = constructor();
+                    obj.rigConfig.init(obj.symphonyConfig, obj.daqControllerFactory);
                 catch ME
                     % Cannot create a rig config the same as the last one chosen by the user.
                     % Try to make a default one instead.
@@ -446,6 +419,7 @@ classdef SymphonyUI < handle
                             constructor = str2func(obj.rigConfigClassNames{i});
                             try
                                 obj.rigConfig = constructor();
+                                obj.rigConfig.init(obj.symphonyConfig, obj.daqControllerFactory);
                                 break;
                             catch ME
                                 disp(['Could not create a ' obj.rigConfigClassNames{i} '. Error: ' ME.message]);
@@ -902,8 +876,8 @@ classdef SymphonyUI < handle
             obj.protocol = newProtocol;
             obj.checkRigConfigAndProtocol();
 
-            % Don't show the parameters window if the protocol can't be run (or it's requested not to).
-            if shouldShowParams && ~isempty(obj.protocol) && obj.rigConfigProtocolCompatiblity
+            % Show the parameters window if the protocol can be run.
+            if shouldShowParams && obj.isCompatible
                 if editParameters(obj.protocol)
                     setpref('Symphony', 'LastChosenProtocol', protocolClassName);
 
@@ -913,9 +887,6 @@ classdef SymphonyUI < handle
                     elseif obj.wasSavingEpochs
                         set(obj.controls.saveEpochsCheckbox, 'Value', get(obj.controls.saveEpochsCheckbox, 'Max'));
                     end
-                    
-                    % Force delete the old protocol to ensure it's listeners are deleted.
-                    delete(oldProtocol);
                 else
                     % User selected cancel on the initial edit params window.
                     % Revert back to the old protocol.
@@ -927,9 +898,6 @@ classdef SymphonyUI < handle
                         protocolValue = 1;
                     end
                     set(obj.controls.protocolPopup, 'Value', protocolValue);
-                    
-                    % Force delete the new protocol to ensure it's listeners are deleted.
-                    delete(newProtocol)
                 end
             end
         end
@@ -1013,23 +981,18 @@ classdef SymphonyUI < handle
             % Update the state of the UI based on the state of the protocol.
             if ~isempty(obj.protocol)
                 state = obj.protocol.state;
-            else
-                state = 'No protocol selected.';
+                set(obj.controls.statusLabel, 'String', ['Status: ' state]);
             end
-            set(obj.controls.statusLabel, 'String', ['Status: ' state]);
             
             if isempty(obj.protocol) || strcmp(obj.protocol.state, 'stopped')
                 set(obj.controls.rigConfigPopup, 'Enable', 'on');
-                set(obj.controls.startButton, 'String', 'Start');
-                if ~isempty(obj.protocol) && obj.rigConfigProtocolCompatiblity
+                if ~isempty(obj.protocol) && obj.isCompatible
                     set(obj.controls.startButton, 'Enable', 'on');
                     set(obj.controls.editParametersButton, 'Enable', 'on');
                 else
                     set(obj.controls.startButton, 'Enable', 'off');
                     set(obj.controls.editParametersButton, 'Enable', 'off');
-                    if ~obj.rigConfigProtocolCompatiblity
-                        set(obj.controls.statusLabel, 'String', obj.rigConfigCompatiblityMsg); 
-                    end
+                    set(obj.controls.statusLabel, 'String', obj.compatibilityMessage); 
                 end
                 set(obj.controls.pauseButton, 'Enable', 'off');
                 set(obj.controls.stopButton, 'Enable', 'off');
@@ -1132,36 +1095,32 @@ classdef SymphonyUI < handle
         end
         
         
-        function closeRequestFcn( ~, ~, ~)
+        function closeRequestFcn(obj, ~, ~)
             % TODO: need to stop the protocol?
             
-            % Deleting objects with respect to the symphony instance as
-            % opposed to the obj variable
-            symphonyInstance = SymphonyUI.getInstance;
-            
-            if ~isempty(symphonyInstance.protocol)
-                symphonyInstance.protocol.closeFigures();
+            if ~isempty(obj.protocol)
+                obj.protocol.closeFigures();
             end
 
-            if ~isempty(symphonyInstance.epochGroup)
-                while ~isempty(symphonyInstance.persistor)
-                    symphonyInstance.closeEpochGroup();
+            if ~isempty(obj.epochGroup)
+                while ~isempty(obj.persistor)
+                    obj.closeEpochGroup();
                 end
             end
 
             % Break the reference loop on the source hierarchy so it gets deleted.
-            delete(symphonyInstance.sources);
+            delete(obj.sources);
 
             % Release any hold we have on hardware.
-            if ~isempty(symphonyInstance.rigConfig)
-                symphonyInstance.rigConfig.close();
+            if ~isempty(obj.rigConfig)
+                obj.rigConfig.close();
             end
 
             % Remember the window position.
-            setpref('Symphony', 'MainWindow_Position', get(symphonyInstance.mainWindow, 'Position'));
-            delete(symphonyInstance.mainWindow);
+            setpref('Symphony', 'MainWindow_Position', get(obj.mainWindow, 'Position'));
+            delete(obj.mainWindow);
                 
-            delete(symphonyInstance);     
+            delete(obj);     
         end
         
         
@@ -1175,12 +1134,15 @@ classdef SymphonyUI < handle
             if ~isempty(group)
                 if isempty(obj.persistor)
                     % Create the persistor and metadata XML.
-                    if ismac
-                        obj.persistPath = fullfile(group.outputPath, [group.source.name '.xml']);
-                    else
-                        obj.persistPath = fullfile(group.outputPath, [group.source.name '.h5']);
+                    extension = '';
+                    if isa(obj.epochPersistorFactory, 'EpochXMLPersistorFactory')
+                        extension = '.xml';
+                    elseif isa(obj.epochPersistorFactory, 'EpochHDF5PersistorFactory')
+                        extension = '.h5';
                     end
                     
+                    obj.persistPath = fullfile(group.outputPath, [group.source.name extension]);
+                        
                     if exist(obj.persistPath, 'file')
                         choice = questdlg(['This will append to an existing file.' char(10) char(10) 'Do you wish to contiue?'], ...
                                            'Symphony', 'Cancel', 'Continue', 'Continue');
@@ -1223,11 +1185,7 @@ classdef SymphonyUI < handle
                         group.source.persistToMetadata(obj.metadataNode);
                     end
                     
-                    if ismac
-                        obj.persistor = EpochXMLPersistor(obj.persistPath);
-                    else
-                        obj.persistor = EpochHDF5Persistor(obj.persistPath, '', 9);
-                    end
+                    obj.persistor = obj.epochPersistorFactory.createPersistor(obj.persistPath);
                 end
                 
                 obj.epochGroup = group;

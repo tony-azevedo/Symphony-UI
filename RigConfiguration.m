@@ -23,17 +23,22 @@ classdef RigConfiguration < handle
     
     
     properties (Hidden)
+        symphonyConfig                  % The Symphony configuration prepared by symphonyrc
         proxySampleRate                 % numeric, in Hz
     end
     
     
     methods
         
-        function obj = RigConfiguration()
+        function obj = init(obj, symphonyConfig, daqControllerFactory)
+            % This method is essentially a constructor. If you need to override the constructor, override this instead.
+            
             import Symphony.Core.*;
             
+            obj.symphonyConfig = symphonyConfig;
+                        
             obj.controller = Controller();
-            obj.controller.DAQController = obj.createDAQ();
+            obj.controller.DAQController = daqControllerFactory.createDAQ();
             obj.controller.Clock = obj.controller.DAQController;
             
             obj.sampleRate = 10000;
@@ -47,88 +52,6 @@ classdef RigConfiguration < handle
                 obj.close();
                 throw(ME);
             end    
-        end
-        
-        
-        function daq = createDAQ(obj)
-            % Create a Heka DAQ controller if on Windows or a simulation controller on Mac.
-            import Symphony.Core.*;
-            
-            import Heka.*;
-            
-            if ~isempty(which('HekaDAQInputStream'))
-                import Heka.*;
-                
-                % Register the unit converters
-                HekaDAQInputStream.RegisterConverters();
-                HekaDAQOutputStream.RegisterConverters();
-                
-                % Get the bus ID of the Heka ITC.
-                % (Stored as a local pref so that each rig can have its own value.)
-                hekaID = getpref('Symphony', 'HekaBusID', '');
-                if isempty(hekaID)
-                    answer = questdlg('How is the Heka connected?', 'Symphony', 'USB', 'PCI', 'Cancel', 'Cancel');
-                    if strcmp(answer, 'Cancel')
-                        error('Symphony:Heka:NoBusID', 'Cannot create a Heka controller without a bus ID');
-                    elseif strcmp(answer, 'PCI')
-                        % Convert these to Matlab doubles because they're more flexible calling .NET functions in the future
-                        hekaID = double(NativeInterop.ITCMM.ITC18_ID);
-                    else    % USB
-                        hekaID = double(NativeInterop.ITCMM.USB18_ID);
-                    end
-                    setpref('Symphony', 'HekaBusID', hekaID);
-                end
-                
-                daq = HekaDAQController(hekaID, 0);
-                daq.InitHardware();
-            else
-                import Symphony.SimulationDAQController.*;
-                
-                disp('Could not load the Heka driver, using the simulation controller instead.');
-                
-                Converters.Register('V', 'V', @(m) m);
-                daq = SimulationDAQController();
-                
-                daq.SimulationRunner = @(output,step)loopbackSimulation(obj, output, step);
-            end
-            
-            daq.Clock = daq;
-        end
-        
-        
-        function input = loopbackSimulation(obj, output, timeStep)
-            import Symphony.Core.*;
-            
-            input = NET.createGeneric('System.Collections.Generic.Dictionary', {'IDAQInputStream', 'IInputData'});
-            daq = obj.controller.DAQController;
-            
-            inStreamEnum = daq.ActiveInputStreams.GetEnumerator();
-            
-            while inStreamEnum.MoveNext()
-                inStream = inStreamEnum.Current;
-                inData = [];
-                
-                outStreamEnum = output.Keys.GetEnumerator();
-                
-                while outStreamEnum.MoveNext()
-                    outStream = outStreamEnum.Current;
-                    
-                    if strcmp(outStream.Name, strrep(inStream.Name, '_IN.', '_OUT.'))
-                        outData = output.Item(outStream);
-                        inData = InputData(outData.Data, outData.SampleRate, daq.Clock.Now);
-                        break;
-                    end
-                end
-                
-                % TODO: This would be much faster if we didn't simulate noise and used a single measurement instead.
-                if isempty(inData)
-                    samples = Symphony.Core.TimeSpanExtensions.Samples(timeStep, inStream.SampleRate);
-                    noise = Measurement.FromArray(rand(1, samples), 'V');
-                    inData = InputData(noise, inStream.SampleRate, daq.Clock.Now);
-                end
-                
-                input.Add(inStream, inData);
-            end
         end
         
         

@@ -1,7 +1,7 @@
 classdef ExampleChartRecorder < SymphonyProtocol
 
     properties (Constant)
-        identifier = 'Symphony.ExampleChartRecorder'
+        identifier = 'io.github.symphony-das.ExampleChartRecorder'
         version = 1
         displayName = 'Example Chart Recorder'
     end
@@ -33,9 +33,9 @@ classdef ExampleChartRecorder < SymphonyProtocol
         end     
         
         
-        function prepareProtocol(obj)
+        function init(obj, symphonyConfig, rigConfig)
             % Call the base method.
-            prepareProtocol@SymphonyProtocol(obj);
+            init@SymphonyProtocol(obj, symphonyConfig, rigConfig);
             
             % Epochs of indefinite duration, like those produced by this protocol, cannot be saved. 
             obj.allowSavingEpochs = false;
@@ -74,7 +74,7 @@ classdef ExampleChartRecorder < SymphonyProtocol
             chunkLength = length(chunk);
             response.data = [response.data([chunkLength + 1:end]) chunk];
             
-            % Store our new response data and plot replot it in our figure handler.
+            % Store our new response data and replot it in our figure handler.
             obj.responses(fromDevice) = response;
             obj.updateFigures();
         end
@@ -122,7 +122,7 @@ classdef ExampleChartRecorder < SymphonyProtocol
         end
         
         
-        function recordResponse(obj, ~) %#ok<MANU>
+        function recordResponse(obj, ~)  %#ok<INUSD>
             % Responses cannot be recorded for indefinite epochs so we must override this method with an empty implementation.
         end
         
