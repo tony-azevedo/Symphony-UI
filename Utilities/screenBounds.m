@@ -6,6 +6,7 @@ function b = screenBounds(screenNum)
         set(0, 'Units', prevScreenUnits);
         primary = 1;
     else
+        NET.addAssembly('System.Windows.Forms');
         b = zeros(System.Windows.Forms.Screen.AllScreens.Length, 4);
         for i = 1:System.Windows.Forms.Screen.AllScreens.Length
             screen = System.Windows.Forms.Screen.AllScreens(i);
