@@ -18,11 +18,13 @@ classdef HekaDAQControllerFactory < DAQControllerFactory
             end
             
             import Symphony.Core.*;
-            import Heka.*;
+            
+            % Can't seem to import a namespace in the same function where the assembly is loaded?
+            %import Heka.*;
                 
             % Register the unit converters
-            HekaDAQInputStream.RegisterConverters();
-            HekaDAQOutputStream.RegisterConverters();
+            Heka.HekaDAQInputStream.RegisterConverters();
+            Heka.HekaDAQOutputStream.RegisterConverters();
 
             % Get the bus ID of the Heka ITC.
             % (Stored as a local pref so that each rig can have its own value.)
@@ -40,7 +42,7 @@ classdef HekaDAQControllerFactory < DAQControllerFactory
                 setpref('Symphony', 'HekaBusID', hekaID);
             end
 
-            daq = HekaDAQController(hekaID, 0);
+            daq = Heka.HekaDAQController(hekaID, 0);
             daq.InitHardware();
         end
         
