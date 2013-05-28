@@ -13,9 +13,15 @@ function StartSymphony()
     addpath(fullfile(parentDir, 'Simulations'));
     addpath(fullfile(parentDir, 'Utilities'));
     addpath(fullfile(parentDir, 'StimGL'));
+    
+    % Use .NET framework stubs if .NET is not supported.
+    if isempty(which('NET.isNETSupported')) || ~NET.isNETSupported
+        addpath(fullfile(parentDir, 'Stubs'));
+    end
 
-    % Load the Symphony .NET framework.
-    addSymphonyFramework();
+    % Load the Symphony framework.
+    addSymphonyAssembly('Symphony.Core');
+    addSymphonyAssembly('Symphony.ExternalDevices');        
 
     % Declare or retrieve the current Symphony instance.
     persistent symphonyInstance;

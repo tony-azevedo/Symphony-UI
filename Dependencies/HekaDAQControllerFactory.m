@@ -4,25 +4,21 @@ classdef HekaDAQControllerFactory < DAQControllerFactory
         
         function daq = createDAQ(obj) %#ok<MANU>
 
-            % Add required .NET assembly
-            % TODO: Getting the Symphony framework path should be extracted somehow, maybe into a function.
-            if isWin64bit
-                symphonyPath = fullfile(getenv('PROGRAMFILES(x86)'), 'Physion\Symphony\bin');
-            else
-                symphonyPath = fullfile(getenv('PROGRAMFILES'), 'Physion\Symphony\bin');
-            end
+            % Add required assembly
             try
-                NET.addAssembly(fullfile(symphonyPath, 'HekaDAQInterface.dll'));
+                addSymphonyAssembly('HekaDAQInterface');
             catch %#ok<CTCH>
                 error('Unable to load the Heka DAQ Interface. You probably need to install the Heka ITC drivers.');
             end
             
             import Symphony.Core.*;
-            import Heka.*;
+            
+            % Can't seem to import a namespace in the same function where the assembly is loaded?
+            %import Heka.*;
                 
             % Register the unit converters
-            HekaDAQInputStream.RegisterConverters();
-            HekaDAQOutputStream.RegisterConverters();
+            Heka.HekaDAQInputStream.RegisterConverters();
+            Heka.HekaDAQOutputStream.RegisterConverters();
 
             % Get the bus ID of the Heka ITC.
             % (Stored as a local pref so that each rig can have its own value.)
@@ -40,7 +36,7 @@ classdef HekaDAQControllerFactory < DAQControllerFactory
                 setpref('Symphony', 'HekaBusID', hekaID);
             end
 
-            daq = HekaDAQController(hekaID, 0);
+            daq = Heka.HekaDAQController(hekaID, 0);
             daq.InitHardware();
         end
         

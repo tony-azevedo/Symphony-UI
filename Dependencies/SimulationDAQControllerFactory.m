@@ -12,12 +12,17 @@ classdef SimulationDAQControllerFactory < DAQControllerFactory
         
         
         function daq = createDAQ(obj)
-            import Symphony.SimulationDAQController.*;
+            
+            addSymphonyAssembly('Symphony.SimulationDAQController');
+  
             import Symphony.Core.*;
+            
+            % Can't seem to import a namespace in the same function where the assembly is loaded?
+            %import Symphony.SimulationDAQController.*;
             
             Converters.Register(Measurement.UNITLESS, 'V', @(m) m);
             
-            daq = SimulationDAQController();
+            daq = Symphony.SimulationDAQController.SimulationDAQController();
             
             constructor = str2func(obj.simulation);
             sim = constructor();
