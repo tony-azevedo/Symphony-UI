@@ -1,7 +1,7 @@
-classdef ExampleRig < RigConfiguration
+classdef ExampleOneAmpRig < RigConfiguration
     
     properties (Constant)
-        displayName = 'Example Rig'
+        displayName = 'Example One Amp Rig'
     end
     
     methods      
