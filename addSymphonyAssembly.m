@@ -17,9 +17,9 @@ function addSymphonyStubAssembly(assembly)
     symphonyPath = mfilename('fullpath');
     parentDir = fileparts(symphonyPath);
     
-    stubsDir = addpath(fullfile(parentDir, filesep, 'Stubs'));
+    stubsDir = fullfile(parentDir, 'Stubs');
     
-    assemblyDir = fullfile(stubsDir, strrep('.', [filesep '+'], assembly));
+    assemblyDir = fullfile(stubsDir, ['+' strrep(assembly, '.', [filesep '+'])]);
     if ~exist(assemblyDir, 'dir')
         error(['''' assembly ''' could not be found as a Stub.']);
     end
