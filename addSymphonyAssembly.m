@@ -1,15 +1,11 @@
 % Makes the given Symphony assembly visible to MATLAB. Assembly name should not include full path or extension.
 
 function addSymphonyAssembly(assembly)
-
-    if isempty(which('NET.isNETSupported')) || ~NET.isNETSupported
-        % .NET framework not supported (usually non-Windows).
-        addSymphonyStubAssembly(assembly);        
+    if isDotNetSupported()
+        addSymphonyNETAssembly(assembly);      
     else
-        % .NET framework supported (usually Windows).
-        addSymphonyNETAssembly(assembly);
+        addSymphonyStubAssembly(assembly);
     end
-    
 end
 
 
