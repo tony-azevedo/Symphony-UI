@@ -26,7 +26,7 @@ classdef DateTimeOffset
                 tzOffset = tzOffset + tz.getDSTSavings();
             end
             tzOffset = tzOffset / 1000 / 60;
-            s = [datestr(date, 'mm/dd/yyyy HH:MM:SS PM') sprintf(' %+03d:%02d', tzOffset / 60, mod(tzOffset, 60))];
+            s = [datestr(now, 'mm/dd/yyyy HH:MM:SS PM') sprintf(' %+03d:%02d', tzOffset / 60, mod(tzOffset, 60))];
         end
         
     end
