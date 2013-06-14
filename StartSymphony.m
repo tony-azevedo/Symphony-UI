@@ -15,7 +15,7 @@ function StartSymphony()
     addpath(fullfile(parentDir, 'StimGL'));
     
     % Use .NET framework stubs if .NET is not supported.
-    if isempty(which('NET.isNETSupported')) || ~NET.isNETSupported
+    if ~isDotNetSupported()
         addpath(fullfile(parentDir, 'Stubs'));
     end
 
