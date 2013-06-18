@@ -1141,25 +1141,33 @@ classdef SymphonyUI < handle
                         extension = '.h5';
                     end
                     
-                    obj.persistPath = fullfile(group.outputPath, [group.source.name extension]);
-                        
-                    if exist(obj.persistPath, 'file')
-                        choice = questdlg(['This will append to an existing file.' char(10) char(10) 'Do you wish to contiue?'], ...
-                                           'Symphony', 'Cancel', 'Continue', 'Continue');
-                        if ~strcmp(choice, 'Continue')
+                    persistencePath = fullfile(group.outputPath, [group.source.name extension]);
+                    metadataPath = fullfile(group.outputPath, [group.source.name '_metadata.xml']);
+                    
+                    if exist(persistencePath, 'file')
+                        if exist(metadataPath, 'file')
+                            choice = questdlg(['This will append to an existing file.' char(10) char(10) 'Do you wish to contiue?'], ...
+                                               'Symphony', 'Cancel', 'Continue', 'Continue');
+                            if ~strcmp(choice, 'Continue')
+                                return
+                            end
+                        else
+                            waitfor(errordlg(['The metadata XML file for the existing file is missing.' char(10) char(10) ...
+                                              'Please choose a different rig or cell ID or remove the existing file.'], 'Symphony'));
                             return
                         end
                     end
                     
+                    obj.persistPath = persistencePath;
                     obj.metadataDoc = com.mathworks.xml.XMLUtils.createDocument('symphony-metadata');
                     obj.metadataNode = obj.metadataDoc.getDocumentElement();
                     
-                    if exist(obj.persistPath, 'file')
-                        % Make sure we have the same source UUID's as before.
-                        [pathstr, name, ~] = fileparts(obj.persistPath);
-                        metadataPath = fullfile(pathstr,[name '_metadata.xml']);
+                    if exist(metadataPath, 'file')
+                        % Reload existing metadata.
                         xmlDoc = xmlread(metadataPath);
                         rootNode = xmlDoc.getDocumentElement();
+
+                        % Make sure we have the same source UUID's as before.
                         children = rootNode.getChildNodes();
                         for i = 1:children.getLength()
                             childNode = children.item(i - 1);
@@ -1169,10 +1177,7 @@ classdef SymphonyUI < handle
                                 break;
                             end
                         end
-                        
-                        % Add the source hierarchy to the metadata.
-                        group.source.persistToMetadata(obj.metadataNode);
-                        
+
                         % Re-add any notes.
                         noteNodes = rootNode.getElementsByTagName('note');
                         for i = 1:noteNodes.getLength()
@@ -1180,10 +1185,11 @@ classdef SymphonyUI < handle
                             time = char(noteNode.getAttributes().getNamedItem('time').getNodeValue());
                             obj.addNote(noteNode.getTextContent(), time);
                         end
-                    else
-                        % Add the source hierarchy to the metadata.
-                        group.source.persistToMetadata(obj.metadataNode);
                     end
+                    
+                    % Add the source hierarchy to the metadata.
+                    group.source.persistToMetadata(obj.metadataNode);
+                    obj.saveMetadata();
                     
                     obj.persistor = obj.epochPersistorFactory.createPersistor(obj.persistPath);
                 end
