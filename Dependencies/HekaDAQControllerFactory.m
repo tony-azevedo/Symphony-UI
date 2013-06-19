@@ -29,9 +29,9 @@ classdef HekaDAQControllerFactory < DAQControllerFactory
                     error('Symphony:Heka:NoBusID', 'Cannot create a Heka controller without a bus ID');
                 elseif strcmp(answer, 'PCI')
                     % Convert these to Matlab doubles because they're more flexible calling .NET functions in the future
-                    hekaID = double(NativeInterop.ITCMM.ITC18_ID);
+                    hekaID = double(Heka.NativeInterop.ITCMM.ITC18_ID);
                 else    % USB
-                    hekaID = double(NativeInterop.ITCMM.USB18_ID);
+                    hekaID = double(Heka.NativeInterop.ITCMM.USB18_ID);
                 end
                 setpref('Symphony', 'HekaBusID', hekaID);
             end
