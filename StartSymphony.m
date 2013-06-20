@@ -2,8 +2,8 @@
 
 function StartSymphony()
 
-    if verLessThan('matlab', '7.12')
-        error('Symphony requires MATLAB 7.12.0 (R2011a) or later');
+    if verLessThan('matlab', '8.0')
+        error('Symphony requires MATLAB 8.0 (R2012b) or later');
     end
 
     % Add base directories to the path.
