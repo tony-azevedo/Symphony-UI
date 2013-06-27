@@ -2,6 +2,10 @@
 
 classdef EpochWrapper
     
+    properties (Dependent, SetAccess = private)
+        parameters
+    end
+    
     properties (Access = private)
         epoch
         deviceNameConverter
@@ -36,6 +40,26 @@ classdef EpochWrapper
             end
             
             obj.epoch.ProtocolParameters.Add(name, value);
+        end
+        
+        
+        function p = getParameter(obj, name)
+            % Returns the value to a specified parameter in the Epoch.
+            
+            params = obj.epoch.ProtocolParameters;
+            
+            if ~params.ContainsKey(name)
+                error(['Parameter ''' name ''' does not exist']);
+            end
+            
+            p = obj.epoch.ProtocolParameters.Item(name);
+        end
+        
+        
+        function p = get.parameters(obj)
+            % Returns all parameters in the Epoch;
+            
+            p = dictionaryToStruct(obj.epoch.ProtocolParameters);
         end
         
         
@@ -155,7 +179,7 @@ classdef EpochWrapper
             else
                 % Extract the raw data.
                 try
-                    response = obj.coreEpoch.Responses.Item(device);
+                    response = obj.epoch.Responses.Item(device);
                     data = response.Data;
                     r = double(Measurement.ToQuantityArray(data));
                     u = char(Measurement.HomogenousDisplayUnits(data));
@@ -174,6 +198,13 @@ classdef EpochWrapper
                 % Cache the results.
                 obj.responseCache(deviceName) = struct('data', r, 'sampleRate', s, 'units', u);
             end
+        end
+        
+        
+        function e = getCoreEpoch(obj)
+            % Returns the wrapped core epoch.
+            
+            e = obj.epoch;
         end
         
     end       

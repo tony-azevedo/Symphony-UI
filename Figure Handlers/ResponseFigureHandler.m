@@ -48,9 +48,9 @@ classdef ResponseFigureHandler < FigureHandler
         end
         
         
-        function handleCurrentEpoch(obj)
+        function handleEpoch(obj, epoch)
             % Update the figure title with the epoch number and any parameters that are different from the protocol default.
-            epochParams = obj.protocolPlugin.epochSpecificParameters();
+            epochParams = obj.protocolPlugin.epochSpecificParameters(epoch);
             paramsText = '';
             if ~isempty(epochParams)
                 for field = sort(fieldnames(epochParams))'
@@ -67,13 +67,13 @@ classdef ResponseFigureHandler < FigureHandler
                     paramsText = [paramsText ', ' humanReadableParameterName(field{1}) ' = ' paramValue]; %#ok<AGROW>
                 end
             end
-            set(get(obj.axesHandle(), 'Title'), 'String', ['Epoch #' num2str(obj.protocolPlugin.epochNum) paramsText]);
+            set(get(obj.axesHandle(), 'Title'), 'String', ['Epoch #' num2str(obj.protocolPlugin.numCompletedEpochs) paramsText]);
 
             if isempty(obj.deviceName)
                 % Use the first device response found if no device name is specified.
-                [responseData, sampleRate, units] = obj.protocolPlugin.response();
+                [responseData, sampleRate, units] = epoch.response();
             else
-                [responseData, sampleRate, units] = obj.protocolPlugin.response(obj.deviceName);
+                [responseData, sampleRate, units] = epoch.response(obj.deviceName);
             end
             
             % Plot the response

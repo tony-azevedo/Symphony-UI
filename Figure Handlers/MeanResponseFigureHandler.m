@@ -60,23 +60,23 @@ classdef MeanResponseFigureHandler < FigureHandler
         end
         
         
-        function handleCurrentEpoch(obj)
+        function handleEpoch(obj, epoch)
             if isempty(obj.deviceName)
                 % Use the first device response found if no device name is specified.
-                [responseData, sampleRate, units] = obj.protocolPlugin.response();
+                [responseData, sampleRate, units] = epoch.response();
             else
-                [responseData, sampleRate, units] = obj.protocolPlugin.response(obj.deviceName);
+                [responseData, sampleRate, units] = epoch.response(obj.deviceName);
             end
             
             % Get the parameters for this "class" of epoch.
             % An epoch class is defined by a set of parameter values.
             if isempty(obj.meanParamNames)
                 % Automatically detect the set of parameters.
-                epochParams = obj.protocolPlugin.epochSpecificParameters();
+                epochParams = obj.protocolPlugin.epochSpecificParameters(epoch);
             else
                 % The protocol has specified which parameters to use.
                 for i = 1:length(obj.meanParamNames)
-                    epochParams.(obj.meanParamNames{i}) = obj.protocolPlugin.epoch.ProtocolParameters.Item(obj.meanParamNames{i});
+                    epochParams.(obj.meanParamNames{i}) = epoch.getParameter(obj.meanParamNames{i});
                 end
             end
             

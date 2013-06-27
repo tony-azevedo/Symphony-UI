@@ -70,6 +70,20 @@ classdef RigConfiguration < handle
                 obj.controller.DAQController.SampleRate = Measurement(rate, 'Hz');
             end
             
+            % Update the rate of all devices.
+            devices = obj.devices();
+            for i = 1:length(devices)
+                device = devices{i};
+                
+                if ~isempty(device.OutputSampleRate)
+                    device.OutputSampleRate = Measurement(rate, 'Hz');
+                end
+                
+                if ~isempty(device.InputSampleRate)
+                    device.InputSampleRate = Measurement(rate, 'Hz');
+                end
+            end
+            
             % Update the rate of all DAQ streams.
             enum = obj.controller.DAQController.Streams.GetEnumerator;
             while enum.MoveNext()
@@ -115,16 +129,20 @@ classdef RigConfiguration < handle
         
         
         function addStreams(obj, device, outStreamName, inStreamName)
+            import Symphony.Core.*;
+            
             % Create and bind any output stream.
             if ~isempty(outStreamName)
                 stream = obj.streamWithName(outStreamName, true);
                 device.BindStream(stream);
+                device.OutputSampleRate = Measurement(obj.sampleRate, 'Hz');
             end
             
             % Create and bind any input stream.
             if ~isempty(inStreamName)
                 stream = obj.streamWithName(inStreamName, false);
                 device.BindStream(stream);
+                device.InputSampleRate = Measurement(obj.sampleRate, 'Hz');
             end
         end
         
@@ -145,6 +163,7 @@ classdef RigConfiguration < handle
                     dev = UnitConvertingExternalDevice('Heka Digital Out', 'HEKA Instruments', obj.controller, Measurement(0, units));
                     dev.MeasurementConversionTarget = units;
                     dev.Clock = obj.controller.DAQController;
+                    dev.OutputSampleRate = Measurement(obj.sampleRate, 'Hz');
                     
                     stream = obj.streamWithName('DIGITAL_OUT.1', true);
                     dev.BindStream(stream);
@@ -345,9 +364,45 @@ classdef RigConfiguration < handle
         end
         
         
-        function setDeviceBackground(obj, deviceName, background)
+        function setBackground(obj, deviceName, background, units)
+            % Set a constant background value for a device in the absence of an epoch.            
+            
+            import Symphony.Core.*;
+            
             device = obj.deviceWithName(deviceName);
-            device.Background = background;
+            if isempty(device)
+                error('There is no device named ''%s''.', deviceName);
+            end
+            
+            if nargin == 4
+                % The user supplied the quantity and units.
+                background = Measurement(background, units);
+            elseif ~isa(background, 'Symphony.Core.Measurement')
+                error('The background value for a device must be a number or a Symphony.Core.Measurement');
+            end
+            
+            % Set device background.
+            if isa(device, 'Symphony.ExternalDevices.MultiClampDevice')
+                % Set the background for the appropriate mode and for the device if the current mode matches.
+                if strcmp(char(background.BaseUnit), 'V')
+                    device.SetBackgroundForMode(Symphony.ExternalDevices.OperatingMode.VClamp, background);
+                else
+                    device.SetBackgroundForMode(Symphony.ExternalDevices.OperatingMode.IClamp, background);
+                    device.SetBackgroundForMode(Symphony.ExternalDevices.OperatingMode.I0, background);
+                end
+            else
+                device.Background = background;
+            end
+            
+            % Set controller background stream for device.
+            [~, streams] = dictionaryKeysAndValues(device.Streams);
+            for j = 1:length(streams)
+                if isa(streams{j}, 'Symphony.Core.DAQOutputStream')
+                    out = BackgroundOutputStream(Background(background, device.OutputSampleRate));
+                    obj.controller.BackgroundStreams.Item(device, out);
+                    break;
+                end
+            end
         end
         
         

@@ -41,13 +41,20 @@ classdef ExamplePulse < SymphonyProtocol
             % Call the base method.
             prepareRun@SymphonyProtocol(obj);
             
+            % Set amp hold signal.
+            if strcmp(obj.rigConfig.multiClampMode(obj.amp), 'VClamp')
+                obj.rigConfig.setBackground(obj.amp, obj.ampHoldSignal * 1e-3, 'V');
+            else
+                obj.rigConfig.setBackground(obj.amp, obj.ampHoldSignal * 1e-12, 'A');
+            end
+            
             % Open figures showing the response and mean response of the amp.
             obj.openFigure('Mean Response', obj.amp);
             obj.openFigure('Response', obj.amp);
         end
         
         
-        function [stim, units] = stimulus(obj)
+        function [stim, units] = generateStimulus(obj)
             % Convert time to sample points.
             prePts = round(obj.preTime / 1e3 * obj.sampleRate);
             stimPts = round(obj.stimTime / 1e3 * obj.sampleRate);
@@ -70,24 +77,17 @@ classdef ExamplePulse < SymphonyProtocol
         
         function stimuli = sampleStimuli(obj)
             % Return a sample stimulus for display in the edit parameters window.
-            stimuli{1} = obj.stimulus();
+            stimuli{1} = obj.generateStimulus();
         end
        
         
-        function prepareEpoch(obj)
+        function prepareEpoch(obj, epoch)
             % Call the base method.
-            prepareEpoch@SymphonyProtocol(obj);           
-            
-            % Set the amp hold signal.
-            if strcmp(obj.rigConfig.multiClampMode(obj.amp), 'VClamp')
-                obj.setDeviceBackground(obj.amp, obj.ampHoldSignal * 1e-3, 'V');
-            else
-                obj.setDeviceBackground(obj.amp, obj.ampHoldSignal * 1e-12, 'A');
-            end
+            prepareEpoch@SymphonyProtocol(obj, epoch);
             
             % Add the amp pulse stimulus to the epoch.
-            [stim, units] = obj.stimulus();
-            obj.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units);
+            [stim, units] = obj.generateStimulus();
+            epoch.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units);
         end
         
         
@@ -97,7 +97,7 @@ classdef ExamplePulse < SymphonyProtocol
             
             % Keep going until the requested number of averages is reached.
             if keepGoing
-                keepGoing = obj.epochNum < obj.numberOfAverages;
+                keepGoing = obj.numQueuedEpochs < obj.numberOfAverages;
             end
         end
         

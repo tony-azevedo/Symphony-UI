@@ -113,7 +113,7 @@ classdef FigureHandler < handle
     
     
     methods (Abstract)
-        handleCurrentEpoch(obj);
+        handleEpoch(obj, epoch);
     end
     
 end
