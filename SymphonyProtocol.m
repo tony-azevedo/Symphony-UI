@@ -91,7 +91,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         
         function prepareRun(obj)
-            % Override this method to perform any actions before the start of the first epoch, e.g. open a figure window, etc.
+            % Override this method to perform any actions before the start of the first epoch, e.g. open a figure window, set device backgrounds, etc.
                    
             import Symphony.Core.*;
             
@@ -185,7 +185,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             for i = 1:length(devices)
                 device = devices{i};
                 
-                % Set the default epoch background to be the same as the inter-epoch background.
+                % Set the default epoch background to be the same as the device background.
                 if ~isempty(device.OutputSampleRate)
                     epoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
                 end
@@ -220,6 +220,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function discardEpoch(obj, epoch) %#ok<INUSD>
             % Override this method to perform any actions if an epoch is discarded.
+            % If you decide not to stop on a discarded epoch, you must deal with the discrepancy it will cause with 
+            % numEpochsCompleted on your own.
             
             if ~strcmp(obj.state, 'stopping')
                 obj.stop();
