@@ -92,7 +92,7 @@ classdef RigConfiguration < handle
             enum = obj.controller.DAQController.Streams.GetEnumerator;
             while enum.MoveNext()
                 stream = enum.Current;
-                try %#ok<TRYNC>
+                if stream.CanSetSampleRate
                     stream.SampleRate = Measurement(rate, 'Hz');
                 end
             end
