@@ -202,7 +202,7 @@ classdef EpochWrapper
         
         
         function e = getCoreEpoch(obj)
-            % Returns the wrapped core epoch.
+            % Returns the core epoch.
             
             e = obj.epoch;
         end

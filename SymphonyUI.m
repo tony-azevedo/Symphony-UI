@@ -994,6 +994,7 @@ classdef SymphonyUI < handle
                     set(obj.controls.editParametersButton, 'Enable', 'off');
                     set(obj.controls.statusLabel, 'String', obj.compatibilityMessage); 
                 end
+                set(obj.controls.startButton, 'String', 'Start');
                 set(obj.controls.pauseButton, 'Enable', 'off');
                 set(obj.controls.stopButton, 'Enable', 'off');
                 set(obj.controls.protocolDirPopup, 'Enable', 'on');

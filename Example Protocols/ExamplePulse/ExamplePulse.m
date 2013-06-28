@@ -43,9 +43,9 @@ classdef ExamplePulse < SymphonyProtocol
             
             % Set amp hold signal.
             if strcmp(obj.rigConfig.multiClampMode(obj.amp), 'VClamp')
-                obj.rigConfig.setBackground(obj.amp, obj.ampHoldSignal * 1e-3, 'V');
+                obj.rigConfig.setDeviceBackground(obj.amp, obj.ampHoldSignal * 1e-3, 'V');
             else
-                obj.rigConfig.setBackground(obj.amp, obj.ampHoldSignal * 1e-12, 'A');
+                obj.rigConfig.setDeviceBackground(obj.amp, obj.ampHoldSignal * 1e-12, 'A');
             end
             
             % Open figures showing the response and mean response of the amp.
@@ -91,13 +91,24 @@ classdef ExamplePulse < SymphonyProtocol
         end
         
         
+        function keepQueuing = continueQueuing(obj)
+            % Check the base class method to make sure the user hasn't paused or stopped the protocol.
+            keepQueuing = continueQueuing@SymphonyProtocol(obj);
+            
+            % Keep queuing until the requested number of averages have been queued.
+            if keepQueuing
+                keepQueuing = obj.numEpochsQueued < obj.numberOfAverages;
+            end
+        end
+        
+        
         function keepGoing = continueRun(obj)
             % Check the base class method to make sure the user hasn't paused or stopped the protocol.
             keepGoing = continueRun@SymphonyProtocol(obj);
             
-            % Keep going until the requested number of averages is reached.
+            % Keep going until the requested number of averages have been completed.
             if keepGoing
-                keepGoing = obj.numQueuedEpochs < obj.numberOfAverages;
+                keepGoing = obj.numEpochsCompleted < obj.numberOfAverages;
             end
         end
         

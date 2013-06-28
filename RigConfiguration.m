@@ -77,11 +77,15 @@ classdef RigConfiguration < handle
                 
                 if ~isempty(device.OutputSampleRate)
                     device.OutputSampleRate = Measurement(rate, 'Hz');
+                    
+                    % Update device background stream rate.
+                    out = BackgroundOutputStream(Background(device.Background, device.OutputSampleRate));
+                    obj.controller.BackgroundStreams.Item(device, out);
                 end
                 
                 if ~isempty(device.InputSampleRate)
                     device.InputSampleRate = Measurement(rate, 'Hz');
-                end
+                end                
             end
             
             % Update the rate of all DAQ streams.
@@ -165,6 +169,9 @@ classdef RigConfiguration < handle
                     dev.Clock = obj.controller.DAQController;
                     dev.OutputSampleRate = Measurement(obj.sampleRate, 'Hz');
                     
+                    out = BackgroundOutputStream(Background(Measurement(0, units), dev.OutputSampleRate));
+                    obj.controller.BackgroundStreams.Item(dev, out);
+                    
                     stream = obj.streamWithName('DIGITAL_OUT.1', true);
                     dev.BindStream(stream);
                     
@@ -182,6 +189,12 @@ classdef RigConfiguration < handle
                 dev.Clock = obj.controller.DAQController;
                 
                 obj.addStreams(dev, outStreamName, inStreamName);
+                
+                % Set default device background stream in the controller.
+                if ~isempty(dev.OutputSampleRate)
+                    out = BackgroundOutputStream(Background(Measurement(0, units), dev.OutputSampleRate));
+                    obj.controller.BackgroundStreams.Item(dev, out);
+                end
             end
         end
         
@@ -315,6 +328,11 @@ classdef RigConfiguration < handle
         
         function names = deviceNames(obj, expr)
             % Returns all device names with a match of the given regular expression.
+            
+            if nargin < 2
+                expr = '.';
+            end
+            
             names = {};
             devices = obj.devices();
             for i = 1:length(devices)
@@ -364,7 +382,7 @@ classdef RigConfiguration < handle
         end
         
         
-        function setBackground(obj, deviceName, background, units)
+        function setDeviceBackground(obj, deviceName, background, units)
             % Set a constant background value for a device in the absence of an epoch.            
             
             import Symphony.Core.*;
@@ -374,12 +392,7 @@ classdef RigConfiguration < handle
                 error('There is no device named ''%s''.', deviceName);
             end
             
-            if nargin == 4
-                % The user supplied the quantity and units.
-                background = Measurement(background, units);
-            elseif ~isa(background, 'Symphony.Core.Measurement')
-                error('The background value for a device must be a number or a Symphony.Core.Measurement');
-            end
+            background = Measurement(background, units);
             
             % Set device background.
             if isa(device, 'Symphony.ExternalDevices.MultiClampDevice')
@@ -395,13 +408,9 @@ classdef RigConfiguration < handle
             end
             
             % Set controller background stream for device.
-            [~, streams] = dictionaryKeysAndValues(device.Streams);
-            for j = 1:length(streams)
-                if isa(streams{j}, 'Symphony.Core.DAQOutputStream')
-                    out = BackgroundOutputStream(Background(background, device.OutputSampleRate));
-                    obj.controller.BackgroundStreams.Item(device, out);
-                    break;
-                end
+            if ~isempty(device.OutputSampleRate)
+                out = BackgroundOutputStream(Background(background, device.OutputSampleRate));
+                obj.controller.BackgroundStreams.Item(device, out);
             end
         end
         

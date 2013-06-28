@@ -67,7 +67,7 @@ classdef ResponseFigureHandler < FigureHandler
                     paramsText = [paramsText ', ' humanReadableParameterName(field{1}) ' = ' paramValue]; %#ok<AGROW>
                 end
             end
-            set(get(obj.axesHandle(), 'Title'), 'String', ['Epoch #' num2str(obj.protocolPlugin.numCompletedEpochs) paramsText]);
+            set(get(obj.axesHandle(), 'Title'), 'String', ['Epoch #' num2str(obj.protocolPlugin.numEpochsCompleted) paramsText]);
 
             if isempty(obj.deviceName)
                 % Use the first device response found if no device name is specified.

@@ -33,8 +33,5 @@ function addSymphonyNETAssembly(assembly)
         symphonyPath = fullfile(getenv('PROGRAMFILES'), 'Physion\Symphony\bin');
     end
     
-    % DEBUG
-    symphonyPath = 'C:\Users\Client Admin\Documents\src\symphony-core\src\symphony-core\Debug';
-    
     NET.addAssembly(fullfile(symphonyPath, [assembly '.dll']));
 end
