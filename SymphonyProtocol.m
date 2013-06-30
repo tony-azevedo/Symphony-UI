@@ -32,18 +32,15 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
         numEpochsToPreload = 10     % The number of epochs to preload into the epoch queue before the queue begins processing.
     end
-    
-    
+        
     properties
         sampleRate = {10000, 20000, 50000}      % in Hz
     end
-    
-    
+        
     events
         StateChanged
     end
-    
-    
+        
     methods
         
         function obj = init(obj, symphonyConfig, rigConfig)
@@ -207,10 +204,11 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function completeEpoch(obj, epoch)
             % Override this method to perform any post-analysis, etc. on a completed epoch.
+            % !! Do not flush the event queue in this method (using drawnow, figure, input, etc.) !!
+            
             obj.numEpochsCompleted = obj.numEpochsCompleted + 1;
             
             obj.updateFigures(epoch);
-            drawnow;           
             
             if strcmp(obj.state, 'running') && ~obj.continueRun()
                 obj.stop();
@@ -220,9 +218,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function discardEpoch(obj, epoch) %#ok<INUSD>
             % Override this method to perform any actions if an epoch is discarded.
-            % If you decide not to stop on a discarded epoch, you must deal with the discrepancy it will cause with 
-            % numEpochsCompleted on your own.
+            % !! Do not flush the event queue in this method (using drawnow, figure, input, etc.) !!
             
+            % If you decide not to stop on a discarded epoch, you must deal with the discrepancy it will cause with numEpochsCompleted on your own!
             if ~strcmp(obj.state, 'stopping')
                 obj.stop();
             end
@@ -349,7 +347,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % This is the core method that indicates when the epoch queue should start processing. Called by process().
             
             % We want to preload a few epochs into the queue before we start processing. This is especially true if the
-            % epochs are <= 500ms long or take a long time to prepare.
+            % epochs are less than ~500ms long or take a long time to prepare.
             tf = obj.numEpochsQueued >= obj.numEpochsToPreload || ~obj.continueQueuing();
         end
                 
