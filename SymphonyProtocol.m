@@ -16,7 +16,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         displayName
     end
     
-    
     properties (Hidden)
         symphonyConfig              % The Symphony configuration prepared by symphonyrc.
         state                       % The state the protocol is in: 'stopped', 'running', 'paused', etc.
@@ -31,6 +30,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
         numEpochsQueued             % The number of epochs queued by this protocol in the current run.
         numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
+        numEpochsToPreload = 10     % The number of epochs to preload into the epoch queue before the queue begins processing.
     end
     
     
@@ -296,7 +296,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             import Symphony.Core.*;
             
             start = true;
-            processTask = [];
             
             % Queue until the protocol tells us to stop.
             while obj.continueQueuing()
@@ -325,7 +324,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 % Queue the prepared epoch.
                 obj.queueEpoch(epoch);
                 
-                if start
+                if start && obj.shouldStartProcessing()
                     % Start processing the epoch queue in the background.
                     processTask = obj.rigConfig.controller.StartAsync(obj.persistor);
                     start = false;
@@ -333,18 +332,27 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 
                 % Flush the event queue.
                 drawnow;
-            end
+            end          
 
             % Spin until the controller stops.
             while obj.rigConfig.controller.Running
                 pause(0.01);
             end
 
-            if ~isempty(processTask) && processTask.IsFaulted
+            if ~start && processTask.IsFaulted
                 error(netReport(NET.NetException('', '', processTask.Exception.Flatten())));
             end
         end
         
+        
+        function tf = shouldStartProcessing(obj)
+            % This is the core method that indicates when the epoch queue should start processing. Called by process().
+            
+            % We want to preload a few epochs into the queue before we start processing. This is especially true if the
+            % epochs are <= 500ms long or take a long time to prepare.
+            tf = obj.numEpochsQueued >= obj.numEpochsToPreload || ~obj.continueQueuing();
+        end
+                
         
         function queueEpoch(obj, epoch)
             % This is the core method that enqueues an epoch into the epoch queue. Called by process().
