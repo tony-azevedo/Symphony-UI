@@ -2,8 +2,13 @@
 
 classdef EpochWrapper
     
+    properties
+        waitForTrigger      % Indicates if the Epoch should wait for an external trigger before running.
+        shouldBePersisted   % Indicates if the Epoch should be saved to the file after completion.
+    end
+    
     properties (Dependent, SetAccess = private)
-        parameters
+        parameters          % A dictionary of parameters in the Epoch.
     end
     
     properties (Access = private)
@@ -56,8 +61,15 @@ classdef EpochWrapper
         end
         
         
+        function tf = containsParameter(obj, name)
+            % Indicates if the Epoch contains a parameter with the given name.
+        
+            tf = obj.epoch.ProtocolParameters.ContainsKey(name);
+        end
+        
+        
         function p = get.parameters(obj)
-            % Returns all parameters in the Epoch;
+            % Returns all parameters in the Epoch.
             
             p = dictionaryToStruct(obj.epoch.ProtocolParameters);
         end
@@ -84,7 +96,7 @@ classdef EpochWrapper
                 % Digital outputs to the Heka ITC have to be merged together.
                 
                 if any(stimulusData ~= 0 & stimulusData ~= 1)
-                    error('Symphony:BadDigitalStimulus', 'Stimuli for digital outputs must contain only 0 or 1 values.');
+                    error('Stimuli for digital outputs must contain only 0 or 1 values.');
                 end
                 
                 if epoch.Stimuli.ContainsKey(device)
@@ -135,6 +147,23 @@ classdef EpochWrapper
         end
         
         
+        function [b, u] = getBackground(obj, deviceName)
+            % Returns the set background value and units for the device with the given name.
+            
+            device = obj.deviceNameConverter(deviceName);
+            if isempty(device)
+                error('There is no device named ''%s''.', deviceName);
+            end
+            
+            if isempty(device.Background)
+                error('%s has no set background.', deviceName);
+            end
+            
+            b = double(System.Convert.ToDouble(device.Background.Quantity));
+            u = char(device.Background.DisplayUnit);
+        end
+        
+        
         function recordResponse(obj, deviceName)
             % Indicate that a response should be recorded from the device when the Epoch is run.
                    
@@ -150,7 +179,7 @@ classdef EpochWrapper
         
         
         function [r, s, u] = response(obj, deviceName)
-            % Return a recorded response, sample rate and units from the device with the given name.
+            % Returns the recorded response, sample rate and units for the device with the given name.
             
             import Symphony.Core.*;
             
@@ -201,8 +230,28 @@ classdef EpochWrapper
         end
         
         
+        function obj = set.waitForTrigger(obj, tf)
+            obj.epoch.WaitForTrigger = tf;
+        end
+        
+        
+        function tf = get.waitForTrigger(obj)
+            tf = obj.epoch.WaitForTrigger;
+        end
+        
+        
+        function obj = set.shouldBePersisted(obj, tf)
+            obj.epoch.ShouldBePersisted = tf;
+        end
+            
+        
+        function tf = get.shouldBePersisted(obj)
+            tf = obj.epoch.ShouldBePersisted;
+        end
+        
+                
         function e = getCoreEpoch(obj)
-            % Returns the core epoch.
+            % Returns the core Epoch.
             
             e = obj.epoch;
         end
