@@ -30,7 +30,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
         numEpochsQueued             % The number of epochs queued by this protocol in the current run.
         numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
-        numEpochsToPreload = 10     % The number of epochs to preload into the epoch queue before the queue begins processing.
+        numEpochsToPreload = 30     % The number of epochs to preload into the epoch queue before the queue begins processing.
     end
         
     properties
@@ -294,6 +294,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             import Symphony.Core.*;
             
             start = true;
+            controller = obj.rigConfig.controller;
             
             % Queue until the protocol tells us to stop.
             while obj.continueQueuing()
@@ -324,7 +325,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 
                 if start && obj.shouldStartProcessing()
                     % Start processing the epoch queue in the background.
-                    processTask = obj.rigConfig.controller.StartAsync(obj.persistor);
+                    processTask = controller.StartAsync(obj.persistor);
                     start = false;
                 end
                 
@@ -333,9 +334,12 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             end          
 
             % Spin until the controller stops.
-            while obj.rigConfig.controller.Running
+            while controller.Running
                 pause(0.01);
             end
+            
+            % Wait for all CompletedEpoch events.
+            controller.WaitForCompletedEpochTasks();
 
             if ~start && processTask.IsFaulted
                 error(netReport(NET.NetException('', '', processTask.Exception.Flatten())));
