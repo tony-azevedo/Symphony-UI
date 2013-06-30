@@ -295,8 +295,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             import Symphony.Core.*;
             
-            % Start processing the epoch queue in the background.
-            processTask = obj.rigConfig.controller.StartAsync(obj.persistor);
+            start = true;
+            processTask = [];
             
             % Queue until the protocol tells us to stop.
             while obj.continueQueuing()
@@ -325,6 +325,12 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 % Queue the prepared epoch.
                 obj.queueEpoch(epoch);
                 
+                if start
+                    % Start processing the epoch queue in the background.
+                    processTask = obj.rigConfig.controller.StartAsync(obj.persistor);
+                    start = false;
+                end
+                
                 % Flush the event queue.
                 drawnow;
             end
@@ -334,7 +340,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 pause(0.01);
             end
 
-            if processTask.IsFaulted
+            if ~isempty(processTask) && processTask.IsFaulted
                 error(netReport(NET.NetException('', '', processTask.Exception.Flatten())));
             end
         end
