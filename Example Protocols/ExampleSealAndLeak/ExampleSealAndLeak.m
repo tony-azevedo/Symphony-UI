@@ -105,6 +105,11 @@ classdef ExampleSealAndLeak < SymphonyProtocol
         function prepareEpoch(obj, epoch)            
             % With an indefinite epoch protocol we should not call the base class.
             %prepareEpoch@SymphonyProtocol(obj, epoch);           
+                        
+            % Add any keywords specified by the user.
+            for i = 1:length(obj.epochKeywords)
+                epoch.addKeyword(obj.epochKeywords{i});
+            end
             
             % Set the epoch default background values for each device.
             devices = obj.rigConfig.devices();

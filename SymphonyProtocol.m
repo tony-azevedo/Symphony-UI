@@ -174,7 +174,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
 
             % Add any keywords specified by the user.
             for i = 1:length(obj.epochKeywords)
-                epoch.AddKeyword(obj.epochKeywords{i});
+                epoch.addKeyword(obj.epochKeywords{i});
             end
             
             % Set the epoch default background values and record any input streams for each device.
