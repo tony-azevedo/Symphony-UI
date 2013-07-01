@@ -33,9 +33,9 @@ classdef ResponseStatisticsFigureHandler < FigureHandler
         end
 
 
-        function handleCurrentEpoch(obj)
+        function handleEpoch(obj, epoch)
             % Ask the callback for the statistics
-            stats = obj.statsCallback(obj.protocolPlugin);
+            stats = obj.statsCallback(obj.protocolPlugin, epoch);
             
             statNames = fieldnames(stats);
             for i = 1:numel(statNames)
@@ -43,13 +43,13 @@ classdef ResponseStatisticsFigureHandler < FigureHandler
                 stat = stats.(statName);
 
                 if isfield(obj.statPlots, statName)
-                    obj.statPlots.(statName).xData(end + 1) = obj.protocolPlugin.epochNum;
+                    obj.statPlots.(statName).xData(end + 1) = obj.protocolPlugin.numEpochsCompleted;
                     obj.statPlots.(statName).yData(end + 1) = stat;
                     set(obj.statPlots.(statName).plotHandle, 'XData', obj.statPlots.(statName).xData, ...
                                                              'YData', obj.statPlots.(statName).yData);
                 else
                     statPlot = {};
-                    statPlot.xData = obj.protocolPlugin.epochNum;
+                    statPlot.xData = obj.protocolPlugin.numEpochsCompleted;
                     statPlot.yData = stat;
                     plotColor = ResponseStatisticsFigureHandler.plotColors(numel(fieldnames(obj.statPlots)) + 1);
                     statPlot.plotHandle = plot(obj.axesHandle(), statPlot.xData, statPlot.yData, 'o', ...
@@ -58,8 +58,8 @@ classdef ResponseStatisticsFigureHandler < FigureHandler
                     obj.statPlots.(statName) = statPlot;
                 end
                 
-                set(obj.axesHandle(), 'XTick', 1:obj.protocolPlugin.epochNum, ...
-                                      'XLim', [0.5 obj.protocolPlugin.epochNum + 0.5]);
+                set(obj.axesHandle(), 'XTick', 1:obj.protocolPlugin.numEpochsCompleted, ...
+                                      'XLim', [0.5 obj.protocolPlugin.numEpochsCompleted + 0.5]);
             end
         end
         

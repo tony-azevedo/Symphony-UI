@@ -52,9 +52,9 @@ classdef DualResponseFigureHandler < FigureHandler
         end
         
         
-        function handleCurrentEpoch(obj)
+        function handleEpoch(obj, epoch)
             % Update the figure title with the epoch number and any parameters that are different from the protocol default.
-            epochParams = obj.protocolPlugin.epochSpecificParameters();
+            epochParams = obj.protocolPlugin.epochSpecificParameters(epoch);
             paramsText = '';
             if ~isempty(epochParams)
                 for field = sort(fieldnames(epochParams))'
@@ -71,10 +71,10 @@ classdef DualResponseFigureHandler < FigureHandler
                     paramsText = [paramsText ', ' humanReadableParameterName(field{1}) ' = ' paramValue]; %#ok<AGROW>
                 end
             end
-            set(get(obj.axesHandle(), 'Title'), 'String', ['Epoch #' num2str(obj.protocolPlugin.epochNum) paramsText]);
+            set(get(obj.axesHandle(), 'Title'), 'String', ['Epoch #' num2str(obj.protocolPlugin.numEpochsCompleted) paramsText]);
 
-            [responseData1, sampleRate1, units1] = obj.protocolPlugin.response(obj.deviceName1);
-            [responseData2, sampleRate2, units2] = obj.protocolPlugin.response(obj.deviceName2);
+            [responseData1, sampleRate1, units1] = epoch.response(obj.deviceName1);
+            [responseData2, sampleRate2, units2] = epoch.response(obj.deviceName2);
             
             % Plot the response
             axes = obj.axes();
