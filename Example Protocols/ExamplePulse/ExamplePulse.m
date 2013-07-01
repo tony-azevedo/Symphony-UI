@@ -90,7 +90,7 @@ classdef ExamplePulse < SymphonyProtocol
             
             % Add the amp pulse stimulus to the epoch.
             [stim, units] = obj.generateStimulus();
-            epoch.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units);
+            epoch.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units);  
         end
         
         
@@ -98,9 +98,12 @@ classdef ExamplePulse < SymphonyProtocol
             % Call the base method to queue the actual epoch.
             queueEpoch@SymphonyProtocol(obj, epoch);
             
-            import Symphony.Core.*;
+            % Do we need to queue an interval epoch?
+            if obj.interpulseInterval <= 0 || ~obj.continueQueuing()
+                return;
+            end
             
-            disp('adding interval epoch');
+            import Symphony.Core.*;
             
             % Create an interval epoch to perform the inter-pulse interval.
             intervalEpoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
@@ -130,12 +133,12 @@ classdef ExamplePulse < SymphonyProtocol
         end
         
         
-        function completeEpoch(obj, epoch)
+        function completeEpoch(obj, epoch)            
             % Don't bother with interval epochs.
             if epoch.containsParameter('isIntervalEpoch')
                 return;
             end
-            
+                                    
             % Call the base method.
             completeEpoch@SymphonyProtocol(obj, epoch);
         end
