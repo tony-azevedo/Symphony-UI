@@ -41,7 +41,7 @@ classdef ExampleSealAndLeak < SymphonyProtocol
                     p.units = 'mV or pA';
             end
         end
-        
+                
         
         function s = get.ampHoldSignal(obj)
             if strcmpi(obj.mode, 'seal')
@@ -62,7 +62,20 @@ classdef ExampleSealAndLeak < SymphonyProtocol
         end  
         
         
-        function [stim, units] = stimulus(obj)
+        function prepareRun(obj)
+            % Call the base method.
+            prepareRun@SymphonyProtocol(obj);
+            
+            % Set the amp hold signal.
+            if strcmp(obj.rigConfig.multiClampMode(obj.amp), 'VClamp')
+                obj.rigConfig.setDeviceBackground(obj.amp, obj.ampHoldSignal * 1e-3, 'V');
+            else
+                obj.rigConfig.setDeviceBackground(obj.amp, obj.ampHoldSignal * 1e-12, 'A');
+            end
+        end
+        
+        
+        function [stim, units] = generateStimulus(obj)
             % Convert time to sample points.
             prePts = round(obj.preTime / 1e3 * obj.sampleRate);
             stimPts = round(obj.stimTime / 1e3 * obj.sampleRate);
@@ -85,43 +98,42 @@ classdef ExampleSealAndLeak < SymphonyProtocol
         
         function stimuli = sampleStimuli(obj)
             % return a sample stimulus for display in the edit parameters window.
-            stimuli{1} = obj.stimulus();
+            stimuli{1} = obj.generateStimulus();
         end
        
         
-        function prepareEpoch(obj)            
-            % Call the base method.
-            prepareEpoch@SymphonyProtocol(obj);           
+        function prepareEpoch(obj, epoch)            
+            % With an indefinite epoch protocol we should not call the base class.
+            %prepareEpoch@SymphonyProtocol(obj, epoch);           
             
-            % Set the amp hold signal.
-            if strcmp(obj.rigConfig.multiClampMode(obj.amp), 'VClamp')
-                obj.setDeviceBackground(obj.amp, obj.ampHoldSignal * 1e-3, 'V');
-            else
-                obj.setDeviceBackground(obj.amp, obj.ampHoldSignal * 1e-12, 'A');
+            % Set the epoch default background values for each device.
+            devices = obj.rigConfig.devices();
+            for i = 1:length(devices)
+                device = devices{i};
+                
+                % Set the default epoch background to be the same as the device background.
+                if ~isempty(device.OutputSampleRate)
+                    epoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
+                end
             end
-            
+                        
             % Add the amp pulse stimulus to the epoch.
-            [stim, units] = obj.stimulus();            
-            obj.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units, 'indefinite');
-        end
-
-        
-        function recordResponse(obj, ~) %#ok<MANU>
-            % Responses cannot be recorded for indefinite epochs so we must override this method with an empty implementation.
+            [stim, units] = obj.generateStimulus();            
+            epoch.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units, 'indefinite');
         end
         
         
-        function keepGoing = continueRun(obj)
+        function keepQueuing = continueQueuing(obj)
             % Check the base class method to make sure the user hasn't paused or stopped the protocol.
-            keepGoing = continueRun@SymphonyProtocol(obj);
+            keepQueuing = continueQueuing@SymphonyProtocol(obj);
             
-            % Keep going until the requested number of averages is reached.
-            if keepGoing
-                keepGoing = obj.epochNum < 1;
-            end
+            % Queue only one indefinite epoch.
+            if keepQueuing
+                keepQueuing = obj.numEpochsQueued < 1;
+            end            
         end
         
-            
+        
         function completeRun(obj)
             % Call the base method.
             completeRun@SymphonyProtocol(obj);
