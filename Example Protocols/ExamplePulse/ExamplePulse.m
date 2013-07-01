@@ -15,7 +15,6 @@ classdef ExamplePulse < SymphonyProtocol
         preAndTailSignal = -60
         ampHoldSignal = -60
         numberOfAverages = uint16(5)
-        interpulseInterval = 0
     end
     
     methods           
@@ -34,8 +33,6 @@ classdef ExamplePulse < SymphonyProtocol
                     p.units = 'ms';
                 case {'pulseAmplitude', 'preAndTailSignal', 'ampHoldSignal'}
                     p.units = 'mV or pA';
-                case 'interpulseInterval'
-                    p.units = 's';
             end
         end
         
@@ -91,56 +88,6 @@ classdef ExamplePulse < SymphonyProtocol
             % Add the amp pulse stimulus to the epoch.
             [stim, units] = obj.generateStimulus();
             epoch.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units);  
-        end
-        
-        
-        function queueEpoch(obj, epoch)            
-            % Call the base method to queue the actual epoch.
-            queueEpoch@SymphonyProtocol(obj, epoch);
-            
-            % Do we need to queue an interval epoch?
-            if obj.interpulseInterval <= 0 || ~obj.continueQueuing()
-                return;
-            end
-            
-            import Symphony.Core.*;
-            
-            % Create an interval epoch to perform the inter-pulse interval.
-            intervalEpoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
-            intervalEpoch.addParameter('isIntervalEpoch', true);
-            
-            % We don't care to save interval epochs.
-            intervalEpoch.shouldBePersisted = false;
-            
-            % Set the interval epoch background values to the device background for all devices.
-            devices = obj.rigConfig.devices();
-            for i = 1:length(devices)
-                device = devices{i};
-                
-                if ~isempty(device.OutputSampleRate)
-                    intervalEpoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
-                end
-            end
-            
-            % Add a stimulus of duration equal to the inter-pulse interval.            
-            [background, units] = intervalEpoch.getBackground(obj.amp);
-            pts = round(obj.interpulseInterval * obj.sampleRate);
-            interval = ones(1, pts) * background;
-            intervalEpoch.addStimulus(obj.amp, 'Interpulse_Interval', interval, units);
-            
-            % Queue the interval epoch.
-            obj.rigConfig.controller.EnqueueEpoch(intervalEpoch.getCoreEpoch);
-        end
-        
-        
-        function completeEpoch(obj, epoch)            
-            % Don't bother with interval epochs.
-            if epoch.containsParameter('isIntervalEpoch')
-                return;
-            end
-                                    
-            % Call the base method.
-            completeEpoch@SymphonyProtocol(obj, epoch);
         end
         
         
