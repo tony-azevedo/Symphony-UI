@@ -412,6 +412,9 @@ classdef RigConfiguration < handle
                 out = BackgroundOutputStream(Background(background, device.OutputSampleRate));
                 obj.controller.BackgroundStreams.Item(device, out);
             end
+            
+            % Apply the background.
+            device.ApplyBackground();
         end
         
         
