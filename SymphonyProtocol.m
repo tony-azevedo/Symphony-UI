@@ -323,15 +323,21 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 % Queue the prepared epoch.
                 obj.queueEpoch(epoch);
                 
-                if start && obj.shouldStartProcessing()
-                    % Start processing the epoch queue in the background.
+                % Start processing the epoch queue in the background after enough epochs have been preloaded.
+                if start && obj.numEpochsQueued >= obj.numEpochsToPreload
                     processTask = controller.StartAsync(obj.persistor);
                     start = false;
                 end
                 
                 % Flush the event queue.
                 drawnow;
-            end          
+            end     
+            
+            % If the epoch queue did not start processing while queuing, start it now.
+            if start && obj.numEpochsQueued > 0
+                processTask = controller.StartAsync(obj.persistor);
+                start = false;
+            end
 
             % Spin until the controller stops.
             while controller.Running
@@ -341,18 +347,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % Wait for all CompletedEpoch events.
             controller.WaitForCompletedEpochTasks();
 
-            if ~start && processTask.IsFaulted
+            if processTask.IsFaulted
                 error(netReport(NET.NetException('', '', processTask.Exception.Flatten())));
             end
-        end
-        
-        
-        function tf = shouldStartProcessing(obj)
-            % This is the core method that indicates when the epoch queue should start processing. Called by process().
-            
-            % We want to preload a few epochs into the queue before we start processing. This is especially true if the
-            % epochs are less than ~500ms long or take a long time to prepare.
-            tf = obj.numEpochsQueued >= obj.numEpochsToPreload || ~obj.continueQueuing();
         end
                 
         
