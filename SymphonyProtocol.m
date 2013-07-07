@@ -324,7 +324,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 obj.queueEpoch(epoch);
                 
                 % Start processing the epoch queue in the background after enough epochs have been preloaded.
-                if start && obj.numEpochsQueued >= obj.numEpochsToPreload
+                if obj.numEpochsQueued >= obj.numEpochsToPreload && start && obj.continueRun()
                     processTask = controller.StartAsync(obj.persistor);
                     start = false;
                 end
@@ -334,7 +334,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             end     
             
             % If the epoch queue did not start processing while queuing, start it now.
-            if start && obj.numEpochsQueued > 0
+            if start && obj.continueRun()
                 processTask = controller.StartAsync(obj.persistor);
                 start = false;
             end
@@ -347,7 +347,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % Wait for all CompletedEpoch events.
             controller.WaitForCompletedEpochTasks();
 
-            if processTask.IsFaulted
+            if ~start && processTask.IsFaulted
                 error(netReport(NET.NetException('', '', processTask.Exception.Flatten())));
             end
         end
