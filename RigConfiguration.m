@@ -39,7 +39,7 @@ classdef RigConfiguration < handle
                         
             obj.controller = Controller();
             obj.controller.DAQController = daqControllerFactory.createDAQ();
-            obj.controller.Clock = obj.controller.DAQController;
+            obj.controller.Clock = obj.controller.DAQController.Clock;
             
             obj.sampleRate = 10000;
 
@@ -126,7 +126,7 @@ classdef RigConfiguration < handle
                 end
                 stream.SampleRate = Measurement(obj.sampleRate, 'Hz');
                 stream.MeasurementConversionTarget = 'V';
-                stream.Clock = obj.controller.DAQController;
+                stream.Clock = obj.controller.DAQController.Clock;
                 obj.controller.DAQController.AddStream(stream);
             end
         end
@@ -166,7 +166,7 @@ classdef RigConfiguration < handle
                 if isempty(obj.hekaDigitalOutDevice)
                     dev = UnitConvertingExternalDevice('Heka Digital Out', 'HEKA Instruments', obj.controller, Measurement(0, units));
                     dev.MeasurementConversionTarget = units;
-                    dev.Clock = obj.controller.DAQController;
+                    dev.Clock = obj.controller.DAQController.Clock;
                     dev.OutputSampleRate = Measurement(obj.sampleRate, 'Hz');
                     
                     out = BackgroundOutputStream(Background(Measurement(0, units), dev.OutputSampleRate));
@@ -186,7 +186,7 @@ classdef RigConfiguration < handle
             else               
                 dev = UnitConvertingExternalDevice(deviceName, 'unknown', obj.controller, Measurement(0, units));
                 dev.MeasurementConversionTarget = units;
-                dev.Clock = obj.controller.DAQController;
+                dev.Clock = obj.controller.DAQController.Clock;
                 
                 obj.addStreams(dev, outStreamName, inStreamName);
                 
@@ -275,12 +275,12 @@ classdef RigConfiguration < handle
             backgroundMeasurements(2) = Measurement(0, 'A');
             backgroundMeasurements(3) = Measurement(0, 'A');
             
-            dev = MultiClampDevice(multiClampSN, channel, obj.controller.DAQController, obj.controller,...
+            dev = MultiClampDevice(multiClampSN, channel, obj.controller.DAQController.Clock, obj.controller,...
                 modes,...
                 backgroundMeasurements...
                 );
             dev.Name = deviceName;
-            dev.Clock = obj.controller.DAQController;
+            dev.Clock = obj.controller.DAQController.Clock;
             
             % Bind the streams.
             obj.addStreams(dev, outStreamName, inStreamName);
