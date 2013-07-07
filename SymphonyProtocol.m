@@ -340,7 +340,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             end
 
             % Spin until the controller stops.
-            while controller.Running
+            while controller.IsRunning
                 pause(0.01);
             end
             
