@@ -214,20 +214,41 @@ classdef RigConfiguration < handle
                 error('Symphony:MultiClamp:NoDevice', 'Cannot determine the MultiClamp mode because no MultiClamp device has been created.');
             end
 
-            % Make sure the user toggles the MultiClamp mode so the data gets telegraphed.
+            requireOutMode = ~isempty(device.OutputSampleRate);
+            requireInMode = ~isempty(device.InputSampleRate);
+            
+            % Try to get the multiclamp mode from the commander.
+            start = tic;
+            timeOutSeconds = 2;
             mode = '';
-            while isempty(mode) || (~strcmp(mode, 'VClamp') && ~strcmp(mode, 'I0') && ~strcmp(mode, 'IClamp'))
-                gotMode = false;
-                
-                if device.HasDeviceOutputParameters
-                    mode = char(device.CurrentDeviceOutputParameters.Data.OperatingMode);
-                    if strcmp(mode, 'VClamp') || strcmp(mode, 'I0') || strcmp(mode, 'IClamp')
-                        gotMode = true;
-                    end
+            while isempty(mode)              
+                                
+                outMode = '';
+                if requireOutMode && device.HasDeviceOutputParameters
+                    outMode = char(device.CurrentDeviceOutputParameters.Data.OperatingMode);
                 end
-
-                if ~gotMode
-                    input(['Please toggle the MultiClamp commander for ' deviceName ' mode then press enter (or Ctrl-C to cancel)...'], 's');
+                                
+                inMode = '';
+                if requireInMode && device.HasDeviceInputParameters
+                    inMode = char(device.CurrentDeviceInputParameters.Data.OperatingMode);
+                end
+                
+                if requireOutMode && requireInMode
+                    if strcmp(outMode, inMode)
+                        mode = outMode;
+                    end
+                elseif requireOutMode
+                    mode = outMode;
+                else
+                    mode = inMode;
+                end
+                
+                if isempty(mode)
+                    if toc(start) < timeOutSeconds
+                        pause(0.25);
+                    else
+                        input(['Please toggle the MultiClamp commander for ' deviceName ' mode then press enter (or Ctrl-C to cancel)...'], 's'); 
+                    end
                 end
             end
         end
