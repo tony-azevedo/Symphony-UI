@@ -207,7 +207,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % !! Do not flush the event queue in this method (using drawnow, figure, input, etc.) !!
             
             obj.numEpochsCompleted = obj.numEpochsCompleted + 1;
-            
             obj.updateFigures(epoch);
             
             if strcmp(obj.state, 'running') && ~obj.continueRun()
@@ -220,10 +219,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % Override this method to perform any actions if an epoch is discarded.
             % !! Do not flush the event queue in this method (using drawnow, figure, input, etc.) !!
             
-            % If you decide not to stop on a discarded epoch, you must deal with the discrepancy it will cause with numEpochsCompleted on your own!
-            if ~strcmp(obj.state, 'stopping')
-                obj.stop();
-            end
+            obj.stop();
         end
         
         
@@ -365,7 +361,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % Set a flag that will be checked after the current epoch completes.
             obj.setState('pausing');
             
-            % Request that the controller pause the epoch queue.
+            % Request that the controller pause the epoch queue after completing any incomplete epochs.
             obj.rigConfig.controller.RequestPause();
         end
         
