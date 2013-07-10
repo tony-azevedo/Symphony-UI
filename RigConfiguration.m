@@ -118,18 +118,20 @@ classdef RigConfiguration < handle
         function stream = streamWithName(obj, streamName, isOutput)
             import Symphony.Core.*;
             
+            daq = obj.controller.DAQController;
+            
             if isa(obj.controller.DAQController, 'Heka.HekaDAQController')     % TODO: or has method 'GetStream'?
-                stream = obj.controller.DAQController.GetStream(streamName);
+                stream = daq.GetStream(streamName);
             else
                 if isOutput
-                    stream = DAQOutputStream(streamName);
+                    stream = DAQOutputStream(streamName, daq);
                 else
-                    stream = DAQInputStream(streamName);
+                    stream = DAQInputStream(streamName, daq);
                 end
                 stream.SampleRate = Measurement(obj.sampleRate, 'Hz');
                 stream.MeasurementConversionTarget = 'V';
-                stream.Clock = obj.controller.DAQController.Clock;
-                obj.controller.DAQController.AddStream(stream);
+                stream.Clock = daq.Clock;
+                daq.AddStream(stream);
             end
         end
         
