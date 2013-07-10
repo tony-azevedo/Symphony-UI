@@ -105,7 +105,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             for i = 1:length(amps)
                 amp = amps{i};
                 
-                if ~isempty(amp.OutputSampleRate)
+                outStreams = enumerableToCellArray(amp.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+                if ~isempty(outStreams)
                     currentModeBackground = Background(amp.Background, amp.OutputSampleRate);
                     obj.rigConfig.controller.BackgroundDataStreams.Item(amp, BackgroundOutputDataStream(currentModeBackground));
                 end
@@ -182,12 +183,15 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             for i = 1:length(devices)
                 device = devices{i};
                 
-                % Set the default epoch background to be the same as the device background.
-                if ~isempty(device.OutputSampleRate)
+                % Set a default epoch background for all devices with output streams.
+                outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+                if ~isempty(outStreams)
                     epoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
                 end
                 
-                if ~isempty(device.InputSampleRate)
+                % Record a response for all devices with input streams.
+                inStreams = enumerableToCellArray(device.InputStreams, 'Symphony.Core.IDAQInputStream');
+                if ~isempty(inStreams)
                     epoch.recordResponse(char(device.Name));
                 end
             end

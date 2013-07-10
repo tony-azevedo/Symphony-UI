@@ -75,7 +75,8 @@ classdef RigConfiguration < handle
             for i = 1:length(devices)
                 device = devices{i};
                 
-                if ~isempty(device.OutputSampleRate)
+                outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+                if ~isempty(outStreams)
                     device.OutputSampleRate = Measurement(rate, 'Hz');
                     
                     % Update device background stream rate.
@@ -83,7 +84,8 @@ classdef RigConfiguration < handle
                     obj.controller.BackgroundDataStreams.Item(device, out);
                 end
                 
-                if ~isempty(device.InputSampleRate)
+                inStreams = enumerableToCellArray(device.InputStreams, 'Symphony.Core.IDAQInputStream');
+                if ~isempty(inStreams)
                     device.InputSampleRate = Measurement(rate, 'Hz');
                 end                
             end
@@ -191,7 +193,8 @@ classdef RigConfiguration < handle
                 obj.addStreams(dev, outStreamName, inStreamName);
                 
                 % Set default device background stream in the controller.
-                if ~isempty(dev.OutputSampleRate)
+                outStreams = enumerableToCellArray(dev.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+                if ~isempty(outStreams)
                     out = BackgroundOutputDataStream(Background(Measurement(0, units), dev.OutputSampleRate));
                     obj.controller.BackgroundDataStreams.Item(dev, out);
                 end
@@ -214,8 +217,11 @@ classdef RigConfiguration < handle
                 error('Symphony:MultiClamp:NoDevice', 'Cannot determine the MultiClamp mode because no MultiClamp device has been created.');
             end
 
-            requireOutMode = ~isempty(device.OutputSampleRate);
-            requireInMode = ~isempty(device.InputSampleRate);
+            outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+            requireOutMode = ~isempty(outStreams);
+            
+            inStreams = enumerableToCellArray(device.InputStreams, 'Symphony.Core.IDAQInputStream');
+            requireInMode = ~isempty(inStreams);
             
             % Try to get the multiclamp mode from the commander.
             start = tic;
@@ -429,7 +435,8 @@ classdef RigConfiguration < handle
             end
             
             % Set controller background stream for device.
-            if ~isempty(device.OutputSampleRate)
+            outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+            if ~isempty(outStreams)
                 out = BackgroundOutputDataStream(Background(background, device.OutputSampleRate));
                 obj.controller.BackgroundDataStreams.Item(device, out);
             end
