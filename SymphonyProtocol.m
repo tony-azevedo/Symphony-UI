@@ -107,7 +107,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 
                 if ~isempty(amp.OutputSampleRate)
                     currentModeBackground = Background(amp.Background, amp.OutputSampleRate);
-                    obj.rigConfig.controller.BackgroundStreams.Item(amp, BackgroundOutputStream(currentModeBackground));
+                    obj.rigConfig.controller.BackgroundDataStreams.Item(amp, BackgroundOutputDataStream(currentModeBackground));
                 end
             end 
         end

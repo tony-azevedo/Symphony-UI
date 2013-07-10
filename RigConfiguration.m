@@ -79,8 +79,8 @@ classdef RigConfiguration < handle
                     device.OutputSampleRate = Measurement(rate, 'Hz');
                     
                     % Update device background stream rate.
-                    out = BackgroundOutputStream(Background(device.Background, device.OutputSampleRate));
-                    obj.controller.BackgroundStreams.Item(device, out);
+                    out = BackgroundOutputDataStream(Background(device.Background, device.OutputSampleRate));
+                    obj.controller.BackgroundDataStreams.Item(device, out);
                 end
                 
                 if ~isempty(device.InputSampleRate)
@@ -169,8 +169,8 @@ classdef RigConfiguration < handle
                     dev.Clock = obj.controller.DAQController.Clock;
                     dev.OutputSampleRate = Measurement(obj.sampleRate, 'Hz');
                     
-                    out = BackgroundOutputStream(Background(Measurement(0, units), dev.OutputSampleRate));
-                    obj.controller.BackgroundStreams.Item(dev, out);
+                    out = BackgroundOutputDataStream(Background(Measurement(0, units), dev.OutputSampleRate));
+                    obj.controller.BackgroundDataStreams.Item(dev, out);
                     
                     stream = obj.streamWithName('DIGITAL_OUT.1', true);
                     dev.BindStream(stream);
@@ -192,8 +192,8 @@ classdef RigConfiguration < handle
                 
                 % Set default device background stream in the controller.
                 if ~isempty(dev.OutputSampleRate)
-                    out = BackgroundOutputStream(Background(Measurement(0, units), dev.OutputSampleRate));
-                    obj.controller.BackgroundStreams.Item(dev, out);
+                    out = BackgroundOutputDataStream(Background(Measurement(0, units), dev.OutputSampleRate));
+                    obj.controller.BackgroundDataStreams.Item(dev, out);
                 end
             end
         end
@@ -430,8 +430,8 @@ classdef RigConfiguration < handle
             
             % Set controller background stream for device.
             if ~isempty(device.OutputSampleRate)
-                out = BackgroundOutputStream(Background(background, device.OutputSampleRate));
-                obj.controller.BackgroundStreams.Item(device, out);
+                out = BackgroundOutputDataStream(Background(background, device.OutputSampleRate));
+                obj.controller.BackgroundDataStreams.Item(device, out);
             end
             
             % Apply the background.
