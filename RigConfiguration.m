@@ -409,43 +409,6 @@ classdef RigConfiguration < handle
         end
         
         
-        function setDeviceBackground(obj, deviceName, background, units)
-            % Set a constant background value for a device in the absence of an epoch.            
-            
-            import Symphony.Core.*;
-            
-            device = obj.deviceWithName(deviceName);
-            if isempty(device)
-                error('There is no device named ''%s''.', deviceName);
-            end
-            
-            background = Measurement(background, units);
-            
-            % Set device background.
-            if isa(device, 'Symphony.ExternalDevices.MultiClampDevice')
-                % Set the background for the appropriate mode and for the device if the current mode matches.
-                if strcmp(char(background.BaseUnit), 'V')
-                    device.SetBackgroundForMode(Symphony.ExternalDevices.OperatingMode.VClamp, background);
-                else
-                    device.SetBackgroundForMode(Symphony.ExternalDevices.OperatingMode.IClamp, background);
-                    device.SetBackgroundForMode(Symphony.ExternalDevices.OperatingMode.I0, background);
-                end
-            else
-                device.Background = background;
-            end
-            
-            % Set controller background stream for device.
-            outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
-            if ~isempty(outStreams)
-                out = BackgroundOutputDataStream(Background(background, device.OutputSampleRate));
-                obj.controller.BackgroundDataStreams.Item(device, out);
-            end
-            
-            % Apply the background.
-            device.ApplyBackground();
-        end
-        
-        
         function prepared(obj)
             if isa(obj.controller.DAQController, 'Heka.HekaDAQController')
                 obj.controller.DAQController.SetStreamsBackground();

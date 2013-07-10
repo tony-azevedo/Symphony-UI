@@ -48,9 +48,9 @@ classdef ExamplePulseFamily < SymphonyProtocol
             
             % Set the amp hold signal.
             if strcmp(obj.rigConfig.multiClampMode(obj.amp), 'VClamp')
-                obj.rigConfig.setDeviceBackground(obj.amp, obj.ampHoldSignal * 1e-3, 'V');
+                obj.setDeviceBackground(obj.amp, obj.ampHoldSignal * 1e-3, 'V');
             else
-                obj.rigConfig.setDeviceBackground(obj.amp, obj.ampHoldSignal * 1e-12, 'A');
+                obj.setDeviceBackground(obj.amp, obj.ampHoldSignal * 1e-12, 'A');
             end
             
             % Open figures showing the response and mean response of the amp.

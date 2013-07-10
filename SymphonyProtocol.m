@@ -178,7 +178,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 epoch.addKeyword(obj.epochKeywords{i});
             end
             
-            % Set the epoch default background values and record any input streams for each device.
+            % Set default epoch backgrounds and record default responses.
             devices = obj.rigConfig.devices();
             for i = 1:length(devices)
                 device = devices{i};
@@ -203,6 +203,43 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % TODO: diff against the previous epoch's parameters instead?
             protocolParams = obj.parameters();
             p = structDiff(epoch.parameters, protocolParams);
+        end
+                    
+        
+        function setDeviceBackground(obj, deviceName, background, units)
+            % Set a constant background value for a device in the absence of an epoch.            
+            
+            import Symphony.Core.*;
+            
+            device = obj.rigConfig.deviceWithName(deviceName);
+            if isempty(device)
+                error('There is no device named ''%s''.', deviceName);
+            end
+            
+            background = Measurement(background, units);
+            
+            % Set device background.
+            if isa(device, 'Symphony.ExternalDevices.MultiClampDevice')
+                % Set the background for the appropriate mode and for the device if the current mode matches.
+                if strcmp(char(background.BaseUnit), 'V')
+                    device.SetBackgroundForMode(Symphony.ExternalDevices.OperatingMode.VClamp, background);
+                else
+                    device.SetBackgroundForMode(Symphony.ExternalDevices.OperatingMode.IClamp, background);
+                    device.SetBackgroundForMode(Symphony.ExternalDevices.OperatingMode.I0, background);
+                end
+            else
+                device.Background = background;
+            end
+            
+            % Set controller background stream for device.
+            outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+            if ~isempty(outStreams)
+                out = BackgroundOutputDataStream(Background(background, device.OutputSampleRate));
+                obj.rigConfig.controller.BackgroundDataStreams.Item(device, out);
+            end
+            
+            % Apply the background immediately.
+            device.ApplyBackground();
         end
         
         
