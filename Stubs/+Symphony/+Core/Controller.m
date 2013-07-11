@@ -3,24 +3,31 @@ classdef Controller < Symphony.Core.ITimelineProducer
     properties
         Clock
         DAQController
+        BackgroundDataStreams
     end
     
     properties (SetAccess = private)
         Devices
+        IsRunning
+    end
+    
+    properties (Access = private)
         CurrentEpoch
-        Running
     end
     
     events
         ReceivedInputData
-        NextEpochRequested
         PushedInputData
+        CompletedEpoch
+        DiscardedEpoch
     end
     
     methods      
         
         function obj = Controller()
             obj.Devices = System.Collections.ArrayList();
+            obj.BackgroundDataStreams = NET.createGeneric('System.Collections.Generic.Dictionary', ...
+                {'Symphony.Core.IExternalDevice', 'Symphony.Core.IOutputDataStream'});
         end
         
         
@@ -70,69 +77,83 @@ classdef Controller < Symphony.Core.ITimelineProducer
         
         function OnPushedInputData(obj, epoch)
             notify(obj, 'PushedInputData', Symphony.Core.TimeStampedEpochEventArgs(obj.Clock, epoch));
+        end    
+        
+        
+        function OnCompletedEpoch(obj, epoch)
+            notify(obj, 'CompletedEpoch', Symphony.Core.TimeStampedEpochEventArgs(obj.Clock, epoch));
         end
         
         
-        function PrepareRun(obj)
-            % TODO: Validate
+        function EnqueueEpoch(obj, epoch) %#ok<INUSD>
+            error('The stub controller cannot EnqueueEpoch');
+        end
+        
+        
+        function ClearEpochQueue(obj) %#ok<MANU>
             
-            if obj.Running
-                error('Controller is running');
-            end
+        end
+        
+        
+        function task = StartAsync(obj, persistor) %#ok<STOUT,INUSD>
+            error('The stub controller cannot StartAsync');
+        end
+        
+        
+        function RunEpoch(obj, epoch, persistor)
+            obj.IsRunning = true;
             
-            obj.Running = true;
-        end                    
-               
-        
-        function FinishRun(obj)
-            obj.Running = false;
-        end
-        
-        
-        function task = RunEpochAsync(obj, epoch, persistor)
-            obj.PrepareRun();
+            epochCompleted = addlistener(obj, 'CompletedEpoch', @(src, data)obj.RequestStop());
+            cleanup = onCleanup(@()delete(epochCompleted));
             
-            task = System.Threading.Tasks.Task(@()obj.CommonRunEpoch(epoch, persistor));
-            task.Start();
+            obj.Process(epoch, persistor);
         end
         
         
-        function CommonRunEpoch(obj, epoch, persistor)
-            cEpoch = obj.CurrentEpoch;
-            cleanup = onCleanup(@()obj.CleanupCommonRunEpoch(cEpoch));
+        function Process(obj, epoch, persistor)
             
-            obj.CurrentEpoch = epoch;
-            obj.RunCurrentEpoch(persistor);
+            cleanup = onCleanup(@()obj.Stop());
+            
+            obj.ProcessLoop(epoch, persistor);
         end
         
         
-        function CleanupCommonRunEpoch(obj, epoch)
-            obj.CurrentEpoch = epoch;
-            obj.FinishRun();
+        function Stop(obj)
+            obj.IsRunning = false;
         end
         
         
-        function RunCurrentEpoch(obj, persistor)
+        function ProcessLoop(obj, epoch, persistor)
+                       
             inputPushed = addlistener(obj, 'PushedInputData', @(src, data)obj.InputPushed(src, data, persistor));
             exceptionalStop = addlistener(obj.DAQController, 'ExceptionalStop', @(src, data)obj.ExceptionalStop(src, data));
             
             cleanup = onCleanup(@()delete([inputPushed exceptionalStop]));
+                        
+            obj.CurrentEpoch = epoch;
             
-            obj.CurrentEpoch.StartTime = now;
-            obj.DAQController.Start(obj.CurrentEpoch.WaitForTrigger);            
+            epoch.StartTime = now;
+            obj.DAQController.Start(epoch.WaitForTrigger); 
         end
-                
+                        
         
         function InputPushed(obj, src, data, persistor) %#ok<INUSL>
             epoch = obj.CurrentEpoch;
             
             if epoch.IsComplete
+                obj.OnCompletedEpoch(epoch);
+                
                 obj.DAQController.RequestStop();
                 
                 if ~isempty(persistor)
                     persistor.Serialize(epoch);
                 end
             end
+        end
+        
+        
+        function WaitForCompletedEpochTasks(obj) %#ok<MANU>
+            
         end
         
         
@@ -144,7 +165,12 @@ classdef Controller < Symphony.Core.ITimelineProducer
         end
         
         
-        function CancelRun(obj)
+        function RequestPause(obj)
+            
+        end
+        
+        
+        function RequestStop(obj)
             obj.DAQController.RequestStop();
         end
         

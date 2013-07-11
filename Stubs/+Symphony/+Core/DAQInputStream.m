@@ -9,21 +9,29 @@ classdef DAQInputStream < Symphony.Core.IDAQInputStream
     
     properties (SetAccess = private)
         Name
+        CanSetSampleRate
         Active
         Devices
+        DAQ
     end
     
     methods
         
-        function obj = DAQInputStream(name)            
+        function obj = DAQInputStream(name, daq)            
             obj.Devices = System.Collections.ArrayList();
             obj.Name = name;
+            obj.DAQ = daq;
         end
         
         
-        function a = get.Active(obj)
-            a = obj.Devices.Count > 0;
+        function tf = get.Active(obj)
+            tf = obj.Devices.Count > 0;
         end
+        
+        
+        function tf = get.CanSetSampleRate(obj)
+            tf = true;
+        end            
         
         
         function PushInputData(obj, inData)

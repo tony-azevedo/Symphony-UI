@@ -305,8 +305,13 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 @(src, data)obj.discardEpoch(EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name))));
                         
             try
-                % Process the protocol.
-                obj.process();
+                if isa(obj.rigConfig.controller, 'System.Object')
+                    % A .NET-based controller can process asynchronously (preferred).
+                    obj.process();
+                else
+                    % A Matlab-based controller must process synchronously (typically only for simulation).
+                    obj.processSync();
+                end
             catch e
                 obj.stop();
                 waitfor(errordlg(['An error occurred while running the protocol.' char(10) char(10) getReport(e, 'extended', 'hyperlinks', 'off')]));
@@ -387,6 +392,42 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             if ~start && processTask.IsFaulted
                 error(netReport(NET.NetException('', '', processTask.Exception.Flatten())));
             end
+        end
+        
+        
+        function processSync(obj)
+            % This is the core method that processes the protocol synchronously. Typically called by run() only when simulating.
+            
+            import Symphony.Core.*;
+                        
+            while obj.continueQueuing()
+                % Create a new wrapped core epoch.
+                epoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
+
+                % Prepare the epoch: set backgrounds, add stimuli, record responses, add parameters, etc.
+                obj.prepareEpoch(epoch);
+
+                % Persist the params now that the sub-class has had a chance to tweak them.
+                pluginParams = obj.parameters(true);
+                fields = fieldnames(pluginParams);
+                for fieldName = fields'
+                    fieldValue = pluginParams.(fieldName{1});
+                    if ~ischar(fieldValue) && length(fieldValue) > 1
+                        if isnumeric(fieldValue)
+                            fieldValue = sprintf('%g ', fieldValue);
+                        else
+                            error('Parameter values must be scalar or vectors of numbers.');
+                        end
+                    end
+                    epoch.addParameter(fieldName{1}, fieldValue);
+                end
+                
+                % Run the epoch immediately.
+                obj.rigConfig.controller.RunEpoch(epoch.getCoreEpoch, obj.persistor);
+                
+                % Flush the event queue.
+                drawnow;
+            end                
         end
                 
         

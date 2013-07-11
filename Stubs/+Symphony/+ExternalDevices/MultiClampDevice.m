@@ -27,8 +27,13 @@ classdef MultiClampDevice < Symphony.Core.ExternalDeviceBase
         end
         
         
-        function h = HasDeviceOutputParameters(obj) %#ok<MANU>
-            h = true;
+        function tf = HasDeviceOutputParameters(obj) %#ok<MANU>
+            tf = true;
+        end
+        
+        
+        function tf = HasDeviceInputParameters(obj) %#ok<MANU>
+            tf = true;
         end
         
         

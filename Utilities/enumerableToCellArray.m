@@ -1,10 +1,10 @@
 % Determines whether a .NET generic enumerable sequence contains any elements.
 
 function c = enumerableToCellArray(e, type)
-    a = NET.invokeGenericMethod('System.Linq.Enumerable', 'ToArray', {type}, e);
+    l = NET.invokeGenericMethod('System.Linq.Enumerable', 'ToList', {type}, e);
     
-    c = cell(1, a.Length);
-    for i=1:a.Length
-        c{i} = a.GetValue(i-1);
+    c = cell(1, l.Count);
+    for i=1:l.Count
+        c{i} = l.Item(i-1);
     end
 end

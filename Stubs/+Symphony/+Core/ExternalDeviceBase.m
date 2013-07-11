@@ -6,10 +6,14 @@ classdef ExternalDeviceBase < Symphony.Core.IExternalDevice
         Clock
         Name
         Manufacturer
+        InputSampleRate
+        OutputSampleRate
     end
     
     properties (SetAccess = private)
         Streams
+        InputStreams
+        OutputStreams
     end
     
     methods
@@ -24,6 +28,28 @@ classdef ExternalDeviceBase < Symphony.Core.IExternalDevice
                 {'System.String', 'Symphony.Core.IDAQStream'});
             
             obj.Controller.AddDevice(obj);
+        end
+        
+        
+        function s = get.InputStreams(obj)
+            s = System.Collections.ArrayList();
+            
+            for i = 0:obj.Streams.Count-1
+                if isa(obj.Streams.Values.Item(i), 'Symphony.Core.IDAQInputStream')
+                    s.Add(obj.Streams.Values.Item(i))
+                end
+            end
+        end
+                
+                
+        function s = get.OutputStreams(obj)
+            s = System.Collections.ArrayList();
+            
+            for i = 0:obj.Streams.Count-1
+                if isa(obj.Streams.Values.Item(i), 'Symphony.Core.IDAQOutputStream')
+                    s.Add(obj.Streams.Values.Item(i))
+                end
+            end
         end
         
         
@@ -43,6 +69,11 @@ classdef ExternalDeviceBase < Symphony.Core.IExternalDevice
             end
             
             device = obj;
+        end
+        
+        
+        function ApplyBackground(obj) %#ok<MANU>
+        
         end
         
     end
