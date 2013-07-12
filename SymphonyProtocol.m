@@ -4,13 +4,9 @@
 % * prepareRun
 % * prepareEpoch
 % * completeEpoch
+% * continueQueuing
 % * continueRun
 % * completeRun
-%
-% Useful methods:
-% * addStimulus
-% * setDeviceBackground
-% * recordResponse
 
 classdef SymphonyProtocol < handle & matlab.mixin.Copyable
     
@@ -20,15 +16,11 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         displayName
     end
     
-    
     properties (Hidden)
         symphonyConfig              % The Symphony configuration prepared by symphonyrc.
         state                       % The state the protocol is in: 'stopped', 'running', 'paused', etc.
         rigConfig                   % A RigConfiguration instance.
         rigPrepared = false         % A flag indicating whether the rig is ready to run this protocol.
-        epoch = []                  % A Symphony.Core.Epoch instance.
-        epochNum = 0                % The number of epochs that have been run.
-        responses                   % A structure for caching converted responses.
         figureHandlerClasses
         figureHandlers = {}
         figureHandlerParams = {}
@@ -36,26 +28,25 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         allowPausing = true         % An indication if this protocol allows pausing during acquisition.
         persistor = []              % The persistor to use with each epoch.
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
+        numEpochsQueued             % The number of epochs queued by this protocol in the current run.
+        numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
+        numEpochsToPreload = 30     % The number of epochs to preload into the epoch queue before the queue begins processing.
     end
-    
-    
+        
     properties
         sampleRate = {10000, 20000, 50000}      % in Hz
     end
-    
-    
+        
     events
         StateChanged
     end
-    
-    
+        
     methods
         
         function obj = init(obj, symphonyConfig, rigConfig)
             % This method is essentially a constructor. If you need to override the constructor, override this instead.
             
             obj.setState('stopped');
-            obj.responses = containers.Map();
             obj.symphonyConfig = symphonyConfig;
             obj.rigConfig = rigConfig;
         end
@@ -97,10 +88,29 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         
         function prepareRun(obj)
-            % Override this method to perform any actions before the start of the first epoch, e.g. open a figure window, etc.
-            obj.epoch = [];
-            obj.epochNum = 0;
-            obj.clearFigures()
+            % Override this method to perform any actions before the start of the first epoch, e.g. open a figure window, set device backgrounds, etc.
+                   
+            import Symphony.Core.*;
+            
+            obj.numEpochsQueued = 0;
+            obj.numEpochsCompleted = 0;
+            
+            obj.clearFigures();
+            
+            % Clear out any epochs in the epoch queue.
+            obj.rigConfig.controller.ClearEpochQueue();
+            
+            % Set the background streams for multiclamp devices to match their current mode background.
+            amps = obj.rigConfig.multiClampDevices();
+            for i = 1:length(amps)
+                amp = amps{i};
+                
+                outStreams = enumerableToCellArray(amp.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+                if ~isempty(outStreams)
+                    currentModeBackground = Background(amp.Background, amp.OutputSampleRate);
+                    obj.rigConfig.controller.BackgroundDataStreams.Item(amp, BackgroundOutputDataStream(currentModeBackground));
+                end
+            end 
         end
         
         
@@ -158,288 +168,113 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
       
         
-        function prepareEpoch(obj)
+        function prepareEpoch(obj, epoch)
             % Override this method to add stimuli, record responses, change parameters, etc.
             
             import Symphony.Core.*;
-            
-            % Create a new epoch.
-            obj.epochNum = obj.epochNum + 1;
-            obj.epoch = Epoch(obj.identifier);
 
             % Add any keywords specified by the user.
             for i = 1:length(obj.epochKeywords)
-                obj.epoch.Keywords.Add(obj.epochKeywords{i});
+                epoch.addKeyword(obj.epochKeywords{i});
             end
             
-            % Set the default background value and record any input streams for each device.
+            % Set default epoch backgrounds and record default responses.
             devices = obj.rigConfig.devices();
             for i = 1:length(devices)
                 device = devices{i};
                 
-                % Set each device's background for this epoch to be the same as the inter-epoch background.
-                obj.setDeviceBackground(char(device.Name), device.Background);
+                % Set a default epoch background for all devices with output streams.
+                outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+                if ~isempty(outStreams)
+                    epoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
+                end
                 
-                % Record the response from any device that has an input stream.
-                [~, streams] = dictionaryKeysAndValues(device.Streams);
-                for j = 1:length(streams)
-                    if isa(streams{j}, 'Symphony.Core.DAQInputStream')
-                        obj.recordResponse(char(device.Name));
-                        break
-                    end
+                % Record a response for all devices with input streams.
+                inStreams = enumerableToCellArray(device.InputStreams, 'Symphony.Core.IDAQInputStream');
+                if ~isempty(inStreams)
+                    epoch.recordResponse(char(device.Name));
                 end
             end
-            
-            % Clear out the cache of responses.
-            obj.responses = containers.Map();
         end
         
         
-        function addParameter(obj, name, value)
-            if ~ischar(value) && length(value) > 1
-                if isnumeric(value)
-                    value = sprintf('%g ', value);
-                else
-                    error('Parameter values must be scalar or vectors of numbers.');
-                end
-            end
-            obj.epoch.ProtocolParameters.Add(name, value);
-        end
-        
-        
-        function p = epochSpecificParameters(obj)
-            % Determine the parameters unique to the current epoch.
+        function p = epochSpecificParameters(obj, epoch)
+            % Determine the parameters unique to the epoch.
             % TODO: diff against the previous epoch's parameters instead?
             protocolParams = obj.parameters();
-            p = structDiff(dictionaryToStruct(obj.epoch.ProtocolParameters), protocolParams);
+            p = structDiff(epoch.parameters, protocolParams);
         end
-        
-        
-        function r = deviceSampleRate(obj, device, inOrOut)
-            % Return the output sample rate for the given device based on any bound stream.
-            % TODO: this should move to the RigConfiguration.m if it's still even needed...
-            
-            import Symphony.Core.*;
-            
-            if ischar(device)
-                deviceName = device;
-                device = obj.rigConfig.deviceWithName(deviceName);
-                
-                if isempty(device)
-                    error('There is no device named ''%s''.', deviceName);
-                end
-            end
-            
-            r = Measurement(10000, 'Hz');   % default if no output stream is found
-            [~, streams] = dictionaryKeysAndValues(device.Streams);
-            for index = 1:numel(streams)
-                stream = streams{index};
-                if (strcmp(inOrOut, 'IN') && isa(stream, 'DAQInputStream')) || (strcmp(inOrOut, 'OUT') && isa(stream, 'DAQOutputStream'))
-                    r = stream.SampleRate;
-                    break;
-                end
-            end
-        end
-        
-        
-        function addStimulus(obj, deviceName, stimulusID, stimulusData, units, durationInSeconds)
-            % Queue data to send to the named device when the epoch is run.
-            % Duration is optional. Specifying a duration longer than the stimulus data will cause the stimulus to repeat 
-            % as needed. Specifying a duration of 'indefinite' will cause the stimulus to repeat indefinitely.
-            
-            import Symphony.Core.*;
-            
-            [device, digitalChannel] = obj.rigConfig.deviceWithName(deviceName);
-            if isempty(device)
-                error('There is no device named ''%s''.', deviceName);
-            end
-            
-            if isempty(digitalChannel)
-                if nargin == 4
-                    % Default to the the device's background units if none specified
-                    units = device.Background.Unit;
-                end
-                
-                stimDataList = Measurement.FromArray(stimulusData, units);
-            else
-                % Digital outputs to the Heka ITC have to be merged together.
-                
-                if any(stimulusData ~= 0 & stimulusData ~= 1)
-                    error('Symphony:BadDigitalStimulus', 'Stimuli for digital outputs must contain only 0 or 1 values.');
-                end
-                
-                if obj.epoch.Stimuli.ContainsKey(device)
-                    stim = obj.epoch.Stimuli.Item(device);
-                    existingData = Measurement.ToQuantityArray(stim.Data.Data);
-                else
-                    existingData = zeros(1, length(stimulusData));
-                end
-                
-                % TODO: pad with zeros if different lengths
-                
-                stimulusData = existingData + (stimulusData .* 2 ^ digitalChannel);
-                units = Measurement.UNITLESS;
-                stimDataList = Measurement.FromArray(stimulusData, units);
-            end
-            
-            outputData = OutputData(stimDataList, obj.deviceSampleRate(device, 'OUT'));
-            
-            providedDuration = nargin >= 6;
-            if ~providedDuration
-                duration = TimeSpanOption(outputData.Duration);
-            elseif strcmpi(durationInSeconds, 'indefinite')
-                duration = TimeSpanOption.Indefinite;
-            else
-                duration = TimeSpanOption(System.TimeSpan.FromSeconds(durationInSeconds));
-            end
-            
-            stim = RepeatingRenderedStimulus(stimulusID, structToDictionary(struct()), outputData, duration);
-            
-            obj.epoch.Stimuli.Add(device, stim);
-        end
-        
+                    
         
         function setDeviceBackground(obj, deviceName, background, units)
-            % Set a constant stimulus value to be sent to the device.
+            % Set a constant background value for a device in the absence of an epoch.            
             
-            import Symphony.*;
             import Symphony.Core.*;
-            import Symphony.ExternalDevices.*;
-            import Symphony.ExternalDevices.OperatingMode.*;
             
             device = obj.rigConfig.deviceWithName(deviceName);
             if isempty(device)
                 error('There is no device named ''%s''.', deviceName);
             end
             
-            if nargin == 4
-                % The user supplied the quantity and units.
-                background = Measurement(background, units);
-            elseif isnumeric(background)
-                % The user only supplied the quantity, assume volts.
-                background = Measurement(background, 'V');
-            elseif ~isa(background, 'Symphony.Core.Measurement')
-                error('Symphony:InvalidBackground', 'The background value for a device must be a number or a Symphony.Core.Measurement');
-            end
+            background = Measurement(background, units);
             
+            % Set device background.
             if isa(device, 'Symphony.ExternalDevices.MultiClampDevice')
                 % Set the background for the appropriate mode and for the device if the current mode matches.
                 if strcmp(char(background.BaseUnit), 'V')
                     device.SetBackgroundForMode(Symphony.ExternalDevices.OperatingMode.VClamp, background);
-                    setBackground = strcmp(obj.rigConfig.multiClampMode(char(device.Name)), 'VClamp');
                 else
                     device.SetBackgroundForMode(Symphony.ExternalDevices.OperatingMode.IClamp, background);
                     device.SetBackgroundForMode(Symphony.ExternalDevices.OperatingMode.I0, background);
-                    setBackground = ~strcmp(obj.rigConfig.multiClampMode(char(device.Name)), 'VClamp');
                 end
             else
                 device.Background = background;
-                setBackground = true;
             end
-            if setBackground
-                if ~isempty(obj.epoch)
-                    obj.epoch.SetBackground(device, background, obj.deviceSampleRate(device, 'OUT'));
-                end
+            
+            % Set controller background stream for device.
+            outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+            if ~isempty(outStreams)
+                out = BackgroundOutputDataStream(Background(background, device.OutputSampleRate));
+                obj.rigConfig.controller.BackgroundDataStreams.Item(device, out);
+            end
+            
+            % Apply the background immediately.
+            device.ApplyBackground();
+        end
+        
+        
+        function completeEpoch(obj, epoch)
+            % Override this method to perform any post-analysis, etc. on a completed epoch.
+            % !! Do not flush the event queue in this method (using drawnow, figure, input, etc.) !!
+            
+            obj.numEpochsCompleted = obj.numEpochsCompleted + 1;
+            obj.updateFigures(epoch);
+            
+            if strcmp(obj.state, 'running') && ~obj.continueRun()
+                obj.stop();
             end
         end
         
         
-        function recordResponse(obj, deviceName)
-            % Record the response from the device with the given name when the epoch runs.
+        function discardEpoch(obj, epoch) %#ok<INUSD>
+            % Override this method to perform any actions if an epoch is discarded.
+            % !! Do not flush the event queue in this method (using drawnow, figure, input, etc.) !!
+            
+            obj.stop();
+        end
+        
+        
+        function keepQueuing = continueQueuing(obj)
+            % Override this method to return true/false to indicate if the protocol should continue queuing epochs.
+            % numEpochsQueued is typically useful.
                         
-            import Symphony.Core.*;
-            
-            device = obj.rigConfig.deviceWithName(deviceName);
-            % TODO: what happens when there is no device with that name?
-            
-            obj.epoch.Responses.Add(device, Response());
-        end
-        
-        
-        function [r, s, u] = response(obj, deviceName)
-            % Return the response, sample rate and units recorded from the device with the given name.
-            
-            import Symphony.Core.*;
-            
-            if nargin == 1
-                % If no device specified then pick the first one.
-                devices = dictionaryKeysAndValues(obj.epoch.Responses);
-                if isempty(devices)
-                    error('Symphony:NoDevicesRecorded', 'No devices have had their responses recorded.');
-                end
-                device = devices{1};
-            else
-                device = obj.rigConfig.deviceWithName(deviceName);
-                if isempty(device)
-                    error('Symphony:NoDeviceWithName', ['There is no device with the name ''' deviceName '''']);
-                end
-            end
-            
-            deviceName = char(device.Name);
-            
-            if isKey(obj.responses, deviceName)
-                % Use the cached response data.
-                response = obj.responses(deviceName);
-                r = response.data;
-                s = response.sampleRate;
-                u = response.units;
-            else
-                % Extract the raw data.
-                try
-                    response = obj.epoch.Responses.Item(device);
-                    data = response.Data;
-                    r = double(Measurement.ToQuantityArray(data));
-                    u = char(Measurement.HomogenousDisplayUnits(data));
-                catch ME %#ok<NASGU>
-                    r = [];
-                    u = '';
-                end
-                
-                if ~isempty(r)
-                    s = System.Decimal.ToDouble(response.SampleRate.QuantityInBaseUnit);
-                    % TODO: do we care about the units of the SampleRate measurement?
-                else
-                    s = [];
-                end
-                
-                % Cache the results.
-                obj.responses(deviceName) = struct('data', r, 'sampleRate', s, 'units', u);
-            end
-        end
-        
-        
-        function runEpoch(obj)
-            % This is a core method that runs the current epoch prepared by the protocol.
-            
-            import Symphony.Core.*;
-            
-            % Tell the Symphony framework to run the epoch in the background.
-            task = obj.rigConfig.controller.RunEpochAsync(obj.epoch, obj.persistor);
-
-            % Spin until the run completes, listening for events.
-            while obj.rigConfig.controller.Running
-                % Need a small pause to stop Matlab from grinding to a halt.
-                pause(0.01);
-            end
-            
-            if task.IsFaulted
-                % TODO: is it OK to hold up the run with the error dialog or should errors be logged and displayed at the end?
-                message = ['An error occurred while running the protocol.' char(10) char(10)];
-                message = [message netReport(NET.NetException('', '', task.Exception.Flatten()))];
-                waitfor(errordlg(message));
-            end 
-        end
-        
-        
-        function completeEpoch(obj)
-            % Override this method to perform any post-analysis, etc. on the current epoch.
-            obj.updateFigures();
+            keepQueuing = strcmp(obj.state, 'running');
         end
         
         
         function keepGoing = continueRun(obj)
-            % Override this method to return true/false based on the current state.
-            % The object's epochNum is typically useful.
+            % Override this method to return true/false to indicate if the protocol should continue running.
+            % numEpochsCompleted is typically useful.
             
             keepGoing = strcmp(obj.state, 'running');
         end
@@ -455,73 +290,176 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function run(obj)
             % This is the core method that runs a protocol, everything else is preparation for this.
             
+            if ~strcmp(obj.state, 'paused')
+                % Prepare the run.
+                obj.prepareRun()
+            end
+            
+            obj.setState('running');
+            
+            % Add event listeners to the controller.
+            epochCompleted = addlistener(obj.rigConfig.controller, 'CompletedEpoch', ...
+                @(src, data)obj.completeEpoch(EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name))));
+            
+            epochDiscarded = addlistener(obj.rigConfig.controller, 'DiscardedEpoch', ...
+                @(src, data)obj.discardEpoch(EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name))));
+                        
             try
-                if ~strcmp(obj.state, 'paused')
-                    % Prepare the run.
-                    obj.prepareRun()
-                end
-                
-                obj.setState('running');
-                
-                % Loop until the protocol or the user tells us to stop.
-                while obj.continueRun()
-                    % Run a single epoch.
-                    
-                    % Prepare the epoch: set backgrounds, add stimuli, record responses, add parameters, etc.
-                    obj.prepareEpoch();
-                    
-                    % Persist the params now that the sub-class has had a chance to tweak them.
-                    pluginParams = obj.parameters(true);
-                    fields = fieldnames(pluginParams);
-                    for fieldName = fields'
-                        fieldValue = pluginParams.(fieldName{1});
-                        if ~ischar(fieldValue) && length(fieldValue) > 1
-                            if isnumeric(fieldValue)
-                                fieldValue = sprintf('%g ', fieldValue);
-                            else
-                                error('Parameter values must be scalar or vectors of numbers.');
-                            end
-                        end
-                        obj.epoch.ProtocolParameters.Add(fieldName{1}, fieldValue);
-                    end
-                    
-                    obj.runEpoch();
-                    
-                    % Perform any post-epoch analysis, clean up, etc.
-                    if ~strcmp(obj.state, 'stopping')
-                        obj.completeEpoch();
-                    end
-                    
-                    % Force any figures to redraw and any events (clicking the Pause or Stop buttons in particular) to get processed.
-                    drawnow;
+                if isa(obj.rigConfig.controller, 'System.Object')
+                    % A .NET-based controller can process asynchronously.
+                    obj.process();
+                else
+                    % A Matlab-based controller must process synchronously (for simulation only).
+                    obj.processSync();
                 end
             catch e
+                obj.stop();
                 waitfor(errordlg(['An error occurred while running the protocol.' char(10) char(10) getReport(e, 'extended', 'hyperlinks', 'off')]));
             end
             
+            % Flush event queue and delete event listeners.
+            drawnow;
+            delete([epochCompleted epochDiscarded]);
+            
             if strcmp(obj.state, 'pausing')
                 obj.setState('paused');
-            else
+            else                                
                 % Perform any final analysis, clean up, etc.
                 obj.completeRun();
             end
         end
         
         
-        function pause(obj)
-            % Set a flag that will be checked after the current epoch completes.
-            obj.setState('pausing'); 
+        function process(obj)
+            % This is the core method that processes the protocol. Called by run().
+            
+            import Symphony.Core.*;
+            
+            start = true;
+            controller = obj.rigConfig.controller;
+            
+            % Queue until the protocol tells us to stop.
+            while obj.continueQueuing()
+                
+                % Create a new wrapped core epoch.
+                epoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
+
+                % Prepare the epoch: set backgrounds, add stimuli, record responses, add parameters, etc.
+                obj.prepareEpoch(epoch);
+
+                % Persist the params now that the sub-class has had a chance to tweak them.
+                pluginParams = obj.parameters(true);
+                fields = fieldnames(pluginParams);
+                for fieldName = fields'
+                    fieldValue = pluginParams.(fieldName{1});
+                    if ~ischar(fieldValue) && length(fieldValue) > 1
+                        if isnumeric(fieldValue)
+                            fieldValue = sprintf('%g ', fieldValue);
+                        else
+                            error('Parameter values must be scalar or vectors of numbers.');
+                        end
+                    end
+                    epoch.addParameter(fieldName{1}, fieldValue);
+                end
+
+                % Queue the prepared epoch.
+                obj.queueEpoch(epoch);
+                
+                % Start processing the epoch queue in the background after enough epochs have been preloaded.
+                if obj.numEpochsQueued >= obj.numEpochsToPreload && start && obj.continueRun()
+                    processTask = controller.StartAsync(obj.persistor);
+                    start = false;
+                end
+                
+                % Flush the event queue.
+                drawnow;
+            end     
+            
+            % If the epoch queue did not start processing while queuing, start it now.
+            if start && obj.continueRun()
+                processTask = controller.StartAsync(obj.persistor);
+                start = false;
+            end
+
+            % Spin until the controller stops.
+            while controller.IsRunning
+                pause(0.01);
+            end
+            
+            % Wait for all CompletedEpoch events.
+            controller.WaitForCompletedEpochTasks();
+
+            if ~start && processTask.IsFaulted
+                error(netReport(NET.NetException('', '', processTask.Exception.Flatten())));
+            end
         end
         
         
-        function stop(obj)
+        function processSync(obj)
+            % This is the core method that processes the protocol synchronously. Called by run() for simulation only.
+            
+            import Symphony.Core.*;
+                        
+            while obj.continueQueuing()
+                % Create a new wrapped core epoch.
+                epoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
+
+                % Prepare the epoch: set backgrounds, add stimuli, record responses, add parameters, etc.
+                obj.prepareEpoch(epoch);
+
+                % Persist the params now that the sub-class has had a chance to tweak them.
+                pluginParams = obj.parameters(true);
+                fields = fieldnames(pluginParams);
+                for fieldName = fields'
+                    fieldValue = pluginParams.(fieldName{1});
+                    if ~ischar(fieldValue) && length(fieldValue) > 1
+                        if isnumeric(fieldValue)
+                            fieldValue = sprintf('%g ', fieldValue);
+                        else
+                            error('Parameter values must be scalar or vectors of numbers.');
+                        end
+                    end
+                    epoch.addParameter(fieldName{1}, fieldValue);
+                end
+                
+                % Queue the prepared epoch.
+                obj.queueEpoch(epoch);
+                                
+                % Run the queue immediately.
+                obj.rigConfig.controller.Start(obj.persistor);
+                
+                % Flush the event queue.
+                drawnow;
+            end                
+        end
+                
+        
+        function queueEpoch(obj, epoch)
+            % This is the core method that enqueues an epoch into the epoch queue. Called by process().
+            
+            obj.rigConfig.controller.EnqueueEpoch(epoch.getCoreEpoch);
+            obj.numEpochsQueued = obj.numEpochsQueued + 1;
+        end
+        
+        
+        function pause(obj)
+            % Set a flag that will be checked after the current epoch completes.
+            obj.setState('pausing');
+            
+            % Request that the controller pause the epoch queue after completing any incomplete epochs.
+            obj.rigConfig.controller.RequestPause();
+        end
+        
+        
+        function stop(obj)            
             if strcmp(obj.state, 'paused')
                 obj.completeRun()
-            else
+            else                
                 % Set a flag that will be checked after the controller stops the current run.
                 obj.setState('stopping');
                 
-                obj.rigConfig.controller.CancelRun();
+                % Request that the controller stop the epoch queue and discard any incomplete epochs.
+                obj.rigConfig.controller.RequestStop();
             end
         end
         
@@ -557,10 +495,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
         
         
-        function updateFigures(obj)
+        function updateFigures(obj, epoch)
             for index = 1:numel(obj.figureHandlers)
                 figureHandler = obj.figureHandlers{index};
-                figureHandler.handleCurrentEpoch();
+                figureHandler.handleEpoch(epoch);
             end
         end
         

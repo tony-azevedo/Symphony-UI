@@ -12,7 +12,9 @@ classdef DAQOutputStream < Symphony.Core.IDAQOutputStream
         HasMoreData
         Background
         Name
+        CanSetSampleRate
         Active
+        DAQ
     end
     
     properties (Access = private)
@@ -21,8 +23,9 @@ classdef DAQOutputStream < Symphony.Core.IDAQOutputStream
     
     methods
         
-        function obj = DAQOutputStream(name)            
+        function obj = DAQOutputStream(name, daq)            
             obj.Name = name;
+            obj.DAQ = daq;
             
             obj.LastDataPulled = false;
         end
@@ -37,18 +40,27 @@ classdef DAQOutputStream < Symphony.Core.IDAQOutputStream
         end
         
         
-        function h = get.HasMoreData(obj)
-            h = obj.Active && ~obj.LastDataPulled;
+        function tf = get.HasMoreData(obj)
+            tf = obj.Active && ~obj.LastDataPulled;
         end
         
         
-        function a = get.Active(obj)
-            a = ~isempty(obj.Device);
+        function tf = get.Active(obj)
+            tf = ~isempty(obj.Device);
+        end
+        
+        
+        function tf = get.CanSetSampleRate(obj)
+            tf = true;
         end
         
         
         function Reset(obj)
             obj.LastDataPulled = false;
+        end
+        
+        function DidOutputData(obj, outputTime, duration, config)
+            obj.Device.DidOutputData(obj, outputTime, duration, config);
         end
         
     end

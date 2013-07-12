@@ -54,7 +54,7 @@ classdef EpochXMLPersistor < Symphony.Core.EpochPersistor
             % Serialize the device backgrounds.
             backgroundsNode = obj.DocNode.createElement('background');
             epochNode.appendChild(backgroundsNode);
-            backgroundEnum = epoch.Background.GetEnumerator();
+            backgroundEnum = epoch.Backgrounds.GetEnumerator();
             while backgroundEnum.MoveNext()
                 device = backgroundEnum.Current.Key;
                 background = backgroundEnum.Current.Value;
@@ -62,7 +62,7 @@ classdef EpochXMLPersistor < Symphony.Core.EpochPersistor
                 backgroundsNode.appendChild(backgroundNode);
                 backgroundMeasurementNode = obj.DocNode.createElement('backgroundMeasurement');
                 backgroundNode.appendChild(backgroundMeasurementNode);
-                obj.addMeasurementNode(backgroundMeasurementNode, background.Background, 'measurement');
+                obj.addMeasurementNode(backgroundMeasurementNode, background.Value, 'measurement');
                 sampleRateNode = obj.DocNode.createElement('sampleRate');
                 backgroundNode.appendChild(sampleRateNode);
                 obj.addMeasurementNode(sampleRateNode, background.SampleRate, 'measurement');

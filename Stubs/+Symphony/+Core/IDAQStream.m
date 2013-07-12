@@ -8,7 +8,9 @@ classdef IDAQStream < Symphony.Core.ITimelineProducer
     
     properties (Abstract, SetAccess = private)
         Name
+        CanSetSampleRate
         Active
+        DAQ
     end
 
 end

@@ -39,7 +39,7 @@ classdef RigConfiguration < handle
                         
             obj.controller = Controller();
             obj.controller.DAQController = daqControllerFactory.createDAQ();
-            obj.controller.Clock = obj.controller.DAQController;
+            obj.controller.Clock = obj.controller.DAQController.Clock;
             
             obj.sampleRate = 10000;
 
@@ -70,11 +70,31 @@ classdef RigConfiguration < handle
                 obj.controller.DAQController.SampleRate = Measurement(rate, 'Hz');
             end
             
+            % Update the rate of all devices.
+            devices = obj.devices();
+            for i = 1:length(devices)
+                device = devices{i};
+                
+                outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+                if ~isempty(outStreams)
+                    device.OutputSampleRate = Measurement(rate, 'Hz');
+                    
+                    % Update device background stream rate.
+                    out = BackgroundOutputDataStream(Background(device.Background, device.OutputSampleRate));
+                    obj.controller.BackgroundDataStreams.Item(device, out);
+                end
+                
+                inStreams = enumerableToCellArray(device.InputStreams, 'Symphony.Core.IDAQInputStream');
+                if ~isempty(inStreams)
+                    device.InputSampleRate = Measurement(rate, 'Hz');
+                end                
+            end
+            
             % Update the rate of all DAQ streams.
             enum = obj.controller.DAQController.Streams.GetEnumerator;
             while enum.MoveNext()
                 stream = enum.Current;
-                try %#ok<TRYNC>
+                if stream.CanSetSampleRate
                     stream.SampleRate = Measurement(rate, 'Hz');
                 end
             end
@@ -98,33 +118,39 @@ classdef RigConfiguration < handle
         function stream = streamWithName(obj, streamName, isOutput)
             import Symphony.Core.*;
             
+            daq = obj.controller.DAQController;
+            
             if isa(obj.controller.DAQController, 'Heka.HekaDAQController')     % TODO: or has method 'GetStream'?
-                stream = obj.controller.DAQController.GetStream(streamName);
+                stream = daq.GetStream(streamName);
             else
                 if isOutput
-                    stream = DAQOutputStream(streamName);
+                    stream = DAQOutputStream(streamName, daq);
                 else
-                    stream = DAQInputStream(streamName);
+                    stream = DAQInputStream(streamName, daq);
                 end
                 stream.SampleRate = Measurement(obj.sampleRate, 'Hz');
                 stream.MeasurementConversionTarget = 'V';
-                stream.Clock = obj.controller.DAQController;
-                obj.controller.DAQController.AddStream(stream);
+                stream.Clock = daq.Clock;
+                daq.AddStream(stream);
             end
         end
         
         
         function addStreams(obj, device, outStreamName, inStreamName)
+            import Symphony.Core.*;
+            
             % Create and bind any output stream.
             if ~isempty(outStreamName)
                 stream = obj.streamWithName(outStreamName, true);
                 device.BindStream(stream);
+                device.OutputSampleRate = Measurement(obj.sampleRate, 'Hz');
             end
             
             % Create and bind any input stream.
             if ~isempty(inStreamName)
                 stream = obj.streamWithName(inStreamName, false);
                 device.BindStream(stream);
+                device.InputSampleRate = Measurement(obj.sampleRate, 'Hz');
             end
         end
         
@@ -144,7 +170,11 @@ classdef RigConfiguration < handle
                 if isempty(obj.hekaDigitalOutDevice)
                     dev = UnitConvertingExternalDevice('Heka Digital Out', 'HEKA Instruments', obj.controller, Measurement(0, units));
                     dev.MeasurementConversionTarget = units;
-                    dev.Clock = obj.controller.DAQController;
+                    dev.Clock = obj.controller.DAQController.Clock;
+                    dev.OutputSampleRate = Measurement(obj.sampleRate, 'Hz');
+                    
+                    out = BackgroundOutputDataStream(Background(Measurement(0, units), dev.OutputSampleRate));
+                    obj.controller.BackgroundDataStreams.Item(dev, out);
                     
                     stream = obj.streamWithName('DIGITAL_OUT.1', true);
                     dev.BindStream(stream);
@@ -160,9 +190,16 @@ classdef RigConfiguration < handle
             else               
                 dev = UnitConvertingExternalDevice(deviceName, 'unknown', obj.controller, Measurement(0, units));
                 dev.MeasurementConversionTarget = units;
-                dev.Clock = obj.controller.DAQController;
+                dev.Clock = obj.controller.DAQController.Clock;
                 
                 obj.addStreams(dev, outStreamName, inStreamName);
+                
+                % Set default device background stream in the controller.
+                outStreams = enumerableToCellArray(dev.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+                if ~isempty(outStreams)
+                    out = BackgroundOutputDataStream(Background(Measurement(0, units), dev.OutputSampleRate));
+                    obj.controller.BackgroundDataStreams.Item(dev, out);
+                end
             end
         end
         
@@ -182,20 +219,44 @@ classdef RigConfiguration < handle
                 error('Symphony:MultiClamp:NoDevice', 'Cannot determine the MultiClamp mode because no MultiClamp device has been created.');
             end
 
-            % Make sure the user toggles the MultiClamp mode so the data gets telegraphed.
+            outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+            requireOutMode = ~isempty(outStreams);
+            
+            inStreams = enumerableToCellArray(device.InputStreams, 'Symphony.Core.IDAQInputStream');
+            requireInMode = ~isempty(inStreams);
+            
+            % Try to get the multiclamp mode from the commander.
+            start = tic;
+            timeOutSeconds = 2;
             mode = '';
-            while isempty(mode) || (~strcmp(mode, 'VClamp') && ~strcmp(mode, 'I0') && ~strcmp(mode, 'IClamp'))
-                gotMode = false;
-                
-                if device.HasDeviceOutputParameters
-                    mode = char(device.CurrentDeviceOutputParameters.Data.OperatingMode);
-                    if strcmp(mode, 'VClamp') || strcmp(mode, 'I0') || strcmp(mode, 'IClamp')
-                        gotMode = true;
-                    end
+            while isempty(mode)              
+                                
+                outMode = '';
+                if requireOutMode && device.HasDeviceOutputParameters
+                    outMode = char(device.CurrentDeviceOutputParameters.Data.OperatingMode);
                 end
-
-                if ~gotMode
-                    input(['Please toggle the MultiClamp commander for ' deviceName ' mode then press enter (or Ctrl-C to cancel)...'], 's');
+                                
+                inMode = '';
+                if requireInMode && device.HasDeviceInputParameters
+                    inMode = char(device.CurrentDeviceInputParameters.Data.OperatingMode);
+                end
+                
+                if requireOutMode && requireInMode
+                    if strcmp(outMode, inMode)
+                        mode = outMode;
+                    end
+                elseif requireOutMode
+                    mode = outMode;
+                else
+                    mode = inMode;
+                end
+                
+                if isempty(mode)
+                    if toc(start) < timeOutSeconds
+                        pause(0.25);
+                    else
+                        input(['Please toggle the MultiClamp commander for ' deviceName ' mode then press enter (or Ctrl-C to cancel)...'], 's'); 
+                    end
                 end
             end
         end
@@ -243,12 +304,12 @@ classdef RigConfiguration < handle
             backgroundMeasurements(2) = Measurement(0, 'A');
             backgroundMeasurements(3) = Measurement(0, 'A');
             
-            dev = MultiClampDevice(multiClampSN, channel, obj.controller.DAQController, obj.controller,...
+            dev = MultiClampDevice(multiClampSN, channel, obj.controller.DAQController.Clock, obj.controller,...
                 modes,...
                 backgroundMeasurements...
                 );
             dev.Name = deviceName;
-            dev.Clock = obj.controller.DAQController;
+            dev.Clock = obj.controller.DAQController.Clock;
             
             % Bind the streams.
             obj.addStreams(dev, outStreamName, inStreamName);
@@ -296,6 +357,11 @@ classdef RigConfiguration < handle
         
         function names = deviceNames(obj, expr)
             % Returns all device names with a match of the given regular expression.
+            
+            if nargin < 2
+                expr = '.';
+            end
+            
             names = {};
             devices = obj.devices();
             for i = 1:length(devices)
@@ -342,12 +408,6 @@ classdef RigConfiguration < handle
                     end
                 end
             end
-        end
-        
-        
-        function setDeviceBackground(obj, deviceName, background)
-            device = obj.deviceWithName(deviceName);
-            device.Background = background;
         end
         
         

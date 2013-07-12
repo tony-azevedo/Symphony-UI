@@ -5,6 +5,7 @@ classdef ArrayList < handle
     end
     
     properties (Access = private)
+        Capacity
         Items
         ItemCount
     end
@@ -18,6 +19,7 @@ classdef ArrayList < handle
             
             obj.Items = cell(1, capacity);
             obj.ItemCount = 0;
+            obj.Capacity = capacity;
         end
         
         
@@ -48,6 +50,12 @@ classdef ArrayList < handle
         
         function c = get.Count(obj)
             c = obj.ItemCount;
+        end
+        
+        
+        function Clear(obj)
+            obj.Items = cell(1, obj.Capacity);
+            obj.ItemCount = 0;
         end
         
         
