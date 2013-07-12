@@ -306,10 +306,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                         
             try
                 if isa(obj.rigConfig.controller, 'System.Object')
-                    % A .NET-based controller can process asynchronously (preferred).
+                    % A .NET-based controller can process asynchronously.
                     obj.process();
                 else
-                    % A Matlab-based controller must process synchronously (typically only for simulation).
+                    % A Matlab-based controller must process synchronously (for simulation only).
                     obj.processSync();
                 end
             catch e
@@ -396,7 +396,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         
         function processSync(obj)
-            % This is the core method that processes the protocol synchronously. Typically called by run() only when simulating.
+            % This is the core method that processes the protocol synchronously. Called by run() for simulation only.
             
             import Symphony.Core.*;
                         
@@ -425,7 +425,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 % Queue the prepared epoch.
                 obj.queueEpoch(epoch);
                                 
-                % Run immediately.
+                % Run the queue immediately.
                 obj.rigConfig.controller.Start(obj.persistor);
                 
                 % Flush the event queue.
