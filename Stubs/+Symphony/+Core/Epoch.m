@@ -35,9 +35,6 @@ classdef Epoch < handle
             obj.Responses = NET.createGeneric('System.Collections.Generic.Dictionary', ...
                 {'Symphony.Core.IExternalDevice', 'Symphony.Core.IResponse'});
             
-            obj.StimulusDataEnumerators = NET.createGeneric('System.Collections.Generic.Dictionary', ...
-                {'Symphony.Core.IExternalDevice', 'System.Collections.IEnumerator'});
-            
             obj.Identifier = char(java.util.UUID.randomUUID());
             
             obj.Backgrounds = NET.createGeneric('System.Collections.Generic.Dictionary', ...
@@ -78,6 +75,13 @@ classdef Epoch < handle
             if obj.IsIndefinite
                 tf = false;
                 return;
+            end
+            
+            for i = 0:obj.Stimuli.Values.Count-1
+                if ~obj.Stimuli.Values.Item(i).IsComplete
+                    tf = false;
+                    return;
+                end
             end
             
             for i = 0:obj.Responses.Values.Count-1

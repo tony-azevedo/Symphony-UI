@@ -65,7 +65,7 @@ classdef Controller < Symphony.Core.ITimelineProducer
         
         
         function outData = PullOutputData(obj, device, duration)
-            outStream = obj.OutputDataStream.Item(device);
+            outStream = obj.OutputDataStreams.Item(device);
             
             outData = [];
             
@@ -82,11 +82,35 @@ classdef Controller < Symphony.Core.ITimelineProducer
         
         
         function OutputPulled(obj, device, stream)
+            
+            import Symphony.Core.*;
+            
             if stream.IsAtEnd
-                nextEpoch = obj.EpochQueue.Dequeue();
-                obj.BufferEpoch(nextEpoch);
-                obj.IncompleteEpochs.Enqueue(nextEpoch);
+                if obj.EpochQueue.Count > 0
+                    nextEpoch = obj.EpochQueue.Dequeue();
+                    
+                    obj.BufferEpoch(nextEpoch);
+                    obj.IncompleteEpochs.Enqueue(nextEpoch);
+                else
+                    for i = 0:obj.OutputDataStreams.Count-1
+                        device = obj.OutputDataStreams.Keys.Item(i);
+                        sequenceOutStream = obj.OutputDataStreams.Values.Item(i);
+                        
+                        sequenceOutStream.Add(obj.BackgroundDataStreams.Item(device));
+                    end
+
+                    for i = 0:obj.InputDataStreams.Count-1
+                        sequenceInStream = obj.InputDataStreams.Values.Item(i);
+
+                        sequenceInStream.Add(NullInputDataStream());
+                    end
+                end
             end
+        end
+        
+        
+        function DidOutputData(obj, device, outputTime, timeSpan, config)
+            obj.OutputDataStreams.Item(device).DidOutputData(outputTime, timeSpan, config);
         end
         
         
@@ -98,7 +122,7 @@ classdef Controller < Symphony.Core.ITimelineProducer
             unpushedInData = inData;
             
             while unpushedInData.Duration > System.TimeSpan.Zero
-                if inStream.Duration ~= TimeSpanOption.Indefinite
+                if inStream.Duration ~= Symphony.Core.TimeSpanOption.Indefinite
                     dur = inStream.Duration - inStream.Position;
                 else
                     dur = unpushedInData.Duration;
@@ -116,6 +140,10 @@ classdef Controller < Symphony.Core.ITimelineProducer
         
         function InputPushed(obj, device, stream)
             
+            if obj.IncompleteEpochs.Count == 0
+                return
+            end
+            
             currentEpoch = obj.IncompleteEpochs.Peek();
             
             if currentEpoch.IsComplete  
@@ -125,7 +153,11 @@ classdef Controller < Symphony.Core.ITimelineProducer
                 obj.OnCompletedEpoch(completedEpoch);
                 
                 if ~isempty(obj.Persistor) && completedEpoch.ShouldBePersisted
-                    persistor.Serialize(completedEpoch);
+                    obj.Persistor.Serialize(completedEpoch);
+                end
+                
+                if obj.IncompleteEpochs.Count == 0
+                    obj.DAQController.RequestStop();
                 end
             end
         end
@@ -226,12 +258,14 @@ classdef Controller < Symphony.Core.ITimelineProducer
             
             import Symphony.Core.*;
             
-            for i = 1:obj.OutputDataStreams.Count
+            epoch.StartTime = now;
+            
+            for i = 0:obj.OutputDataStreams.Count-1
                 device = obj.OutputDataStreams.Keys.Item(i);
                 sequenceOutStream = obj.OutputDataStreams.Values.Item(i);
                 
                 if epoch.Stimuli.ContainsKey(device)
-                    outStream = StimulusOutputDataStream(epoch.Stimuli.Item(device), DAQController.ProcessInterval);
+                    outStream = StimulusOutputDataStream(epoch.Stimuli.Item(device), obj.DAQController.ProcessInterval);
                 elseif epoch.Backgrounds.ContainsKey(device)
                     outStream = BackgroundOutputDataStream(epoch.Backgrounds.Item(device));
                 else
@@ -241,7 +275,7 @@ classdef Controller < Symphony.Core.ITimelineProducer
                 sequenceOutStream.Add(outStream);
             end
             
-            for i = 1:obj.InputDataStreams.Count
+            for i = 0:obj.InputDataStreams.Count-1
                 device = obj.InputDataStreams.Keys.Item(i);
                 sequenceInStream = obj.InputDataStreams.Values.Item(i);
                 

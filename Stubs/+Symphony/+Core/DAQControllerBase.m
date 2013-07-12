@@ -57,8 +57,12 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
             
             while obj.Running && ~obj.ShouldStop()
                 outgoingData = obj.NextOutgoingData();
+                
+                outputTime = obj.Clock.Now;
                 incomingData = obj.ProcessLoopIteration(outgoingData);
 
+                obj.PushOutputDataEvents(outputTime, outgoingData);
+                
                 obj.PushIncomingData(incomingData);
                 
                 iterationDuration = [0 0 0 0 0 obj.ProcessInterval.TotalSeconds]; % date vector
@@ -86,6 +90,19 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
         
         function outData = NextOutputDataForStream(obj, outStream)
             outData = outStream.PullOutputData(obj.ProcessInterval);
+        end
+        
+        
+        function PushOutputDataEvents(obj, outputTime, outgoingData)
+            out = outgoingData.GetEnumerator();
+            while out.MoveNext()
+                kvp = out.Current;
+                
+                outputStream = kvp.Key;
+                data = kvp.Value;
+
+                outputStream.DidOutputData(outputTime, data.Duration, []);
+            end
         end
         
         

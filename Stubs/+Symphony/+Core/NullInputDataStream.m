@@ -10,6 +10,10 @@ classdef NullInputDataStream < Symphony.Core.IInputDataStream
     methods
         
         function obj = NullInputDataStream(duration)
+            if nargin == 0
+                duration = Symphony.Core.TimeSpanOption.Indefinite;
+            end
+            
             obj.Duration = duration;
             obj.Position = System.TimeSpan.Zero;
         end

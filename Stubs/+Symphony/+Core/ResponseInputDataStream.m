@@ -1,4 +1,4 @@
-classdef ResponseInputDataStream < Symphony.Core.IInputDataSteam
+classdef ResponseInputDataStream < Symphony.Core.IInputDataStream
     
     properties (SetAccess = private)
         SampleRate

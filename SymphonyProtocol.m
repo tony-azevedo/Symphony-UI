@@ -422,8 +422,11 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     epoch.addParameter(fieldName{1}, fieldValue);
                 end
                 
-                % Run the epoch immediately.
-                obj.rigConfig.controller.RunEpoch(epoch.getCoreEpoch, obj.persistor);
+                % Queue the prepared epoch.
+                obj.queueEpoch(epoch);
+                                
+                % Run immediately.
+                obj.rigConfig.controller.Start(obj.persistor);
                 
                 % Flush the event queue.
                 drawnow;

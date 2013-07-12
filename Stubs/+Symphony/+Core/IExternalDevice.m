@@ -20,5 +20,6 @@ classdef IExternalDevice < Symphony.Core.ITimelineProducer
         outData = PullOutputData(obj, stream, duration);
         PushInputData(obj, stream, inData);
         ApplyBackground(obj);
+        DidOutputData(obj, stream, outputTime, timeSpan, config);
     end
 end

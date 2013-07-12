@@ -59,6 +59,10 @@ classdef DAQOutputStream < Symphony.Core.IDAQOutputStream
             obj.LastDataPulled = false;
         end
         
+        function DidOutputData(obj, outputTime, duration, config)
+            obj.Device.DidOutputData(obj, outputTime, duration, config);
+        end
+        
     end
     
 end

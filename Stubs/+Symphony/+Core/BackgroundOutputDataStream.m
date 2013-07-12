@@ -5,6 +5,8 @@ classdef BackgroundOutputDataStream < Symphony.Core.IOutputDataStream
         Position
         SampleRate
         IsAtEnd
+        OutputPosition
+        IsOutputAtEnd
     end
     
     properties (Access = private)
@@ -21,6 +23,7 @@ classdef BackgroundOutputDataStream < Symphony.Core.IOutputDataStream
             obj.Background = background;
             obj.Duration = duration;
             obj.Position = System.TimeSpan.Zero;
+            obj.OutputPosition = System.TimeSpan.Zero;
         end
         
         
@@ -62,6 +65,17 @@ classdef BackgroundOutputDataStream < Symphony.Core.IOutputDataStream
         
         function tf = get.IsAtEnd(obj)
             tf = obj.Duration ~= Symphony.Core.TimeSpanOption.Indefinite && obj.Position >= obj.Duration;
+        end
+        
+        
+        function DidOutputData(obj, outputTime, timeSpan, config)
+            
+            obj.OutputPosition = obj.OutputPosition + timeSpan;
+        end
+        
+        
+        function tf = get.IsOutputAtEnd(obj)
+            tf = obj.Duration ~= Symphony.Core.TimeSpanOption.Indefinite && obj.OutputPosition >= obj.Duration;
         end
         
     end

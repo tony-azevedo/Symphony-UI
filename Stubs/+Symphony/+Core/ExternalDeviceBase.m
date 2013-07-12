@@ -76,5 +76,10 @@ classdef ExternalDeviceBase < Symphony.Core.IExternalDevice
         
         end
         
+        
+        function DidOutputData(obj, stream, outputTime, timeSpan, config)
+            obj.Controller.DidOutputData(obj, outputTime, timeSpan, config);
+        end
+        
     end
 end

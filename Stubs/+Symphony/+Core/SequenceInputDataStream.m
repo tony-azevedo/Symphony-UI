@@ -35,7 +35,7 @@ classdef SequenceInputDataStream < Symphony.Core.IInputDataStream
             while unpushedData.Duration > System.TimeSpan.Zero
                 stream = obj.Streams.Peek();
 
-                if stream.Duration ~= TimeSpanOption.Indefinite
+                if stream.Duration ~= Symphony.Core.TimeSpanOption.Indefinite
                     dur = stream.Duration - stream.Position;
                 else
                     dur = unpushedData.Duration;
@@ -61,6 +61,23 @@ classdef SequenceInputDataStream < Symphony.Core.IInputDataStream
         function p = get.Position(obj)
             p = obj.Streams.Peek().Position;
         end        
+        
+        
+        function d = get.Duration(obj)
+            d = System.TimeSpan.Zero;
+            
+            itr = obj.Streams.GetEnumerator();
+            while itr.MoveNext()
+                stream = itr.Current;
+                
+                if stream.Duration == Symphony.Core.TimeSpanOption.Indefinite
+                    d = Symphony.Core.TimeSpanOption.Indefinite;
+                    break;
+                end
+                
+                d = d + stream.Duration;
+            end                    
+        end    
         
     end
     

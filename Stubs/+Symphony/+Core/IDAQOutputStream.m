@@ -12,5 +12,6 @@ classdef IDAQOutputStream < Symphony.Core.IDAQStream
     methods (Abstract)
         outData = PullOutputData(obj, duration)
         Reset(obj)
+        DidOutputData(obj, outputTime, duration, config)
     end
 end

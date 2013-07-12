@@ -1098,7 +1098,6 @@ classdef SymphonyUI < handle
         
         function closeRequestFcn(obj, ~, ~)
             % TODO: need to stop the protocol?
-            
             if ~isempty(obj.protocol)
                 obj.protocol.closeFigures();
             end
@@ -1121,7 +1120,7 @@ classdef SymphonyUI < handle
             setpref('Symphony', 'MainWindow_Position', get(obj.mainWindow, 'Position'));
             delete(obj.mainWindow);
                 
-            delete(obj);     
+            delete(obj);
         end
         
         

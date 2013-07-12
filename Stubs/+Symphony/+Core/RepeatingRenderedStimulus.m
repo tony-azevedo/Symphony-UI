@@ -1,14 +1,4 @@
-classdef RepeatingRenderedStimulus < handle
-   
-    properties
-        StimulusID
-        Units
-        Parameters
-    end
-    
-    properties (SetAccess = private)
-        Duration % TimeSpanOption
-    end
+classdef RepeatingRenderedStimulus < Symphony.Core.Stimulus
     
     properties (Access = private)
         Data
@@ -16,10 +6,8 @@ classdef RepeatingRenderedStimulus < handle
         
     methods
         
-        function obj = RepeatingRenderedStimulus(stimulusID, parameters, data, duration)            
-            obj.StimulusID = stimulusID;
-            obj.Units = Symphony.Core.Measurement.HomogenousBaseUnits(data.Data);
-            obj.Parameters = parameters;
+        function obj = RepeatingRenderedStimulus(stimulusID, parameters, data, duration)
+            obj = obj@Symphony.Core.Stimulus(stimulusID, Symphony.Core.Measurement.HomogenousBaseUnits(data.Data), parameters);
             
             obj.Data = data;
             obj.Duration = duration;

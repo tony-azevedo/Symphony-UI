@@ -54,7 +54,7 @@ classdef ArrayList < handle
         
         
         function Clear(obj)
-            obj.Items = cell(1, capacity);
+            obj.Items = cell(1, obj.Capacity);
             obj.ItemCount = 0;
         end
         
