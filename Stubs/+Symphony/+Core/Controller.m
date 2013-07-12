@@ -12,12 +12,16 @@ classdef Controller < Symphony.Core.ITimelineProducer
     end
     
     properties (Access = private)
-        CurrentEpoch
+        EpochQueue
+        OutputDataStreams
+        InputDataStreams
+        
+        IncompleteEpochs
+        Persistor
     end
     
     events
         ReceivedInputData
-        PushedInputData
         CompletedEpoch
         DiscardedEpoch
     end
@@ -26,6 +30,16 @@ classdef Controller < Symphony.Core.ITimelineProducer
         
         function obj = Controller()
             obj.Devices = System.Collections.ArrayList();
+            
+            obj.EpochQueue = System.Collections.Queue();
+            obj.IncompleteEpochs = System.Collections.Queue();
+            
+            obj.OutputDataStreams = NET.createGeneric('System.Collections.Generic.Dictionary', ...
+                {'Symphony.Core.IExternalDevice', 'Symphony.Core.SequenceOutputDataStream'});
+            
+            obj.InputDataStreams = NET.createGeneric('System.Collections.Generic.Dictionary', ...
+                {'Symphony.Core.IExternalDevice', 'Symphony.Core.SequenceInputDataStream'});
+            
             obj.BackgroundDataStreams = NET.createGeneric('System.Collections.Generic.Dictionary', ...
                 {'Symphony.Core.IExternalDevice', 'Symphony.Core.IOutputDataStream'});
         end
@@ -50,23 +64,70 @@ classdef Controller < Symphony.Core.ITimelineProducer
         end
         
         
-        function d = PullOutputData(obj, device, duration)
-            d = obj.CurrentEpoch.PullOutputData(device, duration);
+        function outData = PullOutputData(obj, device, duration)
+            outStream = obj.OutputDataStream.Item(device);
+            
+            outData = [];
+            
+            while isempty(outData) || outData.Duration < duration
+                if isempty(outData)
+                    outData = outStream.PullOutputData(duration);
+                else
+                    outData = outData.Concat(outStream.PullOutputData(duration - outData.Duration));
+                end
+                
+                obj.OutputPulled(device, outStream);
+            end            
+        end
+        
+        
+        function OutputPulled(obj, device, stream)
+            if stream.IsAtEnd
+                nextEpoch = obj.EpochQueue.Dequeue();
+                obj.BufferEpoch(nextEpoch);
+                obj.IncompleteEpochs.Enqueue(nextEpoch);
+            end
         end
         
         
         function PushInputData(obj, device, inData)
-            
             obj.OnReceivedInputData(device, inData);
             
-            if ~isempty(obj.CurrentEpoch) && obj.CurrentEpoch.Responses.ContainsKey(device)
-                response = obj.CurrentEpoch.Responses.Item(device);
-                
-                [head, ~] = inData.SplitData(obj.CurrentEpoch.Duration - response.Duration);
-                response.AppendData(head);
-            end
+            inStream = obj.InputDataStreams.Item(device);
             
-            obj.OnPushedInputData(obj.CurrentEpoch);
+            unpushedInData = inData;
+            
+            while unpushedInData.Duration > System.TimeSpan.Zero
+                if inStream.Duration ~= TimeSpanOption.Indefinite
+                    dur = inStream.Duration - inStream.Position;
+                else
+                    dur = unpushedInData.Duration;
+                end
+                
+                [head,rest] = unpushedInData.SplitData(dur);
+                
+                inStream.PushInputData(head);
+                unpushedInData = rest;
+            
+                obj.InputPushed(device, inStream);
+            end
+        end
+        
+        
+        function InputPushed(obj, device, stream)
+            
+            currentEpoch = obj.IncompleteEpochs.Peek();
+            
+            if currentEpoch.IsComplete  
+                
+                completedEpoch = obj.IncompleteEpochs.Dequeue();
+                
+                obj.OnCompletedEpoch(completedEpoch);
+                
+                if ~isempty(obj.Persistor) && completedEpoch.ShouldBePersisted
+                    persistor.Serialize(completedEpoch);
+                end
+            end
         end
         
         
@@ -75,23 +136,23 @@ classdef Controller < Symphony.Core.ITimelineProducer
         end
         
         
-        function OnPushedInputData(obj, epoch)
-            notify(obj, 'PushedInputData', Symphony.Core.TimeStampedEpochEventArgs(obj.Clock, epoch));
-        end    
-        
-        
         function OnCompletedEpoch(obj, epoch)
             notify(obj, 'CompletedEpoch', Symphony.Core.TimeStampedEpochEventArgs(obj.Clock, epoch));
         end
         
         
-        function EnqueueEpoch(obj, epoch) %#ok<INUSD>
-            error('The stub controller cannot EnqueueEpoch');
+        function OnDiscardedEpoch(obj, epoch)
+            notify(obj, 'DiscardedEpoch', Symphony.Core.TimeStampedEpochEventArgs(obj.Clock, epoch));
         end
         
         
-        function ClearEpochQueue(obj) %#ok<MANU>
-            
+        function EnqueueEpoch(obj, epoch)
+            obj.EpochQueue.Enqueue(epoch);
+        end
+        
+        
+        function ClearEpochQueue(obj)
+            obj.EpochQueue.Clear();
         end
         
         
@@ -100,21 +161,17 @@ classdef Controller < Symphony.Core.ITimelineProducer
         end
         
         
-        function RunEpoch(obj, epoch, persistor)
+        function Start(obj, persistor)
             obj.IsRunning = true;
             
-            epochCompleted = addlistener(obj, 'CompletedEpoch', @(src, data)obj.RequestStop());
-            cleanup = onCleanup(@()delete(epochCompleted));
-            
-            obj.Process(epoch, persistor);
+            obj.Process(obj.EpochQueue, persistor);
         end
         
         
-        function Process(obj, epoch, persistor)
-            
+        function Process(obj, epochQueue, persistor)
             cleanup = onCleanup(@()obj.Stop());
             
-            obj.ProcessLoop(epoch, persistor);
+            obj.ProcessLoop(epochQueue, persistor);
         end
         
         
@@ -123,31 +180,78 @@ classdef Controller < Symphony.Core.ITimelineProducer
         end
         
         
-        function ProcessLoop(obj, epoch, persistor)
-                       
-            inputPushed = addlistener(obj, 'PushedInputData', @(src, data)obj.InputPushed(src, data, persistor));
-            exceptionalStop = addlistener(obj.DAQController, 'ExceptionalStop', @(src, data)obj.ExceptionalStop(src, data));
+        function ProcessLoop(obj, epochQueue, persistor)
             
-            cleanup = onCleanup(@()delete([inputPushed exceptionalStop]));
-                        
-            obj.CurrentEpoch = epoch;
+            import Symphony.Core.*;
             
-            epoch.StartTime = now;
+            cleanup = onCleanup(@()obj.ProcessLoopCleanup());
+            
+            epoch = epochQueue.Dequeue();
+            
+            obj.Persistor = persistor;
+            
+            for i = 0:obj.Devices.Count-1
+                device = obj.Devices.Item(i);
+                
+                if device.OutputStreams.Count > 0
+                    obj.OutputDataStreams.Add(device, SequenceOutputDataStream());
+                end
+                
+                if device.InputStreams.Count > 0
+                    obj.InputDataStreams.Add(device, SequenceInputDataStream());
+                end
+            end
+            
+            obj.BufferEpoch(epoch);
+            obj.IncompleteEpochs.Enqueue(epoch);
+            
             obj.DAQController.Start(epoch.WaitForTrigger); 
         end
-                        
         
-        function InputPushed(obj, src, data, persistor) %#ok<INUSL>
-            epoch = obj.CurrentEpoch;
+        
+        function ProcessLoopCleanup(obj)
+            obj.Persistor = [];
             
-            if epoch.IsComplete
-                obj.OnCompletedEpoch(epoch);
+            obj.OutputDataStreams.Clear();
+            obj.InputDataStreams.Clear();
+                        
+            while obj.IncompleteEpochs.Count > 0
+                discardedEpoch = obj.IncompleteEpochs.Dequeue();
+                obj.OnDiscardedEpoch(discardedEpoch);
+            end
+        end
+           
                 
-                obj.DAQController.RequestStop();
+        function BufferEpoch(obj, epoch)
+            
+            import Symphony.Core.*;
+            
+            for i = 1:obj.OutputDataStreams.Count
+                device = obj.OutputDataStreams.Keys.Item(i);
+                sequenceOutStream = obj.OutputDataStreams.Values.Item(i);
                 
-                if ~isempty(persistor)
-                    persistor.Serialize(epoch);
+                if epoch.Stimuli.ContainsKey(device)
+                    outStream = StimulusOutputDataStream(epoch.Stimuli.Item(device), DAQController.ProcessInterval);
+                elseif epoch.Backgrounds.ContainsKey(device)
+                    outStream = BackgroundOutputDataStream(epoch.Backgrounds.Item(device));
+                else
+                    error('Epoch is missing a stimulus/background');
                 end
+                
+                sequenceOutStream.Add(outStream);
+            end
+            
+            for i = 1:obj.InputDataStreams.Count
+                device = obj.InputDataStreams.Keys.Item(i);
+                sequenceInStream = obj.InputDataStreams.Values.Item(i);
+                
+                if epoch.Responses.ContainsKey(device)
+                    inStream = ResponseInputDataStream(epoch.Responses.Item(device), epoch.Duration);
+                else
+                    inStream = NullInputDataStream(epoch.Duration);
+                end
+                
+                sequenceInStream.Add(inStream);
             end
         end
         

@@ -1,7 +1,7 @@
-classdef IOutputDataStream < handle
+classdef IOutputDataStream < Symphony.Core.IIODataStream
     
     methods (Abstract)
-        d = PullOutputData(obj, duration);
+        outData = PullOutputData(obj, duration);
     end
     
 end

@@ -59,6 +59,12 @@ classdef Dictionary < handle
         end
 
         
+        function Clear(obj)
+            obj.Keys.Clear();
+            obj.Values.Clear();
+        end
+        
+        
         function enum = GetEnumerator(obj)
             enum = Enumerator(@MoveNext);
             enum.State = 0;
