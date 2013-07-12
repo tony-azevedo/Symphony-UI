@@ -59,7 +59,7 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
                 outgoingData = obj.NextOutgoingData();
                 
                 outputTime = obj.Clock.Now;
-                incomingData = obj.ProcessLoopIteration(outgoingData);
+                incomingData = obj.ProcessLoopIteration(outgoingData, [], []);
 
                 obj.PushOutputDataEvents(outputTime, outgoingData);
                 
@@ -231,6 +231,6 @@ classdef DAQControllerBase < Symphony.Core.IDAQController
     end
     
     methods (Abstract)
-        incomingData = ProcessLoopIteration(obj, outputData);
+        incomingData = ProcessLoopIteration(obj, outputData, deficit, token);
     end
 end
