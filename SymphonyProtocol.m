@@ -30,7 +30,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
         numEpochsQueued             % The number of epochs queued by this protocol in the current run.
         numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
-        numEpochsToPreload = 30     % The number of epochs to preload into the epoch queue before the queue begins processing.
+        epochQueueSize = 30         % The number of epochs this protocol will attempt to maintain in the epoch queue at one time.
     end
         
     properties
@@ -267,7 +267,12 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function keepQueuing = continueQueuing(obj)
             % Override this method to return true/false to indicate if the protocol should continue queuing epochs.
             % numEpochsQueued is typically useful.
-                        
+                                    
+            % Pause queuing while the epoch queue has a full buffer.
+            while obj.numEpochsQueued - obj.numEpochsCompleted >= obj.epochQueueSize && strcmp(obj.state, 'running')
+                pause(0.01);
+            end
+            
             keepQueuing = strcmp(obj.state, 'running');
         end
         
@@ -365,8 +370,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 % Queue the prepared epoch.
                 obj.queueEpoch(epoch);
                 
-                % Start processing the epoch queue in the background after enough epochs have been preloaded.
-                if obj.numEpochsQueued >= obj.numEpochsToPreload && start && obj.continueRun()
+                % Start processing the epoch queue in the background after a buffer has been formed.
+                if obj.numEpochsQueued >= obj.epochQueueSize && start && obj.continueRun()
                     processTask = controller.StartAsync(obj.persistor);
                     start = false;
                 end
