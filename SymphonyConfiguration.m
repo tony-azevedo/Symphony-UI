@@ -37,7 +37,7 @@ classdef SymphonyConfiguration < dynamicprops
             if ~exist(obj.protocolsDir, 'dir')
                 msgs{end + 1} = ['protocolsDir does not exist (' obj.protocolsDir ')'];
             end
-            if ~isempty(obj.figureHandlersDir) && ~exist(config.figureHandlersDir, 'dir')
+            if ~isempty(obj.figureHandlersDir) && ~exist(obj.figureHandlersDir, 'dir')
                 msgs{end + 1} = ['figureHandlersDir does not exist (' obj.figureHandlersDir ')']; 
             end
             if ~exist(obj.sourcesFile, 'file')
