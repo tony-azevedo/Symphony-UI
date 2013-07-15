@@ -99,8 +99,8 @@ classdef EpochWrapper
                     error('Stimuli for digital outputs must contain only 0 or 1 values.');
                 end
                 
-                if epoch.Stimuli.ContainsKey(device)
-                    stim = epoch.Stimuli.Item(device);
+                if obj.epoch.Stimuli.ContainsKey(device)
+                    stim = obj.epoch.Stimuli.Item(device);
                     existingData = Measurement.ToQuantityArray(stim.Data.Data);
                 else
                     existingData = zeros(1, length(stimulusData));
