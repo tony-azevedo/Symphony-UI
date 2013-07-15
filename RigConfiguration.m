@@ -23,19 +23,19 @@ classdef RigConfiguration < handle
     
     
     properties (Hidden)
-        symphonyConfig                  % The Symphony configuration prepared by symphonyrc
+        userData                        % User data prepared by symphonyrc
         proxySampleRate                 % numeric, in Hz
     end
     
     
     methods
         
-        function obj = init(obj, symphonyConfig, daqControllerFactory)
+        function obj = init(obj, daqControllerFactory, userData)
             % This method is essentially a constructor. If you need to override the constructor, override this instead.
             
             import Symphony.Core.*;
             
-            obj.symphonyConfig = symphonyConfig;
+            obj.userData = userData;
                         
             obj.controller = Controller();
             obj.controller.DAQController = daqControllerFactory.createDAQ();
