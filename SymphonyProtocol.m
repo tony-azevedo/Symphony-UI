@@ -30,7 +30,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
         numEpochsQueued             % The number of epochs queued by this protocol in the current run.
         numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
-        epochQueueSize = 30         % The number of epochs this protocol will attempt to maintain in the epoch queue at one time.
+        epochQueueSize = 10         % The number of epochs this protocol will attempt to maintain in the epoch queue at one time.
     end
         
     properties
