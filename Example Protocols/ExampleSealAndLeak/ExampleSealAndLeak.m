@@ -52,9 +52,9 @@ classdef ExampleSealAndLeak < SymphonyProtocol
         end
         
         
-        function init(obj, symphonyConfig, rigConfig)
+        function init(obj, rigConfig, userData)
             % Call the base method.
-            init@SymphonyProtocol(obj, symphonyConfig, rigConfig);
+            init@SymphonyProtocol(obj, rigConfig, userData);
             
             % Epochs of indefinite duration, like those produced by this protocol, cannot be saved. 
             obj.allowSavingEpochs = false;

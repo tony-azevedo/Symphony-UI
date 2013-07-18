@@ -1,6 +1,6 @@
 % This class can be configured in your symphonyrc function. Do not modify this file directly.
 
-classdef SymphonyConfiguration < dynamicprops
+classdef SymphonyConfiguration < handle
     
     properties
         % Directory containing rig configurations.
@@ -23,6 +23,9 @@ classdef SymphonyConfiguration < dynamicprops
         
         % Factory that defines the creation of the EpochPersistor used by Symphony.
         epochPersistorFactory
+        
+        % A variable passed to all protocols and rig configurations.
+        userData
     end
     
     
