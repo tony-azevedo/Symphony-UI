@@ -105,7 +105,7 @@ classdef ExamplePulseFamily < SymphonyProtocol
             queueEpoch@SymphonyProtocol(obj, epoch);
             
             % Do we need to queue an interval epoch?
-            if obj.interpulseInterval <= 0 || ~obj.continueQueuing()
+            if obj.interpulseInterval <= 0
                 return;
             end
             
