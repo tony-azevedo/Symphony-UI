@@ -2,7 +2,7 @@
 
 function handle = funcAtPath(functionName, path)
 
-    file = fullfile(path, functionName);
+    file = fullfile(path, [functionName '.m']);
     if exist(file, 'file') ~= 2
         error([file ' does not exist']);
     end

@@ -21,10 +21,8 @@
         <appender-ref ref="Console" />
         <appender-ref ref="RollingFile" />
     </root>
-	
-    <!--
-	<logger name="Symphony.ExternalDevices.MultiClampDevice">
-		<level value="WARN" />
+    
+    <logger name="Symphony.ExternalDevices.MultiClampDevice">
+        <level value="WARN" />
     </logger>
-    -->
 </log4net>
