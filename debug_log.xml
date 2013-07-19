@@ -23,6 +23,6 @@
     </root>
     
     <logger name="Symphony.ExternalDevices.MultiClampDevice">
-		<level value="WARN" />
+        <level value="WARN" />
     </logger>
 </log4net>
