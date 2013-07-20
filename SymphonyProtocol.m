@@ -30,7 +30,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
         numEpochsQueued             % The number of epochs queued by this protocol in the current run.
         numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
-        epochQueueSize = 10         % The number of epochs this protocol will attempt to maintain in the epoch queue at one time.
+        epochQueueSize = 5          % The number of epochs this protocol will attempt to maintain in the epoch queue as a buffer.
     end
         
     properties
@@ -56,7 +56,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.state = state;
             notify(obj, 'StateChanged');
         end
-            
+        
         
         function dn = requiredDeviceNames(obj) %#ok<MANU>
             % Override this method to indicate the names of devices that are required for this protocol.
@@ -204,7 +204,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             protocolParams = obj.parameters();
             p = structDiff(epoch.parameters, protocolParams);
         end
-                    
+        
         
         function setDeviceBackground(obj, deviceName, background, units)
             % Set a constant background value for a device in the absence of an epoch.            
@@ -245,9 +245,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function completeEpoch(obj, epoch)
             % Override this method to perform any post-analysis, etc. on a completed epoch.
-            % !! Do not flush the event queue in this method (using drawnow, figure, input, etc.) !!
+            % !! Do not flush the event queue in this method (using drawnow, figure, input, pause, etc.) !!
             
             obj.numEpochsCompleted = obj.numEpochsCompleted + 1;
+            
             obj.updateFigures(epoch);
             
             if strcmp(obj.state, 'running') && ~obj.continueRun()
@@ -258,7 +259,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         function discardEpoch(obj, epoch) %#ok<INUSD>
             % Override this method to perform any actions if an epoch is discarded.
-            % !! Do not flush the event queue in this method (using drawnow, figure, input, etc.) !!
+            % !! Do not flush the event queue in this method (using drawnow, figure, input, pause, etc.) !!
             
             obj.stop();
         end
@@ -267,11 +268,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function keepQueuing = continueQueuing(obj)
             % Override this method to return true/false to indicate if the protocol should continue queuing epochs.
             % numEpochsQueued is typically useful.
-                                    
-            % Pause queuing while the epoch queue has a full buffer.
-            while obj.numEpochsQueued - obj.numEpochsCompleted >= obj.epochQueueSize && strcmp(obj.state, 'running')
-                pause(0.01);
-            end
             
             keepQueuing = strcmp(obj.state, 'running');
         end
@@ -310,13 +306,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 @(src, data)obj.discardEpoch(EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name))));
                         
             try
-                if isa(obj.rigConfig.controller, 'System.Object')
-                    % A .NET-based controller can process asynchronously.
-                    obj.process();
-                else
-                    % A Matlab-based controller must process synchronously (for simulation only).
-                    obj.processSync();
-                end
+                obj.process();
             catch e
                 obj.stop();
                 waitfor(errordlg(['An error occurred while running the protocol.' char(10) char(10) getReport(e, 'extended', 'hyperlinks', 'off')]));
@@ -342,9 +332,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             start = true;
             controller = obj.rigConfig.controller;
-            
+                        
             % Queue until the protocol tells us to stop.
-            while obj.continueQueuing()
+            while obj.continueQueuing() && obj.continueRun()
                 
                 % Create a new wrapped core epoch.
                 epoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
@@ -370,14 +360,17 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 % Queue the prepared epoch.
                 obj.queueEpoch(epoch);
                 
-                % Start processing the epoch queue in the background after a buffer has been formed.
-                if obj.numEpochsQueued >= obj.epochQueueSize && start && obj.continueRun()
+                % Start processing the epoch queue in the background after a sufficient buffer has been formed.
+                if start && obj.numEpochsQueued - obj.numEpochsCompleted >= obj.epochQueueSize
                     processTask = controller.StartAsync(obj.persistor);
                     start = false;
                 end
                 
                 % Flush the event queue.
                 drawnow;
+                
+                % Wait to queue more epochs, if necessary.
+                obj.waitToContinueQueuing();
             end     
             
             % If the epoch queue did not start processing while queuing, start it now.
@@ -400,50 +393,20 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
         
         
-        function processSync(obj)
-            % This is the core method that processes the protocol synchronously. Called by run() for simulation only.
-            
-            import Symphony.Core.*;
-                        
-            while obj.continueQueuing()
-                % Create a new wrapped core epoch.
-                epoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
-
-                % Prepare the epoch: set backgrounds, add stimuli, record responses, add parameters, etc.
-                obj.prepareEpoch(epoch);
-
-                % Persist the params now that the sub-class has had a chance to tweak them.
-                pluginParams = obj.parameters(true);
-                fields = fieldnames(pluginParams);
-                for fieldName = fields'
-                    fieldValue = pluginParams.(fieldName{1});
-                    if ~ischar(fieldValue) && length(fieldValue) > 1
-                        if isnumeric(fieldValue)
-                            fieldValue = sprintf('%g ', fieldValue);
-                        else
-                            error('Parameter values must be scalar or vectors of numbers.');
-                        end
-                    end
-                    epoch.addParameter(fieldName{1}, fieldValue);
-                end
-                
-                % Queue the prepared epoch.
-                obj.queueEpoch(epoch);
-                                
-                % Run the queue immediately.
-                obj.rigConfig.controller.Start(obj.persistor);
-                
-                % Flush the event queue.
-                drawnow;
-            end                
-        end
-                
-        
         function queueEpoch(obj, epoch)
             % This is the core method that enqueues an epoch into the epoch queue. Called by process().
             
             obj.rigConfig.controller.EnqueueEpoch(epoch.getCoreEpoch);
             obj.numEpochsQueued = obj.numEpochsQueued + 1;
+        end
+        
+        
+        function waitToContinueQueuing(obj)
+            % This is the core method that blocks queuing another epoch until a condition has been reached. Called by process().
+            
+            while obj.numEpochsQueued - obj.numEpochsCompleted >= obj.epochQueueSize && strcmp(obj.state, 'running')
+                pause(0.01);
+            end
         end
         
         
