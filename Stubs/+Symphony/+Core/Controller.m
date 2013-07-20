@@ -16,6 +16,9 @@ classdef Controller < Symphony.Core.ITimelineProducer
         OutputDataStreams
         InputDataStreams
         
+        IsPauseRequested
+        IsStopRequested
+        
         IncompleteEpochs
         Persistor
     end
@@ -86,12 +89,21 @@ classdef Controller < Symphony.Core.ITimelineProducer
             import Symphony.Core.*;
             
             if stream.IsAtEnd
+                didBufferEpoch = false;
+                
                 if obj.EpochQueue.Count > 0
-                    nextEpoch = obj.EpochQueue.Dequeue();
+                    shouldBufferEpoch = ~obj.IsPauseRequested && ~obj.IsStopRequested;
                     
-                    obj.BufferEpoch(nextEpoch);
-                    obj.IncompleteEpochs.Enqueue(nextEpoch);
-                else
+                    if shouldBufferEpoch
+                        nextEpoch = obj.EpochQueue.Dequeue();
+
+                        obj.BufferEpoch(nextEpoch);
+                        obj.IncompleteEpochs.Enqueue(nextEpoch);
+                        didBufferEpoch = true;
+                    end
+                end
+                
+                if ~didBufferEpoch
                     for i = 0:obj.OutputDataStreams.Count-1
                         device = obj.OutputDataStreams.Keys.Item(i);
                         sequenceOutStream = obj.OutputDataStreams.Values.Item(i);
@@ -188,15 +200,13 @@ classdef Controller < Symphony.Core.ITimelineProducer
         end
         
         
-        function task = StartAsync(obj, persistor) %#ok<STOUT,INUSD>
-            error('The stub controller cannot StartAsync');
-        end
-        
-        
-        function Start(obj, persistor)
+        function task = StartAsync(obj, persistor)
             obj.IsRunning = true;
+            obj.IsPauseRequested = false;
+            obj.IsStopRequested = false;
             
-            obj.Process(obj.EpochQueue, persistor);
+            task = System.Tasks.Task(@()obj.Process(obj.EpochQueue, persistor));
+            task.Start();
         end
         
         
@@ -216,28 +226,30 @@ classdef Controller < Symphony.Core.ITimelineProducer
             
             import Symphony.Core.*;
             
-            cleanup = onCleanup(@()obj.ProcessLoopCleanup());
+            if epochQueue.Count > 0
+                cleanup = onCleanup(@()obj.ProcessLoopCleanup());
             
-            epoch = epochQueue.Dequeue();
+                epoch = epochQueue.Dequeue();
             
-            obj.Persistor = persistor;
-            
-            for i = 0:obj.Devices.Count-1
-                device = obj.Devices.Item(i);
-                
-                if device.OutputStreams.Count > 0
-                    obj.OutputDataStreams.Add(device, SequenceOutputDataStream());
+                obj.Persistor = persistor;
+
+                for i = 0:obj.Devices.Count-1
+                    device = obj.Devices.Item(i);
+
+                    if device.OutputStreams.Count > 0
+                        obj.OutputDataStreams.Add(device, SequenceOutputDataStream());
+                    end
+
+                    if device.InputStreams.Count > 0
+                        obj.InputDataStreams.Add(device, SequenceInputDataStream());
+                    end
                 end
-                
-                if device.InputStreams.Count > 0
-                    obj.InputDataStreams.Add(device, SequenceInputDataStream());
-                end
+
+                obj.BufferEpoch(epoch);
+                obj.IncompleteEpochs.Enqueue(epoch);
+
+                obj.DAQController.Start(epoch.WaitForTrigger);
             end
-            
-            obj.BufferEpoch(epoch);
-            obj.IncompleteEpochs.Enqueue(epoch);
-            
-            obj.DAQController.Start(epoch.WaitForTrigger); 
         end
         
         
@@ -304,11 +316,12 @@ classdef Controller < Symphony.Core.ITimelineProducer
         
         
         function RequestPause(obj)
-            
+            obj.IsPauseRequested = true;
         end
         
         
         function RequestStop(obj)
+            obj.IsStopRequested = true;
             obj.DAQController.RequestStop();
         end
         
