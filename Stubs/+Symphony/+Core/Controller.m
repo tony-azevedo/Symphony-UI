@@ -205,7 +205,7 @@ classdef Controller < Symphony.Core.ITimelineProducer
             obj.IsPauseRequested = false;
             obj.IsStopRequested = false;
             
-            task = System.Tasks.Task(@()obj.Process(obj.EpochQueue, persistor));
+            task = System.Threading.Tasks.Task(@()obj.Process(obj.EpochQueue, persistor));
             task.Start();
         end
         

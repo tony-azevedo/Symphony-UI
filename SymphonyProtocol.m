@@ -369,6 +369,11 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 % Queue the prepared epoch.
                 obj.queueEpoch(epoch);
                 
+                if ~isa(controller, 'System.Object')
+                    % The stub controller must run after each queued epoch.
+                    processTask = controller.StartAsync(obj.persistor);
+                end
+                
                 obj.waitToContinueQueuing();
             end
 
