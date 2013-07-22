@@ -15,6 +15,7 @@ classdef ExamplePulse < SymphonyProtocol
         preAndTailSignal = -60
         ampHoldSignal = -60
         numberOfAverages = uint16(5)
+        interpulseInterval = 0
     end
     
     methods           
@@ -89,6 +90,15 @@ classdef ExamplePulse < SymphonyProtocol
             [stim, units] = obj.generateStimulus();
             epoch.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units);  
         end
+
+        
+        function queueEpoch(obj, epoch)            
+            % Call the base method to queue the actual epoch.
+            queueEpoch@SymphonyProtocol(obj, epoch);
+            
+            % Queue the inter-pulse interval after queuing the epoch.
+            obj.queueInterval(obj.interpulseInterval);
+        end        
         
         
         function keepQueuing = continueQueuing(obj)
@@ -115,4 +125,3 @@ classdef ExamplePulse < SymphonyProtocol
     end
     
 end
-
