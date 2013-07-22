@@ -247,6 +247,11 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % Override this method to perform any post-analysis, etc. on a completed epoch.
             % !! Do not flush the event queue in this method (using drawnow, figure, input, pause, etc.) !!
             
+            % Disregard interval epochs.
+            if epoch.containsParameter('isIntervalEpoch')
+                return;
+            end
+            
             obj.numEpochsCompleted = obj.numEpochsCompleted + 1;
             
             obj.updateFigures(epoch);
@@ -386,6 +391,42 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             obj.rigConfig.controller.EnqueueEpoch(epoch.getCoreEpoch);
             obj.numEpochsQueued = obj.numEpochsQueued + 1;
+        end
+        
+        
+        function queueInterval(obj, durationInSeconds)
+            % Queues an inter-epoch interval of given duration into the epoch queue.
+            
+            import Symphony.Core.*;
+            
+            if durationInSeconds <= 0
+                return;
+            end
+            
+            % Create an interval epoch.
+            intervalEpoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
+            intervalEpoch.addParameter('isIntervalEpoch', true);
+            
+            intervalEpoch.shouldBePersisted = false;
+            
+            % Set the interval epoch background values to the device background for all devices.
+            devices = obj.rigConfig.devices();
+            for i = 1:length(devices)
+                device = devices{i};
+                
+                if ~isempty(device.OutputSampleRate)
+                    intervalEpoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
+                end
+            end
+            
+            % Add a stimulus of duration equal to the inter-pulse interval.            
+            [background, units] = intervalEpoch.getBackground(obj.amp);
+            pts = round(durationInSeconds * obj.sampleRate);
+            interval = ones(1, pts) * background;
+            intervalEpoch.addStimulus(obj.amp, 'Interpulse_Interval', interval, units);
+            
+            % Queue the interval epoch.
+            obj.rigConfig.controller.EnqueueEpoch(intervalEpoch.getCoreEpoch);
         end
         
         
