@@ -30,7 +30,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
         numEpochsQueued             % The number of epochs queued by this protocol in the current run.
         numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
-        epochQueueSize = 5          % The number of epochs this protocol will attempt to maintain in the epoch queue as a buffer.
+        epochQueueSize = 5          % The maximum number of epochs this protocol will queue into the epoch queue at one time.
     end
         
     properties
@@ -293,7 +293,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             if ~strcmp(obj.state, 'paused')
                 % Prepare the run.
-                obj.prepareRun()
+                obj.prepareRun();
             end
             
             obj.setState('running');
@@ -330,8 +330,12 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             import Symphony.Core.*;
             
-            start = true;
             controller = obj.rigConfig.controller;
+            
+            % Start processing the epoch queue in the background.
+            processTask = controller.StartAsync(obj.persistor);
+            
+            obj.waitToContinueQueuing();
                         
             % Queue until the protocol tells us to stop.
             while obj.continueQueuing() && obj.continueRun()
@@ -360,23 +364,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 % Queue the prepared epoch.
                 obj.queueEpoch(epoch);
                 
-                % Start processing the epoch queue in the background after a sufficient buffer has been formed.
-                if start && obj.numEpochsQueued - obj.numEpochsCompleted >= obj.epochQueueSize
-                    processTask = controller.StartAsync(obj.persistor);
-                    start = false;
-                end
-                
-                % Flush the event queue.
-                drawnow;
-                
-                % Wait to queue more epochs, if necessary.
                 obj.waitToContinueQueuing();
-            end     
-            
-            % If the epoch queue did not start processing while queuing, start it now.
-            if start && obj.continueRun()
-                processTask = controller.StartAsync(obj.persistor);
-                start = false;
             end
 
             % Spin until the controller stops.
@@ -387,7 +375,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % Wait for all CompletedEpoch events.
             controller.WaitForCompletedEpochTasks();
 
-            if ~start && processTask.IsFaulted
+            if processTask.IsFaulted
                 error(netReport(NET.NetException('', '', processTask.Exception.Flatten())));
             end
         end
