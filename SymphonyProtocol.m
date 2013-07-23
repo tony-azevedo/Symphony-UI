@@ -28,9 +28,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         allowPausing = true         % An indication if this protocol allows pausing during acquisition.
         persistor = []              % The persistor to use with each epoch.
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
+        epochQueueSize = 5          % The maximum number of epochs this protocol will queue into the epoch queue at one time.
         numEpochsQueued             % The number of epochs queued by this protocol in the current run.
         numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
-        epochQueueSize = 5          % The maximum number of epochs this protocol will queue into the epoch queue at one time.
     end
         
     properties
@@ -64,15 +64,17 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
         
         
-        function [c , msg] = isCompatibleWithRigConfig(obj, rigConfig)            
-            c = true;
+        function [tf , msg] = isCompatibleWithRigConfig(obj, rigConfig)
+            % Returns true/false and a message to indicate if a given rig configuration is compatible with this protocol.
+            
+            tf = true;
             msg = '';
             
             deviceNames = obj.requiredDeviceNames();
             for i = 1:length(deviceNames)
                 device = rigConfig.deviceWithName(deviceNames{i});
                 if isempty(device)
-                    c = false;
+                    tf = false;
                     msg = ['The protocol cannot be run because there is no ''' deviceNames{i} ''' device.'];
                     break;
                 end                
@@ -236,6 +238,44 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             % Apply the background immediately.
             device.ApplyBackground();
+        end
+        
+        
+        function queueInterval(obj, durationInSeconds)
+            % Queues an inter-epoch interval of given duration.
+            
+            import Symphony.Core.*;
+            
+            if durationInSeconds <= 0
+                error('An interval must be greater than zero seconds');
+            end
+            
+            % Create an interval epoch.
+            intervalEpoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
+            intervalEpoch.addParameter('isIntervalEpoch', true);
+            
+            intervalEpoch.shouldBePersisted = false;
+            
+            outDevices = obj.rigConfig.outputDevices();
+            if isempty(outDevices)
+                error('There must be at least one output device to add an interval.');
+            end
+            
+            % Set the interval epoch background values to the device background for all output devices.
+            for i = 1:length(outDevices)
+                device = outDevices{i};
+                intervalEpoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
+            end
+            
+            % Add a stimulus of background to give the epoch duration.
+            deviceName = char(outDevices{1}.Name);
+            [background, units] = intervalEpoch.getBackground(deviceName);
+            pts = round(durationInSeconds * obj.sampleRate);
+            interval = ones(1, pts) * background;
+            intervalEpoch.addStimulus(deviceName, 'Interepoch_Interval', interval, units);
+            
+            % Queue the interval epoch.
+            obj.rigConfig.controller.EnqueueEpoch(intervalEpoch.getCoreEpoch);
         end
         
         
@@ -408,44 +448,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             obj.rigConfig.controller.EnqueueEpoch(epoch.getCoreEpoch);
             obj.numEpochsQueued = obj.numEpochsQueued + 1;
-        end
-        
-        
-        function queueInterval(obj, durationInSeconds)
-            % Queues an inter-epoch interval of given duration into the epoch queue.
-            
-            import Symphony.Core.*;
-            
-            if durationInSeconds <= 0
-                error('An interval must be greater than zero seconds');
-            end
-            
-            % Create an interval epoch.
-            intervalEpoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
-            intervalEpoch.addParameter('isIntervalEpoch', true);
-            
-            intervalEpoch.shouldBePersisted = false;
-            
-            outDevices = obj.rigConfig.outputDevices();
-            if isempty(outDevices)
-                error('There must be at least one output device to add an interval.');
-            end
-            
-            % Set the interval epoch background values to the device background for all output devices.
-            for i = 1:length(outDevices)
-                device = outDevices{i};
-                intervalEpoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
-            end
-            
-            % Add a stimulus of background to give the epoch duration.
-            deviceName = char(outDevices{1}.Name);
-            [background, units] = intervalEpoch.getBackground(deviceName);
-            pts = round(durationInSeconds * obj.sampleRate);
-            interval = ones(1, pts) * background;
-            intervalEpoch.addStimulus(deviceName, 'Interepoch_Interval', interval, units);
-            
-            % Queue the interval epoch.
-            obj.rigConfig.controller.EnqueueEpoch(intervalEpoch.getCoreEpoch);
         end
         
         
