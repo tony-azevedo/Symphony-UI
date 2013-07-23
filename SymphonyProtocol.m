@@ -178,22 +178,18 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 epoch.addKeyword(obj.epochKeywords{i});
             end
             
-            % Set default epoch backgrounds and record default responses.
-            devices = obj.rigConfig.devices();
-            for i = 1:length(devices)
-                device = devices{i};
-                
-                % Set a default epoch background for all devices with output streams.
-                outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
-                if ~isempty(outStreams)
-                    epoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
-                end
-                
-                % Record a response for all devices with input streams.
-                inStreams = enumerableToCellArray(device.InputStreams, 'Symphony.Core.IDAQInputStream');
-                if ~isempty(inStreams)
-                    epoch.recordResponse(char(device.Name));
-                end
+            % Set default epoch backgrounds.
+            outDevices = obj.rigConfig.outputDevices();
+            for i = 1:length(outDevices)
+                device = outDevices{i};
+                epoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
+            end
+            
+            % Record default responses.
+            inDevices = obj.rigConfig.inputDevices();
+            for i = 1:length(inDevices)
+                device = inDevices{i};
+                epoch.recordResponse(char(device.Name));
             end
         end
         
@@ -414,21 +410,23 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             intervalEpoch.shouldBePersisted = false;
             
-            % Set the interval epoch background values to the device background for all devices.
-            devices = obj.rigConfig.devices();
-            for i = 1:length(devices)
-                device = devices{i};
-                
-                if ~isempty(device.OutputSampleRate)
-                    intervalEpoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
-                end
+            outDevices = obj.rigConfig.outputDevices();
+            if isempty(outDevices)
+                error('There must be at least one output device to add an interval.');
             end
             
-            % Add a stimulus of duration equal to the inter-pulse interval.            
-            [background, units] = intervalEpoch.getBackground(obj.amp);
+            % Set the interval epoch background values to the device background for all output devices.
+            for i = 1:length(outDevices)
+                device = outDevices{i};
+                intervalEpoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
+            end
+            
+            % Add a stimulus of duration equal to the inter-pulse interval.
+            deviceName = char(outDevices{1}.Name);            
+            [background, units] = intervalEpoch.getBackground(deviceName);
             pts = round(durationInSeconds * obj.sampleRate);
             interval = ones(1, pts) * background;
-            intervalEpoch.addStimulus(obj.amp, 'Interpulse_Interval', interval, units);
+            intervalEpoch.addStimulus(deviceName, 'Interpulse_Interval', interval, units);
             
             % Queue the interval epoch.
             obj.rigConfig.controller.EnqueueEpoch(intervalEpoch.getCoreEpoch);
