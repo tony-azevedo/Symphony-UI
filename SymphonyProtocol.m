@@ -28,9 +28,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         allowPausing = true         % An indication if this protocol allows pausing during acquisition.
         persistor = []              % The persistor to use with each epoch.
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
+        epochQueueSize = 5          % The maximum number of epochs this protocol will queue into the epoch queue at one time.
         numEpochsQueued             % The number of epochs queued by this protocol in the current run.
         numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
-        epochQueueSize = 5          % The maximum number of epochs this protocol will queue into the epoch queue at one time.
     end
         
     properties
@@ -64,15 +64,17 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
         
         
-        function [c , msg] = isCompatibleWithRigConfig(obj, rigConfig)            
-            c = true;
+        function [tf , msg] = isCompatibleWithRigConfig(obj, rigConfig)
+            % Returns true/false and a message to indicate if a given rig configuration is compatible with this protocol.
+            
+            tf = true;
             msg = '';
             
             deviceNames = obj.requiredDeviceNames();
             for i = 1:length(deviceNames)
                 device = rigConfig.deviceWithName(deviceNames{i});
                 if isempty(device)
-                    c = false;
+                    tf = false;
                     msg = ['The protocol cannot be run because there is no ''' deviceNames{i} ''' device.'];
                     break;
                 end                
@@ -239,30 +241,51 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
         
         
+        function queueInterval(obj, durationInSeconds)
+            % Queues an inter-epoch interval of given duration.
+            
+            import Symphony.Core.*;
+            
+            if durationInSeconds <= 0
+                error('An interval must be greater than zero seconds');
+            end
+            
+            % Create an interval epoch.
+            intervalEpoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
+            intervalEpoch.addParameter('isIntervalEpoch', true);
+            
+            intervalEpoch.shouldBePersisted = false;
+            
+            outDevices = obj.rigConfig.outputDevices();
+            if isempty(outDevices)
+                error('There must be at least one output device to add an interval.');
+            end
+            
+            % Set the interval epoch background values to the device background for all output devices.
+            for i = 1:length(outDevices)
+                device = outDevices{i};
+                intervalEpoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
+            end
+            
+            % Add a stimulus of background to give the epoch duration.
+            deviceName = char(outDevices{1}.Name);
+            [background, units] = intervalEpoch.getBackground(deviceName);
+            pts = round(durationInSeconds * obj.sampleRate);
+            interval = ones(1, pts) * background;
+            intervalEpoch.addStimulus(deviceName, 'Interepoch_Interval', interval, units);
+            
+            % Queue the interval epoch.
+            obj.rigConfig.controller.EnqueueEpoch(intervalEpoch.getCoreEpoch);
+        end
+        
+        
         function completeEpoch(obj, epoch)
             % Override this method to perform any post-analysis, etc. on a completed epoch.
             % !! Do not flush the event queue in this method (using drawnow, figure, input, pause, etc.) !!
             
-            % Disregard interval epochs.
-            if epoch.containsParameter('isIntervalEpoch')
-                return;
-            end
-            
             obj.numEpochsCompleted = obj.numEpochsCompleted + 1;
             
             obj.updateFigures(epoch);
-            
-            if strcmp(obj.state, 'running') && ~obj.continueRun()
-                obj.stop();
-            end
-        end
-        
-        
-        function discardEpoch(obj, epoch) %#ok<INUSD>
-            % Override this method to perform any actions if an epoch is discarded.
-            % !! Do not flush the event queue in this method (using drawnow, figure, input, pause, etc.) !!
-            
-            obj.stop();
         end
         
         
@@ -299,15 +322,38 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             obj.setState('running');
             
-            % Add event listeners to the controller.
-            epochCompleted = addlistener(obj.rigConfig.controller, 'CompletedEpoch', ...
-                @(src, data)obj.completeEpoch(EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name))));
+            % Add an event listener for completed epochs.
+            epochCompleted = addlistener(obj.rigConfig.controller, 'CompletedEpoch', @completedEpoch);
             
-            epochDiscarded = addlistener(obj.rigConfig.controller, 'DiscardedEpoch', ...
-                @(src, data)obj.discardEpoch(EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name))));
-                        
+            function completedEpoch(src, data) %#ok<INUSL>
+                % Wrap the completed epoch.
+                epoch = EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name));
+                
+                % Disregard interval epochs.
+                if epoch.containsParameter('isIntervalEpoch')
+                    return;
+                end
+                
+                obj.completeEpoch(epoch);
+                
+                % Stop if this is the last epoch the protocol needed to complete.
+                if strcmp(obj.state, 'running') && ~obj.continueRun()
+                    obj.stop();
+                end
+            end
+            
+            % Add an event listener for discarded epochs.
+            epochDiscarded = addlistener(obj.rigConfig.controller, 'DiscardedEpoch', @discardedEpoch);
+            
+            function discardedEpoch(src, data) %#ok<INUSD>
+                obj.stop();
+            end
+            
+            % Process the protocol.
             try
-                obj.process();
+                if obj.continueRun()
+                    obj.process();
+                end
             catch e
                 obj.stop();
                 waitfor(errordlg(['An error occurred while running the protocol.' char(10) char(10) getReport(e, 'extended', 'hyperlinks', 'off')]));
@@ -339,7 +385,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.waitToContinueQueuing();
                         
             % Queue until the protocol tells us to stop.
-            while obj.continueQueuing() && obj.continueRun()
+            while obj.continueQueuing()
                 
                 % Create a new wrapped core epoch.
                 epoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
@@ -380,7 +426,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             % Wait for all CompletedEpoch events.
             controller.WaitForCompletedEpochTasks();
-
+            
             if processTask.IsFaulted
                 error(netReport(NET.NetException('', '', processTask.Exception.Flatten())));
             end
@@ -391,45 +437,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % This is the core method that enqueues an epoch into the epoch queue. Called by process().
             
             obj.rigConfig.controller.EnqueueEpoch(epoch.getCoreEpoch);
+            
             obj.numEpochsQueued = obj.numEpochsQueued + 1;
-        end
-        
-        
-        function queueInterval(obj, durationInSeconds)
-            % Queues an inter-epoch interval of given duration into the epoch queue.
-            
-            import Symphony.Core.*;
-            
-            if durationInSeconds <= 0
-                return;
-            end
-            
-            % Create an interval epoch.
-            intervalEpoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
-            intervalEpoch.addParameter('isIntervalEpoch', true);
-            
-            intervalEpoch.shouldBePersisted = false;
-            
-            outDevices = obj.rigConfig.outputDevices();
-            if isempty(outDevices)
-                error('There must be at least one output device to add an interval.');
-            end
-            
-            % Set the interval epoch background values to the device background for all output devices.
-            for i = 1:length(outDevices)
-                device = outDevices{i};
-                intervalEpoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
-            end
-            
-            % Add a stimulus of duration equal to the inter-pulse interval.
-            deviceName = char(outDevices{1}.Name);            
-            [background, units] = intervalEpoch.getBackground(deviceName);
-            pts = round(durationInSeconds * obj.sampleRate);
-            interval = ones(1, pts) * background;
-            intervalEpoch.addStimulus(deviceName, 'Interpulse_Interval', interval, units);
-            
-            % Queue the interval epoch.
-            obj.rigConfig.controller.EnqueueEpoch(intervalEpoch.getCoreEpoch);
         end
         
         
@@ -482,7 +491,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 if strcmp(class(obj.figureHandlers{i}), handlerClass) && isequal(obj.figureHandlerParams{i}, varargin)
                     handler = obj.figureHandlers{i};
                     handler.showFigure();
-                    return
+                    return;
                 end
             end
             

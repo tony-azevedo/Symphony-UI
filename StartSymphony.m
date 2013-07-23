@@ -12,7 +12,6 @@ function StartSymphony()
     addpath(fullfile(parentDir, 'Dependencies'));
     addpath(fullfile(parentDir, 'Simulations'));
     addpath(fullfile(parentDir, 'Utilities'));
-    addpath(fullfile(parentDir, 'StimGL'));
     
     % Use .NET framework stubs if .NET is not supported.
     if ~isDotNetSupported()
