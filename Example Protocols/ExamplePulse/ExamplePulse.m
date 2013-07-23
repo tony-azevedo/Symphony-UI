@@ -97,7 +97,9 @@ classdef ExamplePulse < SymphonyProtocol
             queueEpoch@SymphonyProtocol(obj, epoch);
             
             % Queue the inter-pulse interval after queuing the epoch.
-            obj.queueInterval(obj.interpulseInterval);
+            if obj.interpulseInterval > 0
+                obj.queueInterval(obj.interpulseInterval);
+            end
         end        
         
         

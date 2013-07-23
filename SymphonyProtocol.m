@@ -414,7 +414,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             import Symphony.Core.*;
             
             if durationInSeconds <= 0
-                return;
+                error('An interval must be greater than zero seconds');
             end
             
             % Create an interval epoch.
@@ -495,7 +495,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 if strcmp(class(obj.figureHandlers{i}), handlerClass) && isequal(obj.figureHandlerParams{i}, varargin)
                     handler = obj.figureHandlers{i};
                     handler.showFigure();
-                    return
+                    return;
                 end
             end
             
