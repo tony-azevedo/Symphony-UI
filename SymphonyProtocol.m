@@ -319,8 +319,11 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 obj.discardEpoch(epoch);
             end
             
+            % Process the protocol.
             try
-                obj.process();
+                if obj.continueRun()
+                    obj.process();
+                end
             catch e
                 obj.stop();
                 waitfor(errordlg(['An error occurred while running the protocol.' char(10) char(10) getReport(e, 'extended', 'hyperlinks', 'off')]));
