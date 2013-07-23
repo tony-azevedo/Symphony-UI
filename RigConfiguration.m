@@ -70,24 +70,24 @@ classdef RigConfiguration < handle
                 obj.controller.DAQController.SampleRate = Measurement(rate, 'Hz');
             end
             
-            % Update the rate of all devices.
-            devices = obj.devices();
-            for i = 1:length(devices)
-                device = devices{i};
+            % Update the rate of all output devices.
+            outDevices = obj.outputDevices();
+            for i = 1:length(outDevices)
+                device = outDevices{i};
                 
-                outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
-                if ~isempty(outStreams)
-                    device.OutputSampleRate = Measurement(rate, 'Hz');
-                    
-                    % Update device background stream rate.
-                    out = BackgroundOutputDataStream(Background(device.Background, device.OutputSampleRate));
-                    obj.controller.BackgroundDataStreams.Item(device, out);
-                end
+                device.OutputSampleRate = Measurement(rate, 'Hz');
                 
-                inStreams = enumerableToCellArray(device.InputStreams, 'Symphony.Core.IDAQInputStream');
-                if ~isempty(inStreams)
-                    device.InputSampleRate = Measurement(rate, 'Hz');
-                end                
+                % Update device background stream rate.
+                out = BackgroundOutputDataStream(Background(device.Background, device.OutputSampleRate));
+                obj.controller.BackgroundDataStreams.Item(device, out);
+            end
+            
+            % Update the rate of all input devices.
+            inDevices = obj.inputDevices();
+            for i = 1:length(inDevices)
+                device = inDevices{i};
+                
+                device.InputSampleRate = Measurement(rate, 'Hz');
             end
             
             % Update the rate of all DAQ streams.
@@ -195,8 +195,7 @@ classdef RigConfiguration < handle
                 obj.addStreams(dev, outStreamName, inStreamName);
                 
                 % Set default device background stream in the controller.
-                outStreams = enumerableToCellArray(dev.OutputStreams, 'Symphony.Core.IDAQOutputStream');
-                if ~isempty(outStreams)
+                if ~isempty(outStreamName)
                     out = BackgroundOutputDataStream(Background(Measurement(0, units), dev.OutputSampleRate));
                     obj.controller.BackgroundDataStreams.Item(dev, out);
                 end
@@ -336,6 +335,36 @@ classdef RigConfiguration < handle
         
         function d = devices(obj)
             d = listValues(obj.controller.Devices);
+        end
+        
+        
+        function d = outputDevices(obj)
+            d = {};
+            
+            devices = obj.devices();
+            for i = 1:length(devices)
+                device = devices{i};
+                
+                outStreams = enumerableToCellArray(device.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+                if ~isempty(outStreams)
+                    d{end + 1} = device;
+                end
+            end
+        end
+        
+        
+        function d = inputDevices(obj)
+            d = {};
+            
+            devices = obj.devices();
+            for i = 1:length(devices)
+                device = devices{i};
+                
+                inStreams = enumerableToCellArray(device.InputStreams, 'Symphony.Core.IDAQInputStream');
+                if ~isempty(inStreams)
+                    d{end + 1} = device;
+                end
+            end
         end
         
         
