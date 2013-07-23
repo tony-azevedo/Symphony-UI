@@ -286,18 +286,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.numEpochsCompleted = obj.numEpochsCompleted + 1;
             
             obj.updateFigures(epoch);
-            
-            if strcmp(obj.state, 'running') && ~obj.continueRun()
-                obj.stop();
-            end
-        end
-        
-        
-        function discardEpoch(obj, epoch) %#ok<INUSD>
-            % Override this method to perform any actions if an epoch is discarded.
-            % !! Do not flush the event queue in this method (using drawnow, figure, input, pause, etc.) !!
-            
-            obj.stop();
         end
         
         
@@ -347,16 +335,18 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 end
                 
                 obj.completeEpoch(epoch);
+                
+                % Stop if this is the last epoch the protocol needed to complete.
+                if strcmp(obj.state, 'running') && ~obj.continueRun()
+                    obj.stop();
+                end
             end
             
             % Add an event listener for discarded epochs.
             epochDiscarded = addlistener(obj.rigConfig.controller, 'DiscardedEpoch', @discardedEpoch);
             
-            function discardedEpoch(src, data) %#ok<INUSL>
-                % Wrap the discarded epoch.
-                epoch = EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name));
-                
-                obj.discardEpoch(epoch);
+            function discardedEpoch(src, data) %#ok<INUSD>
+                obj.stop();
             end
             
             % Process the protocol.
@@ -395,7 +385,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.waitToContinueQueuing();
                         
             % Queue until the protocol tells us to stop.
-            while obj.continueQueuing() && obj.continueRun()
+            while obj.continueQueuing()
                 
                 % Create a new wrapped core epoch.
                 epoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
@@ -436,7 +426,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             % Wait for all CompletedEpoch events.
             controller.WaitForCompletedEpochTasks();
-
+            
             if processTask.IsFaulted
                 error(netReport(NET.NetException('', '', processTask.Exception.Flatten())));
             end
@@ -447,6 +437,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % This is the core method that enqueues an epoch into the epoch queue. Called by process().
             
             obj.rigConfig.controller.EnqueueEpoch(epoch.getCoreEpoch);
+            
             obj.numEpochsQueued = obj.numEpochsQueued + 1;
         end
         
