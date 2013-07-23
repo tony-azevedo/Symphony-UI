@@ -243,11 +243,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % Override this method to perform any post-analysis, etc. on a completed epoch.
             % !! Do not flush the event queue in this method (using drawnow, figure, input, pause, etc.) !!
             
-            % Disregard interval epochs.
-            if epoch.containsParameter('isIntervalEpoch')
-                return;
-            end
-            
             obj.numEpochsCompleted = obj.numEpochsCompleted + 1;
             
             obj.updateFigures(epoch);
@@ -299,13 +294,31 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             obj.setState('running');
             
-            % Add event listeners to the controller.
-            epochCompleted = addlistener(obj.rigConfig.controller, 'CompletedEpoch', ...
-                @(src, data)obj.completeEpoch(EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name))));
+            % Add an event listener for completed epochs.
+            epochCompleted = addlistener(obj.rigConfig.controller, 'CompletedEpoch', @completedEpoch);
             
-            epochDiscarded = addlistener(obj.rigConfig.controller, 'DiscardedEpoch', ...
-                @(src, data)obj.discardEpoch(EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name))));
-                        
+            function completedEpoch(src, data) %#ok<INUSL>
+                % Wrap the completed epoch.
+                epoch = EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name));
+                
+                % Disregard interval epochs.
+                if epoch.containsParameter('isIntervalEpoch')
+                    return;
+                end
+                
+                obj.completeEpoch(epoch);
+            end
+            
+            % Add an event listener for discarded epochs.
+            epochDiscarded = addlistener(obj.rigConfig.controller, 'DiscardedEpoch', @discardedEpoch);
+            
+            function discardedEpoch(src, data) %#ok<INUSL>
+                % Wrap the discarded epoch.
+                epoch = EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name));
+                
+                obj.discardEpoch(epoch);
+            end
+            
             try
                 obj.process();
             catch e
@@ -421,12 +434,12 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 intervalEpoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
             end
             
-            % Add a stimulus of duration equal to the inter-pulse interval.
-            deviceName = char(outDevices{1}.Name);            
+            % Add a stimulus of background to give the epoch duration.
+            deviceName = char(outDevices{1}.Name);
             [background, units] = intervalEpoch.getBackground(deviceName);
             pts = round(durationInSeconds * obj.sampleRate);
             interval = ones(1, pts) * background;
-            intervalEpoch.addStimulus(deviceName, 'Interpulse_Interval', interval, units);
+            intervalEpoch.addStimulus(deviceName, 'Interepoch_Interval', interval, units);
             
             % Queue the interval epoch.
             obj.rigConfig.controller.EnqueueEpoch(intervalEpoch.getCoreEpoch);
