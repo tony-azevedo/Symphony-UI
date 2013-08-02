@@ -1,6 +1,6 @@
 % A wrapper around a core Epoch instance, making it easier and more efficient to work with in Matlab.
 
-classdef EpochWrapper
+classdef EpochWrapper < handle
     
     properties
         waitForTrigger      % Indicates if the Epoch should wait for an external trigger before running.
