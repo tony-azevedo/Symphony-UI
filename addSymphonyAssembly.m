@@ -25,6 +25,12 @@ end
 
 
 function addSymphonyNETAssembly(assembly)
+    isMatlab64bit = strcmp(regexp(computer,'..$','match'), '64');
+    
+    if isMatlab64bit
+        error('The Symphony core framework requires 32-bit MATLAB');
+    end
+
     isWin64bit = strcmpi(getenv('PROCESSOR_ARCHITEW6432'), 'amd64') || strcmpi(getenv('PROCESSOR_ARCHITECTURE'), 'amd64');
 
     if isWin64bit
