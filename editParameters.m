@@ -268,8 +268,10 @@ function edited = editParameters(protocol)
         end
     end
     
-    % Wait for the user to cancel or save.
-    uiwait;
+    % Wait for the user to cancel or OK.
+    if ishandle(handles.figure)
+        uiwait(handles.figure);
+    end
     
     if ishandle(handles.figure)
         handles = guidata(handles.figure);
