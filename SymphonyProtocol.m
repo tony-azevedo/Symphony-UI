@@ -26,7 +26,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         figureHandlerParams = {}
         allowSavingEpochs = true    % An indication if this protocol allows it's data to be persisted.
         allowPausing = true         % An indication if this protocol allows pausing during acquisition.
-        isContinuous = true         % An indication if this protocol should attempt to run continuously.
         persistor = []              % The persistor to use with each epoch.
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
         epochQueueSize = 5          % The maximum number of epochs this protocol will queue into the epoch queue at one time.
@@ -243,7 +242,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         
         function queueInterval(obj, durationInSeconds)
-            % Queues an inter-epoch interval of given duration.
+            % Queues an interval of given duration.
             
             import Symphony.Core.*;
             
@@ -355,10 +354,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 obj.stop();
             end
             
-            if obj.isContinuous
-                % Preload a buffer of epochs into the epoch queue before starting.
-                obj.preloadQueue();
-            end
+            % Preload a buffer of epochs into the epoch queue before starting.
+            obj.preloadQueue();
             
             try
                 if obj.continueRun()
@@ -413,6 +410,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 end
                 
                 % Queue the prepared epoch.
+                obj.willQueueEpoch(epoch);
                 obj.queueEpoch(epoch);
             end
         end
@@ -455,6 +453,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 end
                 
                 % Queue the prepared epoch.
+                obj.willQueueEpoch(epoch);
                 obj.queueEpoch(epoch);
                 
                 if ~isa(controller, 'System.Object')
@@ -479,6 +478,12 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
         
         
+        function willQueueEpoch(obj, epoch) %#ok<INUSD>
+            % Override this method to perform any actions directly before queuing the given epoch. Called by process().
+            
+        end
+        
+        
         function queueEpoch(obj, epoch)
             % This is the core method that enqueues an epoch into the epoch queue. Called by process().
             
@@ -491,16 +496,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function waitToContinueQueuing(obj)
             % This is the core method that blocks queuing another epoch until a condition has been reached. Called by process().
             
-            if obj.isContinuous
-                % Wait only when there is a full buffer of epochs in the epoch queue.
-                while obj.numEpochsQueued - obj.numEpochsCompleted >= obj.epochQueueSize && strcmp(obj.state, 'running')
-                    pause(0.01);
-                end
-            else
-                % Wait after each epoch is queued until the epoch is completed.
-                while obj.numEpochsQueued > obj.numEpochsCompleted && strcmp(obj.state, 'running')
-                    pause(0.01);
-                end
+            % Wait only when there is a full buffer of epochs in the epoch queue.
+            while obj.numEpochsQueued - obj.numEpochsCompleted >= obj.epochQueueSize && strcmp(obj.state, 'running')
+                pause(0.01);
             end
         end
         
