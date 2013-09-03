@@ -335,7 +335,12 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     return;
                 end
                 
-                obj.completeEpoch(epoch);
+                try
+                    obj.completeEpoch(epoch);
+                catch err
+                    % A workaround for Matlab's missing exception stack in callback functions.
+                    warning(getReport(err));
+                end
                 
                 % Stop if this is the last epoch the protocol needed to complete.
                 if strcmp(obj.state, 'running') && ~obj.continueRun()
