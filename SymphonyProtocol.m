@@ -28,9 +28,11 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         allowPausing = true         % An indication if this protocol allows pausing during acquisition.
         persistor = []              % The persistor to use with each epoch.
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
-        epochQueueSize = 5          % The maximum number of epochs this protocol will queue into the epoch queue at one time.
+        epochQueueSize = 5          % The maximum number of epochs/intervals this protocol will queue into the epoch queue at one time.
         numEpochsQueued             % The number of epochs queued by this protocol in the current run.
         numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
+        numIntervalsQueued          % The number of intervals queued by this protocol in the current run.
+        numIntervalsCompleted       % The number of intervals completed by this protocol in the current run.
     end
     
     properties
@@ -96,6 +98,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             obj.numEpochsQueued = 0;
             obj.numEpochsCompleted = 0;
+            
+            obj.numIntervalsQueued = 0;
+            obj.numIntervalsCompleted = 0;
             
             obj.clearFigures();
             
@@ -276,6 +281,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             % Queue the interval epoch.
             obj.rigConfig.controller.EnqueueEpoch(intervalEpoch.getCoreEpoch);
+            
+            obj.numIntervalsQueued = obj.numIntervalsQueued + 1;
         end
         
         
@@ -286,6 +293,14 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.numEpochsCompleted = obj.numEpochsCompleted + 1;
             
             obj.updateFigures(epoch);
+        end
+        
+        
+        function completeInterval(obj, intervalEpoch) %#ok<INUSD>
+            % Override this method to perform any actions on a completed interval.
+            % !! Do not flush the event queue in this method (using drawnow, figure, input, pause, etc.) !!
+            
+            obj.numIntervalsCompleted = obj.numIntervalsCompleted + 1;
         end
         
         
@@ -329,16 +344,24 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 % Wrap the completed epoch.
                 epoch = EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name));
                 
-                % Disregard interval epochs.
                 if epoch.containsParameter('isIntervalEpoch')
-                    return;
-                end
-                
-                try
-                    obj.completeEpoch(epoch);
-                catch err
-                    % A workaround for Matlab's missing exception stack in callback functions.
-                    warning(getReport(err));
+                    % An interval epoch (queued with queueInterval).
+                    
+                    try
+                        obj.completeInterval(epoch);
+                    catch err
+                        % A workaround for Matlab's missing exception stack in callback functions.
+                        warning(getReport(err));
+                    end
+                else
+                    % An actual epoch (queued with queueEpoch).
+                    
+                    try
+                        obj.completeEpoch(epoch);
+                    catch err
+                        % A workaround for Matlab's missing exception stack in callback functions.
+                        warning(getReport(err));
+                    end
                 end
                 
                 % Stop if this is the last epoch the protocol needed to complete.
@@ -386,7 +409,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             import Symphony.Core.*;
             
             % Queue epochs to fill the epoch queue.
-            while obj.numEpochsQueued < obj.epochQueueSize && obj.continueQueuing()
+            while obj.numEpochsQueued - obj.numEpochsCompleted + obj.numIntervalsQueued - obj.numIntervalsCompleted < obj.epochQueueSize && obj.continueQueuing()
                 
                 % Create a new wrapped core epoch.
                 epoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
@@ -410,7 +433,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 end
                 
                 % Queue the prepared epoch.
-                obj.willQueueEpoch(epoch);
                 obj.queueEpoch(epoch);
             end
         end
@@ -433,7 +455,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 
                 % Create a new wrapped core epoch.
                 epoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
-
+                
                 % Prepare the epoch: set backgrounds, add stimuli, record responses, add parameters, etc.
                 obj.prepareEpoch(epoch);
                 
@@ -453,7 +475,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 end
                 
                 % Queue the prepared epoch.
-                obj.willQueueEpoch(epoch);
                 obj.queueEpoch(epoch);
                 
                 if ~isa(controller, 'System.Object')
@@ -478,12 +499,6 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         end
         
         
-        function willQueueEpoch(obj, epoch) %#ok<INUSD>
-            % Override this method to perform any actions directly before queuing the given epoch. Called by process().
-            
-        end
-        
-        
         function queueEpoch(obj, epoch)
             % This is the core method that enqueues an epoch into the epoch queue. Called by process().
             
@@ -497,7 +512,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             % This is the core method that blocks queuing another epoch until a condition has been reached. Called by process().
             
             % Wait only when there is a full buffer of epochs in the epoch queue.
-            while obj.numEpochsQueued - obj.numEpochsCompleted >= obj.epochQueueSize && strcmp(obj.state, 'running')
+            while obj.numEpochsQueued - obj.numEpochsCompleted + obj.numIntervalsQueued - obj.numIntervalsCompleted >= obj.epochQueueSize && strcmp(obj.state, 'running')
                 pause(0.01);
             end
         end
