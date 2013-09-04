@@ -290,7 +290,6 @@ function updateStimuli(handles)
         try
             stimuli = handles.protocolCopy.sampleStimuli();
         catch ME
-            warning(['An error occurred when creating sample stimuli:' ME.getReport('extended', 'hyperlinks', 'off')]);
             stimuli = [];
         end
         if isempty(stimuli)
