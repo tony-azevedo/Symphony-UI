@@ -1043,7 +1043,7 @@ classdef SymphonyUI < handle
                     set(obj.controls.startButton, 'String', 'Resume');
                     set(obj.controls.startButton, 'Enable', 'on');
                     set(obj.controls.pauseButton, 'Enable', 'off');
-                    set(obj.controls.editParametersButton, 'Enable', 'on');
+                    set(obj.controls.editParametersButton, 'Enable', 'off');
                     set(obj.controls.epochKeywordsEdit, 'Enable', 'on');
                     set(obj.controls.addNoteButton, 'Enable', 'on');
                 end
