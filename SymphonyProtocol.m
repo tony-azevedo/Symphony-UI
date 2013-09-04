@@ -191,7 +191,11 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             inDevices = obj.rigConfig.inputDevices();
             for i = 1:length(inDevices)
                 device = inDevices{i};
-                epoch.recordResponse(char(device.Name));
+                
+                unused = RigConfiguration.unusedDeviceName;
+                if ~strncmp(char(device.Name), unused, length(unused))
+                    epoch.recordResponse(char(device.Name));
+                end
             end
         end
         

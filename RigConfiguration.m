@@ -28,6 +28,11 @@ classdef RigConfiguration < handle
     end
     
     
+    properties (Constant)
+        unusedDeviceName = 'UNUSED'     % The device name prefix assigned to automatically added devices. 
+    end
+    
+    
     methods
         
         function obj = init(obj, daqControllerFactory, userData)
@@ -46,8 +51,57 @@ classdef RigConfiguration < handle
             try
                 obj.createDevices();
                 
+                daq = obj.controller.DAQController;
+                
+                if isa(daq, 'Heka.HekaDAQController')
+                    % This is a workaround for issue #41 (https://github.com/Symphony-DAS/Symphony/issues/41).
+                    % TODO: Remove this section when the ITC drivers are fixed.
+                    
+                    inStreams = enumerableToCellArray(daq.InputStreams, 'Symphony.Core.IDAQInputStream');
+                    activeInStreams = {};
+                    inactiveInStreams = {};
+                    for i = 1:length(inStreams)
+                        if inStreams{i}.Active
+                            activeInStreams{end + 1} = inStreams{i};
+                        else
+                            inactiveInStreams{end + 1} = inStreams{i};
+                        end
+                    end
+                    
+                    outStreams = enumerableToCellArray(daq.OutputStreams, 'Symphony.Core.IDAQOutputStream');
+                    activeOutStreams = {};
+                    inactiveOutStreams = {};
+                    for i = 1:length(outStreams)
+                        if outStreams{i}.Active
+                            activeOutStreams{end + 1} = outStreams{i};
+                        else
+                            inactiveOutStreams{end + 1} = outStreams{i};
+                        end
+                    end
+                    
+                    % Add filler devices to force the channel configuration to be evenly divisible by the ITC step.                    
+                    switch max(length(activeInStreams), length(activeOutStreams))
+                        case 3
+                            if length(activeInStreams) >= length(activeOutStreams)
+                                obj.addDevice([obj.unusedDeviceName '1'], '', char(inactiveInStreams{1}.Name));
+                            else
+                                obj.addDevice([obj.unusedDeviceName '1'], char(inactiveOutStreams{1}.Name), '');
+                            end
+                        case 6
+                            if length(activeInStreams) >= length(activeOutStreams)
+                                obj.addDevice([obj.unusedDeviceName '1'], '', char(inactiveInStreams{1}.Name));
+                                obj.addDevice([obj.unusedDeviceName '2'], '', char(inactiveInStreams{2}.Name));
+                            else
+                                obj.addDevice([obj.unusedDeviceName '1'], char(inactiveOutStreams{1}.Name), '');
+                                obj.addDevice([obj.unusedDeviceName '2'], char(inactiveOutStreams{1}.Name), '');
+                            end
+                        case 7
+                            obj.addDevice([obj.unusedDeviceName '1'], '', char(inactiveInStreams{1}.Name));
+                    end
+                end
+                
                 % Have all devices start emitting their background values.
-                obj.controller.DAQController.SetStreamsBackground();
+                daq.SetStreamsBackground();
             catch ME
                 obj.close();
                 throw(ME);
