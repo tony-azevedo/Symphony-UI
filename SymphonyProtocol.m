@@ -28,19 +28,21 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         allowPausing = true         % An indication if this protocol allows pausing during acquisition.
         persistor = []              % The persistor to use with each epoch.
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
-        epochQueueSize = 5          % The maximum number of epochs this protocol will queue into the epoch queue at one time.
+        epochQueueSize = 5          % The maximum number of epochs/intervals this protocol will queue into the epoch queue at one time.
         numEpochsQueued             % The number of epochs queued by this protocol in the current run.
         numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
+        numIntervalsQueued          % The number of intervals queued by this protocol in the current run.
+        numIntervalsCompleted       % The number of intervals completed by this protocol in the current run.
     end
-        
+    
     properties
         sampleRate = {10000, 20000, 50000}      % in Hz
     end
-        
+    
     events
         StateChanged
     end
-        
+    
     methods
         
         function obj = init(obj, rigConfig, userData)
@@ -97,6 +99,9 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.numEpochsQueued = 0;
             obj.numEpochsCompleted = 0;
             
+            obj.numIntervalsQueued = 0;
+            obj.numIntervalsCompleted = 0;
+            
             obj.clearFigures();
             
             % Clear out any epochs in the epoch queue.
@@ -135,8 +140,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             end
             pn = pn';
         end
-              
-               
+        
+        
         function p = parameterProperty(obj, parameterName)
             % Return a ParameterProperty object for the specified parameter.
             
@@ -168,7 +173,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function stimuli = sampleStimuli(obj) %#ok<MANU>
             stimuli = {};
         end
-      
+        
         
         function prepareEpoch(obj, epoch)
             % Override this method to add stimuli, record responses, change parameters, etc.
@@ -246,7 +251,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         
         
         function queueInterval(obj, durationInSeconds)
-            % Queues an inter-epoch interval of given duration.
+            % Queues an interval of given duration.
             
             import Symphony.Core.*;
             
@@ -280,6 +285,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             
             % Queue the interval epoch.
             obj.rigConfig.controller.EnqueueEpoch(intervalEpoch.getCoreEpoch);
+            
+            obj.numIntervalsQueued = obj.numIntervalsQueued + 1;
         end
         
         
@@ -290,6 +297,14 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             obj.numEpochsCompleted = obj.numEpochsCompleted + 1;
             
             obj.updateFigures(epoch);
+        end
+        
+        
+        function completeInterval(obj, intervalEpoch) %#ok<INUSD>
+            % Override this method to perform any actions on a completed interval.
+            % !! Do not flush the event queue in this method (using drawnow, figure, input, pause, etc.) !!
+            
+            obj.numIntervalsCompleted = obj.numIntervalsCompleted + 1;
         end
         
         
@@ -333,16 +348,24 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 % Wrap the completed epoch.
                 epoch = EpochWrapper(data.Epoch, @(name)obj.rigConfig.deviceWithName(name));
                 
-                % Disregard interval epochs.
                 if epoch.containsParameter('isIntervalEpoch')
-                    return;
-                end
-                
-                try
-                    obj.completeEpoch(epoch);
-                catch err
-                    % A workaround for Matlab's missing exception stack in callback functions.
-                    warning(getReport(err));
+                    % An interval epoch (queued with queueInterval).
+                    
+                    try
+                        obj.completeInterval(epoch);
+                    catch err
+                        % A workaround for Matlab's missing exception stack in callback functions.
+                        warning(getReport(err));
+                    end
+                else
+                    % An actual epoch (queued with queueEpoch).
+                    
+                    try
+                        obj.completeEpoch(epoch);
+                    catch err
+                        % A workaround for Matlab's missing exception stack in callback functions.
+                        warning(getReport(err));
+                    end
                 end
                 
                 % Stop if this is the last epoch the protocol needed to complete.
@@ -358,9 +381,12 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 obj.stop();
             end
             
-            % Process the protocol.
+            % Preload a buffer of epochs into the epoch queue before starting.
+            obj.preloadQueue();
+            
             try
                 if obj.continueRun()
+                    % Process the protocol.
                     obj.process();
                 end
             catch e
@@ -368,7 +394,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 waitfor(errordlg(['An error occurred while running the protocol.' char(10) char(10) getReport(e, 'extended', 'hyperlinks', 'off')]));
             end
             
-            % Flush event queue and delete event listeners.
+            % Flush event queue and delete the event listeners.
             drawnow;
             delete([epochCompleted epochDiscarded]);
             
@@ -377,6 +403,41 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
             else                                
                 % Perform any final analysis, clean up, etc.
                 obj.completeRun();
+            end
+        end
+        
+        
+        function preloadQueue(obj)
+            % This is the core method that preloads the epoch queue with a buffer of epochs before starting. Called by run().
+            
+            import Symphony.Core.*;
+            
+            % Queue epochs to fill the epoch queue.
+            while obj.numEpochsQueued - obj.numEpochsCompleted + obj.numIntervalsQueued - obj.numIntervalsCompleted < obj.epochQueueSize && obj.continueQueuing()
+                
+                % Create a new wrapped core epoch.
+                epoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
+                
+                % Prepare the epoch: set backgrounds, add stimuli, record responses, add parameters, etc.
+                obj.prepareEpoch(epoch);
+                
+                % Persist the params now that the sub-class has had a chance to tweak them.
+                pluginParams = obj.parameters(true);
+                fields = fieldnames(pluginParams);
+                for fieldName = fields'
+                    fieldValue = pluginParams.(fieldName{1});
+                    if ~ischar(fieldValue) && length(fieldValue) > 1
+                        if isnumeric(fieldValue)
+                            fieldValue = sprintf('%g ', fieldValue);
+                        else
+                            error('Parameter values must be scalar or vectors of numbers.');
+                        end
+                    end
+                    epoch.addParameter(fieldName{1}, fieldValue);
+                end
+                
+                % Queue the prepared epoch.
+                obj.queueEpoch(epoch);
             end
         end
         
@@ -398,10 +459,10 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 
                 % Create a new wrapped core epoch.
                 epoch = EpochWrapper(Epoch(obj.identifier), @(name)obj.rigConfig.deviceWithName(name));
-
+                
                 % Prepare the epoch: set backgrounds, add stimuli, record responses, add parameters, etc.
                 obj.prepareEpoch(epoch);
-
+                
                 % Persist the params now that the sub-class has had a chance to tweak them.
                 pluginParams = obj.parameters(true);
                 fields = fieldnames(pluginParams);
@@ -416,7 +477,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                     end
                     epoch.addParameter(fieldName{1}, fieldValue);
                 end
-
+                
                 % Queue the prepared epoch.
                 obj.queueEpoch(epoch);
                 
@@ -454,7 +515,8 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         function waitToContinueQueuing(obj)
             % This is the core method that blocks queuing another epoch until a condition has been reached. Called by process().
             
-            while obj.numEpochsQueued - obj.numEpochsCompleted >= obj.epochQueueSize && strcmp(obj.state, 'running')
+            % Wait only when there is a full buffer of epochs in the epoch queue.
+            while obj.numEpochsQueued - obj.numEpochsCompleted + obj.numIntervalsQueued - obj.numIntervalsCompleted >= obj.epochQueueSize && strcmp(obj.state, 'running')
                 pause(0.01);
             end
         end
