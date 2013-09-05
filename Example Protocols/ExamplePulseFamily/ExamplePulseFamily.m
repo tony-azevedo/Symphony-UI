@@ -54,12 +54,12 @@ classdef ExamplePulseFamily < SymphonyProtocol
             end
             
             % Open figures showing the response and mean response of the amp.
-            obj.openFigure('Mean Response', obj.amp);
+            obj.openFigure('Mean Response', obj.amp, 'GroupByParams', {'pulseSignal'});
             obj.openFigure('Response', obj.amp);
         end
         
         
-        function [stim, units] = generateStimulus(obj, pulseNum)
+        function [stim, units, pulseSignal] = generateStimulus(obj, pulseNum)
             % Convert time to sample points.
             prePts = round(obj.preTime / 1e3 * obj.sampleRate);
             stimPts = round(obj.stimTime / 1e3 * obj.sampleRate);
@@ -67,7 +67,8 @@ classdef ExamplePulseFamily < SymphonyProtocol
             
             % Create pulse stimulus.
             stim = ones(1, prePts + stimPts + tailPts) * obj.preAndTailSignal;
-            stim(prePts + 1:prePts + stimPts) = obj.incrementPerPulse * (pulseNum - 1) + obj.firstPulseSignal;
+            pulseSignal = obj.incrementPerPulse * (pulseNum - 1) + obj.firstPulseSignal;
+            stim(prePts + 1:prePts + stimPts) = pulseSignal;
             
             % Convert the pulse stimulus to appropriate units for the current multiclamp mode.
             if strcmp(obj.rigConfig.multiClampMode(obj.amp), 'VClamp')
@@ -87,7 +88,7 @@ classdef ExamplePulseFamily < SymphonyProtocol
                 stimuli{i} = obj.generateStimulus(i);
             end
         end
-       
+        
         
         function prepareEpoch(obj, epoch)
             % Call the base method.
@@ -95,11 +96,13 @@ classdef ExamplePulseFamily < SymphonyProtocol
             
             % Add the amp pulse stimulus to the epoch.
             pulseNum = mod(obj.numEpochsQueued, obj.pulsesInFamily) + 1;
-            [stim, units] = obj.generateStimulus(pulseNum);
+            [stim, units, pulseSignal] = obj.generateStimulus(pulseNum);
+            
+            epoch.addParameter('pulseSignal', pulseSignal);
             epoch.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units);
         end
-               
-               
+        
+        
         function queueEpoch(obj, epoch)            
             % Call the base method to queue the actual epoch.
             queueEpoch@SymphonyProtocol(obj, epoch);
