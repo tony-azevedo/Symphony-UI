@@ -77,7 +77,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 device = rigConfig.deviceWithName(deviceNames{i});
                 if isempty(device)
                     tf = false;
-                    msg = ['The protocol cannot be run because there is no ''' deviceNames{i} ''' device.'];
+                    msg = ['This protocol cannot be run because there is no ''' deviceNames{i} ''' device.'];
                     break;
                 end                
             end
