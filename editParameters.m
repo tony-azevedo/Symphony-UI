@@ -627,6 +627,7 @@ function okEditParameters(~, ~, handles)
         handles.protocol.prepareRig();
         handles.protocol.rigConfig.prepared();
         handles.protocol.rigPrepared = true;
+        handles.protocol.closeFigures();
     catch ME
         % TODO: What should be done if the rig can't be prepared?
         rethrow(ME);
