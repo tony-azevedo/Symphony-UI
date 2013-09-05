@@ -31,7 +31,7 @@ classdef ExampleOneAmpRig < RigConfiguration
             % Add a device named 'Oscilliscope_Trig'.
             % ITC Output Channel = TTL Output 0 (DIGITAL_OUT.0)
             % ITC Input Channel = None
-            obj.addDevice('Oscilliscope_Trig', 'DIGITAL_OUT.0', '');
+            obj.addDevice('Oscilloscope_Trigger', 'DIGITAL_OUT.0', '');
         end
         
     end
