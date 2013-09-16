@@ -28,6 +28,11 @@ classdef ExampleTwoAmpRig < RigConfiguration
             % ITC Output Channel = DAC Output 2 (ANALOG_OUT.2)
             % ITC Input Channel = None
             obj.addDevice('Green_LED', 'ANALOG_OUT.3', '');
+            
+            % Add a device named 'Oscilliscope_Trig'.
+            % ITC Output Channel = TTL Output 0 (DIGITAL_OUT.0)
+            % ITC Input Channel = None
+            obj.addDevice('Oscilloscope_Trigger', 'DIGITAL_OUT.0', '');
         end
         
     end

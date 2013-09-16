@@ -28,7 +28,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
         allowPausing = true         % An indication if this protocol allows pausing during acquisition.
         persistor = []              % The persistor to use with each epoch.
         epochKeywords = {}          % A cell array of string containing keywords to be applied to any upcoming epochs.
-        epochQueueSize = 5          % The maximum number of epochs/intervals this protocol will queue into the epoch queue at one time.
+        epochQueueSize = 6          % The maximum number of epochs/intervals this protocol will queue into the epoch queue at one time.
         numEpochsQueued             % The number of epochs queued by this protocol in the current run.
         numEpochsCompleted          % The number of epochs completed by this protocol in the current run.
         numIntervalsQueued          % The number of intervals queued by this protocol in the current run.
@@ -77,7 +77,7 @@ classdef SymphonyProtocol < handle & matlab.mixin.Copyable
                 device = rigConfig.deviceWithName(deviceNames{i});
                 if isempty(device)
                     tf = false;
-                    msg = ['The protocol cannot be run because there is no ''' deviceNames{i} ''' device.'];
+                    msg = ['This protocol cannot be run because there is no ''' deviceNames{i} ''' device.'];
                     break;
                 end                
             end

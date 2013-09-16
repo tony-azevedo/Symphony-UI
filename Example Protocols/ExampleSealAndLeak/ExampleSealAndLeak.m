@@ -116,7 +116,18 @@ classdef ExampleSealAndLeak < SymphonyProtocol
                     epoch.setBackground(char(device.Name), device.Background.Quantity, device.Background.DisplayUnit);
                 end
             end
-                        
+            
+            % Add a stimulus to trigger an oscilliscope at the start of each pulse.
+            if ~isempty(obj.rigConfig.deviceWithName('Oscilloscope_Trigger'))
+                totalPts = round(obj.preTime / 1e3 * obj.sampleRate) + ...
+                           round(obj.stimTime / 1e3 * obj.sampleRate) + ...
+                           round(obj.tailTime / 1e3 * obj.sampleRate);
+                
+                trigStimulus = zeros(1, totalPts);
+                trigStimulus(1:min(10,totalPts)) = 1;
+                epoch.addStimulus('Oscilloscope_Trigger', 'Trigger_Stimulus', trigStimulus, Symphony.Core.Measurement.UNITLESS, 'indefinite');
+            end
+            
             % Add the amp pulse stimulus to the epoch.
             [stim, units] = obj.generateStimulus();            
             epoch.addStimulus(obj.amp, [obj.amp '_Stimulus'], stim, units, 'indefinite');

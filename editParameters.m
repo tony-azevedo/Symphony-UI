@@ -290,7 +290,6 @@ function updateStimuli(handles)
         try
             stimuli = handles.protocolCopy.sampleStimuli();
         catch ME
-            warning(['An error occurred when creating sample stimuli:' ME.getReport('extended', 'hyperlinks', 'off')]);
             stimuli = [];
         end
         if isempty(stimuli)
@@ -628,6 +627,7 @@ function okEditParameters(~, ~, handles)
         handles.protocol.prepareRig();
         handles.protocol.rigConfig.prepared();
         handles.protocol.rigPrepared = true;
+        handles.protocol.closeFigures();
     catch ME
         % TODO: What should be done if the rig can't be prepared?
         rethrow(ME);

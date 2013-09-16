@@ -389,15 +389,18 @@ function saveNewGroup(~, ~, handles)
         guidata(handles.figure, handles);
         
         % Remember these settings for the next time a group is created.
-        s.label = handles.epochGroup.label;
-        s.keywords = handles.epochGroup.keywords;
         if isempty(handles.parentGroup)
             s.outputPath = handles.epochGroup.outputPath;
             s.sourcePath = handles.epochGroup.source.parentSource.path();   % remember the tissue, not the cell (?)
             s.mouseID = handles.epochGroup.userProperty('mouseID');
             s.cellID = handles.epochGroup.userProperty('cellID');
             s.rigName = handles.epochGroup.userProperty('rigName');
+        elseif ispref('Symphony', 'LastChosenEpochGroup')
+            s = getpref('Symphony', 'LastChosenEpochGroup');
         end
+        s.label = handles.epochGroup.label;
+        s.keywords = handles.epochGroup.keywords;
+        
         setpref('Symphony', 'LastChosenEpochGroup', s);
         
         % Remove the old style pref if it exists.
